@@ -28,7 +28,6 @@ def load_config():
             with open("config.json", "r") as f:
                 local_config = json.load(f)
                 config.update(local_config)
-                print(f"📁 Loaded configuration from config.json")
         except Exception as e:
             print(f"⚠️ Error loading config.json: {e}")
             print("Using default configuration")
@@ -66,7 +65,6 @@ class ConfigManager:
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
         if os.path.exists(TAG_SCHEMA_FILE):
-            print(f"📁 Loading tag schema from {TAG_SCHEMA_FILE}")
             with open(TAG_SCHEMA_FILE, 'r') as f:
                 self.tag_weights = json.load(f)
 
@@ -137,7 +135,6 @@ class ConfigManager:
         if os.path.exists(PROCESSING_HISTORY_FILE):
             with open(PROCESSING_HISTORY_FILE, 'r') as f:
                 self.processing_history = json.load(f)
-            print(f"📊 Loaded processing history for {len(self.processing_history)} notes")
         else:
             self.processing_history = {}
 

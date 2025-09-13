@@ -213,7 +213,6 @@ class ObsidianAPI:
         """Test if the connection to Obsidian API is working"""
         try:
             self._make_request("/")
-            print("✓ Successfully connected to Obsidian API")
             return True
         except Exception as e:
             print(f"✗ Failed to connect to Obsidian API: {e}")

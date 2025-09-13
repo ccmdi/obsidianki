@@ -26,7 +26,7 @@ def main():
         max_cards = MAX_CARDS
         notes_to_sample = NOTES_TO_SAMPLE
 
-    print("🧠 ObsidianKi - Generating flashcards from old notes...")
+    print("🧠 ObsidianKi - Generating flashcards...")
 
     # Initialize APIs and config
     config = ConfigManager()
@@ -34,7 +34,6 @@ def main():
     ai = FlashcardAI()
     anki = AnkiAPI()
 
-    print(f"⚙️ Sampling mode: {SAMPLING_MODE}")
     if SAMPLING_MODE == "weighted":
         config.show_current_weights()
 
@@ -47,11 +46,10 @@ def main():
         print("❌ Cannot connect to AnkiConnect")
         return
 
-    print("✅ Connected to Obsidian and Anki")
+    print("✅ Connected to Obsidian and Anki\n")
 
     # Get notes to process
     if args.notes:
-        print(f"🎯 Looking for specific notes: {', '.join(args.notes)}")
         old_notes = []
 
         for note_name in args.notes:
@@ -59,7 +57,6 @@ def main():
 
             if specific_note:
                 old_notes.append(specific_note)
-                print(f"✅ Found: {specific_note['result']['filename']}")
             else:
                 print(f"❌ Not found: '{note_name}'")
 
@@ -74,7 +71,6 @@ def main():
         print(f"📊 Processing {len(old_notes)} note(s)")
         print(f"🎯 Target: {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
     else:
-        print(f"📋 Finding {notes_to_sample} old notes (older than {DAYS_OLD} days)...")
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
 
         if not old_notes:
@@ -89,7 +85,6 @@ def main():
     # Process each note
     for i, note in enumerate(old_notes, 1):
         if total_cards >= max_cards:
-            print(f"\n🛑 Reached limit of {max_cards} cards, stopping")
             break
         note_path = note['result']['path']
         note_title = note['result']['filename']
@@ -108,7 +103,7 @@ def main():
             print("  ⚠️ No flashcards generated, skipping")
             continue
 
-        print(f"  🧠 Generated {len(flashcards)} flashcards")
+        print(f"  Generated {len(flashcards)} flashcards")
 
         # Hard limit (disabled)
         # cards_to_add = flashcards[:MAX_CARDS - total_cards]
@@ -121,7 +116,7 @@ def main():
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            print(f"  ✅ Added {successful_cards} cards to Anki")
+            print(f"  Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking
@@ -130,7 +125,7 @@ def main():
         else:
             print("  ❌ Failed to add cards to Anki")
 
-    print(f"\n🎉 Done! Added {total_cards}/{max_cards} flashcards to your Obsidian deck")
+    print(f"\Done! Added {total_cards}/{max_cards} flashcards to your Obsidian deck")
 
 
 if __name__ == "__main__":
