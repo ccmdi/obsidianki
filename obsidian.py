@@ -148,7 +148,9 @@ class ObsidianAPI:
         all_old_notes = self.search_with_dql(dql_query)
 
         import random
-        return random.sample(all_old_notes, NOTES_TO_SAMPLE)
+        if limit and len(all_old_notes) > limit:
+            return random.sample(all_old_notes, limit)
+        return all_old_notes
 
     def test_connection(self) -> bool:
         """Test if the connection to Obsidian API is working"""
