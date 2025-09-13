@@ -17,6 +17,9 @@ TAG_SCHEMA_FILE = "tags.json"  # File to store tag weights
 PROCESSING_HISTORY_FILE = "processing_history.json"  # Track flashcards per note
 DENSITY_BIAS_STRENGTH = 0.5  # How strongly to bias against over-processed notes (0-1)
 
+# Obsidian Search Configuration
+SEARCH_FOLDERS = None  # Only search in these folders, or None for all folders
+
 class ConfigManager:
     def __init__(self):
         self.tag_weights = {}

@@ -8,11 +8,6 @@ from typing import List, Dict, Optional
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
-# Configure which folders to search in (set to None to search all folders)
-SEARCH_FOLDERS = ["Research"]
-NOTES_TO_SAMPLE = 5
-
-
 class ObsidianAPI:
     def __init__(self):
         self.base_url = "https://127.0.0.1:27124"
@@ -26,13 +21,13 @@ class ObsidianAPI:
             "Content-Type": "application/json"
         }
 
-    def _build_folder_filter(self) -> str:
-        """Build DQL folder filter condition based on SEARCH_FOLDERS"""
-        if SEARCH_FOLDERS is None or len(SEARCH_FOLDERS) == 0:
+    def _build_folder_filter(self, search_folders) -> str:
+        """Build DQL folder filter condition based on search_folders"""
+        if search_folders is None or len(search_folders) == 0:
             return ""
 
         folder_conditions = []
-        for folder in SEARCH_FOLDERS:
+        for folder in search_folders:
             folder_conditions.append(f'startswith(file.path, "{folder}/")')
 
         return f"AND ({' OR '.join(folder_conditions)})"
@@ -79,7 +74,8 @@ class ObsidianAPI:
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
-        folder_filter = self._build_folder_filter()
+        from config import SEARCH_FOLDERS
+        folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
 
         dql_query = f"""TABLE
             file.name AS "filename",
@@ -99,7 +95,8 @@ class ObsidianAPI:
     def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0) -> List[Dict]:
         """Get notes that contain specific tags, optionally excluding recently modified ones"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        folder_filter = self._build_folder_filter()
+        from config import SEARCH_FOLDERS
+        folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
 
         dql_query = f"""TABLE
             file.name AS "filename",
@@ -132,7 +129,8 @@ class ObsidianAPI:
         """Get a random sample of notes older than specified days, optionally weighted by tags"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        folder_filter = self._build_folder_filter()
+        from config import SEARCH_FOLDERS
+        folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
 
         # Get notes with tags for weighted sampling
         dql_query = f"""TABLE
