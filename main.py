@@ -1,9 +1,22 @@
+import argparse
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
 from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE
 
 def main():
+    parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
+    parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
+    args = parser.parse_args()
+
+    max_cards = args.cards if args.cards is not None else MAX_CARDS
+
+    # Use config NOTES_TO_SAMPLE if using default cards, otherwise scale to 1/3 of custom cards
+    if args.cards is not None:
+        notes_to_sample = max(1, max_cards // 2)  # Scale notes to sample as 1/3 of cards, minimum 1
+    else:
+        notes_to_sample = NOTES_TO_SAMPLE  # Use config default
+
     print("🧠 ObsidianKi - Generating flashcards from old notes...")
 
     # Initialize APIs and config
@@ -28,22 +41,22 @@ def main():
     print("✅ Connected to Obsidian and Anki")
 
     # Get old notes
-    print(f"📋 Finding {NOTES_TO_SAMPLE} old notes (older than {DAYS_OLD} days)...")
-    old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=NOTES_TO_SAMPLE, config_manager=config)
+    print(f"📋 Finding {notes_to_sample} old notes (older than {DAYS_OLD} days)...")
+    old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
 
     if not old_notes:
         print("❌ No old notes found")
         return
 
     print(f"✅ Found {len(old_notes)} notes")
-    print(f"🎯 Target: {MAX_CARDS} flashcards maximum")
+    print(f"🎯 Target: {max_cards} flashcards maximum")
 
     total_cards = 0
 
     # Process each note
     for i, note in enumerate(old_notes, 1):
-        if total_cards >= MAX_CARDS:
-            print(f"\n🛑 Reached daily limit of {MAX_CARDS} cards, stopping")
+        if total_cards >= max_cards:
+            print(f"\n🛑 Reached limit of {max_cards} cards, stopping")
             break
         note_path = note['result']['path']
         note_title = note['result']['filename']
@@ -83,7 +96,7 @@ def main():
         else:
             print("  ❌ Failed to add cards to Anki")
 
-    print(f"\n🎉 Done! Added {total_cards}/{MAX_CARDS} flashcards to your Obsidian deck")
+    print(f"\n🎉 Done! Added {total_cards}/{max_cards} flashcards to your Obsidian deck")
 
 
 if __name__ == "__main__":
