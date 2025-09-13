@@ -24,9 +24,18 @@ Automated flashcard generation to Anki from your Obsidian vault.
    ```
 
 5. **Customize configuration:** (optional)
-   ```bash
-   # config.json is auto-created on first run
-   # Edit it to customize your settings
+   ```json
+   {
+      "MAX_CARDS": 6,
+      "NOTES_TO_SAMPLE": 3,
+      "DAYS_OLD": 30,
+      "SAMPLING_MODE": "weighted",
+      "TAG_SCHEMA_FILE": "tags.json",
+      "PROCESSING_HISTORY_FILE": "processing_history.json",
+      "DENSITY_BIAS_STRENGTH": 0.5,
+      "SEARCH_FOLDERS": ["Research"],
+      "CARD_TYPE": "custom"
+   }
    ```
 
 6. **Create `tags.json` for weighted sampling:** (optional)
