@@ -12,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
 # Configure which folders to search in (set to None to search all folders)
-SEARCH_FOLDERS = ["Research", "Life"]  # Only search in these folders, or set to None for all folders
+SEARCH_FOLDERS = ["Research"]  # Only search in these folders, or set to None for all folders
 
 class ObsidianAPI:
     def __init__(self):
@@ -26,6 +26,17 @@ class ObsidianAPI:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+
+    def _build_folder_filter(self) -> str:
+        """Build DQL folder filter condition based on SEARCH_FOLDERS"""
+        if SEARCH_FOLDERS is None or len(SEARCH_FOLDERS) == 0:
+            return ""
+
+        folder_conditions = []
+        for folder in SEARCH_FOLDERS:
+            folder_conditions.append(f'startswith(file.path, "{folder}/")')
+
+        return f"AND ({' OR '.join(folder_conditions)})"
 
     def _make_request(self, endpoint: str, method: str = "GET", data: dict = None) -> dict:
         """Make a request to the Obsidian REST API, ignoring SSL verification"""
@@ -73,6 +84,8 @@ class ObsidianAPI:
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
+        folder_filter = self._build_folder_filter()
+
         # Build DQL query to find old notes
         dql_query = f"""TABLE
   file.name AS "filename",
@@ -81,6 +94,7 @@ class ObsidianAPI:
   file.size AS "size"
 FROM ""
 WHERE file.mtime < date("{cutoff_str}")
+{folder_filter}
 SORT file.mtime ASC"""
 
         if limit:
@@ -91,6 +105,7 @@ SORT file.mtime ASC"""
     def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0) -> List[Dict]:
         """Get notes that contain specific tags, optionally excluding recently modified ones"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
+        folder_filter = self._build_folder_filter()
 
         dql_query = f"""TABLE
   file.name AS "filename",
@@ -105,6 +120,9 @@ WHERE ({tag_conditions})"""
             cutoff_str = cutoff_date.strftime("%Y-%m-%d")
             dql_query += f'\nAND file.mtime < date("{cutoff_str}")'
 
+        if folder_filter:
+            dql_query += f"\n{folder_filter}"
+
         dql_query += "\nSORT file.mtime ASC"
 
         return self.search_with_dql(dql_query)
@@ -118,6 +136,7 @@ WHERE ({tag_conditions})"""
         """Get a random sample of notes older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+        folder_filter = self._build_folder_filter()
 
         # Note: DQL doesn't have built-in random, so we'll get all old notes and sample in Python
         dql_query = f"""TABLE
@@ -128,6 +147,7 @@ WHERE ({tag_conditions})"""
 FROM ""
 WHERE file.mtime < date("{cutoff_str}")
 AND file.size > 100
+{folder_filter}
 SORT file.mtime ASC"""
 
         all_old_notes = self.search_with_dql(dql_query)
@@ -163,19 +183,19 @@ if __name__ == "__main__":
                 print(f"  - {note.get('filename', 'Unknown')} (modified: {note.get('mtime', 'Unknown')})")
 
             # Test custom DQL query
-            print("\n2. Testing custom DQL query (all notes with file info):")
-            custom_query = """TABLE
-  file.name AS "filename",
-  file.size AS "size",
-  length(file.outlinks) AS "outlinks"
-FROM ""
-WHERE file.size > 50
-SORT file.mtime DESC
-LIMIT 3"""
+#             print("\n2. Testing custom DQL query (all notes with file info):")
+#             custom_query = """TABLE
+#   file.name AS "filename",
+#   file.size AS "size",
+#   length(file.outlinks) AS "outlinks"
+# FROM ""
+# WHERE file.size > 50
+# SORT file.mtime DESC
+# LIMIT 3"""
 
-            results = obsidian.search_with_dql(custom_query)
-            for result in results:
-                print(f"  - {result.get('filename', 'Unknown')} ({result.get('size', 0)} bytes, {result.get('outlinks', 0)} links)")
+#             results = obsidian.search_with_dql(custom_query)
+#             for result in results:
+#                 print(f"  - {result.get('filename', 'Unknown')} ({result.get('size', 0)} bytes, {result.get('outlinks', 0)} links)")
 
     except ValueError as e:
         print(f"Configuration error: {e}")
