@@ -128,17 +128,19 @@ class ObsidianAPI:
         response = self._make_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def get_random_old_notes(self, days: int, limit: int = None) -> List[Dict]:
-        """Get a random sample of notes older than specified days"""
+    def get_random_old_notes(self, days: int, limit: int = None, config_manager=None) -> List[Dict]:
+        """Get a random sample of notes older than specified days, optionally weighted by tags"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
         folder_filter = self._build_folder_filter()
 
+        # Get notes with tags for weighted sampling
         dql_query = f"""TABLE
             file.name AS "filename",
             file.path AS "path",
             file.mtime AS "mtime",
-            file.size AS "size"
+            file.size AS "size",
+            file.tags AS "tags"
             FROM ""
             WHERE file.mtime < date("{cutoff_str}")
             AND file.size > 100
@@ -147,10 +149,33 @@ class ObsidianAPI:
 
         all_old_notes = self.search_with_dql(dql_query)
 
-        import random
-        if limit and len(all_old_notes) > limit:
+        if not all_old_notes:
+            return []
+
+        if not limit or len(all_old_notes) <= limit:
+            return all_old_notes
+
+        # Weighted sampling if config_manager provided
+        if config_manager:
+            return self._weighted_sample(all_old_notes, limit, config_manager)
+        else:
+            import random
             return random.sample(all_old_notes, limit)
-        return all_old_notes
+
+    def _weighted_sample(self, notes: List[Dict], limit: int, config_manager) -> List[Dict]:
+        """Perform weighted sampling based on note tags"""
+        import random
+        from config import get_sampling_weight_for_note_tags
+
+        # Calculate weights for each note
+        weights = []
+        for note in notes:
+            note_tags = note['result'].get('tags', []) or []
+            weight = get_sampling_weight_for_note_tags(note_tags, config_manager)
+            weights.append(weight)
+
+        # Weighted random selection
+        return random.choices(notes, weights=weights, k=limit)
 
     def test_connection(self) -> bool:
         """Test if the connection to Obsidian API is working"""

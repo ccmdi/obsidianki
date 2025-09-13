@@ -1,19 +1,20 @@
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-
-# Configuration
-MAX_CARDS = 10  # Daily limit of flashcards to generate
-NOTES_TO_SAMPLE = 5  # Number of old notes to sample from
-DAYS_OLD = 30  # Notes older than this many days
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE
 
 def main():
     print("🧠 ObsidianKi - Generating flashcards from old notes...")
 
-    # Initialize APIs
+    # Initialize APIs and config
+    config = ConfigManager()
     obsidian = ObsidianAPI()
     ai = FlashcardAI()
     anki = AnkiAPI()
+
+    print(f"⚙️ Sampling mode: {SAMPLING_MODE}")
+    if SAMPLING_MODE == "weighted":
+        config.show_current_weights()
 
     # Test connections
     if not obsidian.test_connection():
@@ -28,7 +29,7 @@ def main():
 
     # Get old notes
     print(f"📋 Finding {NOTES_TO_SAMPLE} old notes (older than {DAYS_OLD} days)...")
-    old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=NOTES_TO_SAMPLE)
+    old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=NOTES_TO_SAMPLE, config_manager=config)
 
     if not old_notes:
         print("❌ No old notes found")
