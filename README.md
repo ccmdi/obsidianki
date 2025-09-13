@@ -1,6 +1,6 @@
 # ObsidianKi
 
-Daily automated flashcard generation from your Obsidian vault.
+Automated flashcard generation to Anki from your Obsidian vault.
 
 ## Setup
 
@@ -48,6 +48,7 @@ Run periodically (or via a job): `python main.py`
 - `DAYS_OLD = 30` - Only process notes older than X days
 - `SAMPLING_MODE = "weighted"` - Use tag weights vs uniform sampling
 - `DENSITY_BIAS_STRENGTH = 0.5` - Avoid over-processed notes (0-1)
+- `CARD_TYPE = "custom"` - "basic" or "custom" (adds clickable note links)
 
 **Generated files:**
 - `processing_history.json` - Tracks flashcards created per note
@@ -64,3 +65,7 @@ Run periodically (or via a job): `python main.py`
 - Higher-weighted tags get selected more often
 - Notes with fewer flashcards relative to size preferred
 - Prevents exhausting small notes while allowing large notes more cards
+
+**Card Types:**
+- **Basic**: Standard front/back flashcards
+- **Custom**: Includes clickable "Origin" field that opens the source note
