@@ -9,7 +9,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
 # Configure which folders to search in (set to None to search all folders)
-SEARCH_FOLDERS = ["Research"]  # Only search in these folders, or set to None for all folders
+SEARCH_FOLDERS = ["Research"]
 NOTES_TO_SAMPLE = 5
 
 
@@ -37,24 +37,21 @@ class ObsidianAPI:
 
         return f"AND ({' OR '.join(folder_conditions)})"
 
-    def _make_request(self, endpoint: str, method: str = "GET", data: dict = None) -> dict:
+    def _make_request(self, endpoint: str, method: str = "GET", data: dict = None):
         """Make a request to the Obsidian REST API, ignoring SSL verification"""
-        url = f"{self.base_url}{endpoint}"
-
+        response = requests.request(
+            method=method,
+            url=f"{self.base_url}{endpoint}",
+            headers=self.headers,
+            json=data,
+            verify=False,
+            timeout=30
+        )
+        response.raise_for_status()
         try:
-            response = requests.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                json=data,
-                verify=False,  # Ignore SSL verification
-                timeout=30
-            )
-            response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error making request to {url}: {e}")
-            raise
+        except ValueError:
+            return response.text
 
     def search_with_dql(self, query: str) -> List[Dict]:
         """Search notes using Dataview DQL query"""
@@ -126,8 +123,10 @@ class ObsidianAPI:
 
     def get_note_content(self, note_path: str) -> str:
         """Get the content of a specific note"""
-        response = self._make_request(f"/vault/{note_path}")
-        return response.get("content", "")
+        import urllib.parse
+        encoded_path = urllib.parse.quote(note_path, safe='/')
+        response = self._make_request(f"/vault/{encoded_path}")
+        return response if isinstance(response, str) else response.get("content", "")
 
     def get_random_old_notes(self, days: int, limit: int = None) -> List[Dict]:
         """Get a random sample of notes older than specified days"""
