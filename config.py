@@ -13,10 +13,16 @@ SAMPLING_MODE = "weighted"  # "uniform" or "weighted"
 TAG_FAMILY_PREFIX = "field/"  # Only weight tags starting with this prefix (e.g., "field/history", "field/math")
 TAG_SCHEMA_FILE = "tags.json"  # File to store tag weights
 
+# Flashcard Density Configuration
+PROCESSING_HISTORY_FILE = "processing_history.json"  # Track flashcards per note
+DENSITY_BIAS_STRENGTH = 0.5  # How strongly to bias against over-processed notes (0-1)
+
 class ConfigManager:
     def __init__(self):
         self.tag_weights = {}
+        self.processing_history = {}
         self.load_or_create_tag_schema()
+        self.load_processing_history()
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
@@ -87,23 +93,82 @@ class ConfigManager:
             self.save_tag_schema()
             print("🔄 Reset to uniform weights")
 
-def get_sampling_weight_for_note_tags(note_tags: List[str], config: ConfigManager) -> float:
-    """Calculate sampling weight for a note based on its tags"""
-    if SAMPLING_MODE == "uniform":
-        return 1.0
+    def load_processing_history(self):
+        """Load processing history from file"""
+        if os.path.exists(PROCESSING_HISTORY_FILE):
+            with open(PROCESSING_HISTORY_FILE, 'r') as f:
+                self.processing_history = json.load(f)
+            print(f"📊 Loaded processing history for {len(self.processing_history)} notes")
+        else:
+            self.processing_history = {}
 
-    if not config.tag_weights:
-        return 1.0
+    def save_processing_history(self):
+        """Save processing history to file"""
+        with open(PROCESSING_HISTORY_FILE, 'w') as f:
+            json.dump(self.processing_history, f, indent=2)
 
-    # Find tags that match our configured weights (excluding _default)
-    relevant_tags = [tag for tag in note_tags if tag in config.tag_weights and tag != "_default"]
+    def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int):
+        """Record that we created flashcards for a note"""
+        if note_path not in self.processing_history:
+            self.processing_history[note_path] = {
+                "size": note_size,
+                "total_flashcards": 0,
+                "sessions": []
+            }
 
-    if not relevant_tags:
-        # Use _default weight for notes without relevant tags
-        return config.tag_weights.get("_default", 1.0)
+        # Update totals
+        self.processing_history[note_path]["total_flashcards"] += flashcard_count
+        self.processing_history[note_path]["size"] = note_size  # Update in case note changed
+        self.processing_history[note_path]["sessions"].append({
+            "date": __import__('time').time(),
+            "flashcards": flashcard_count
+        })
 
-    # Use maximum weight among relevant tags
-    return max(config.tag_weights[tag] for tag in relevant_tags)
+        self.save_processing_history()
+
+    def get_density_bias_for_note(self, note_path: str, note_size: int) -> float:
+        """Calculate density bias for a note (lower = more processed relative to size)"""
+        if note_path not in self.processing_history:
+            return 1.0  # No bias for unprocessed notes
+
+        history = self.processing_history[note_path]
+        total_flashcards = history["total_flashcards"]
+
+        if note_size == 0:
+            note_size = 1  # Prevent division by zero
+
+        # Calculate flashcard density (flashcards per character)
+        density = total_flashcards / note_size
+
+        # Apply bias - higher density = lower weight
+        # Bias strength controls how aggressively we avoid over-processed notes
+        bias_factor = max(0.1, 1.0 - (density * 1000 * DENSITY_BIAS_STRENGTH))
+
+        return bias_factor
+
+def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager) -> float:
+    """Calculate total sampling weight for a note based on tags and processing history"""
+
+    # Base weight from tags
+    tag_weight = 1.0
+    if SAMPLING_MODE == "weighted" and config.tag_weights:
+        # Find tags that match our configured weights (excluding _default)
+        relevant_tags = [tag for tag in note_tags if tag in config.tag_weights and tag != "_default"]
+
+        if not relevant_tags:
+            # Use _default weight for notes without relevant tags
+            tag_weight = config.tag_weights.get("_default", 1.0)
+        else:
+            # Use maximum weight among relevant tags
+            tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
+
+    # Density bias (lower for over-processed notes)
+    density_bias = config.get_density_bias_for_note(note_path, note_size)
+
+    # Combine weights
+    final_weight = tag_weight * density_bias
+
+    return final_weight
 
 
 if __name__ == "__main__":

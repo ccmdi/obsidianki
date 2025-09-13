@@ -76,6 +76,10 @@ def main():
         if successful_cards > 0:
             print(f"  ✅ Added {successful_cards} cards to Anki")
             total_cards += successful_cards
+
+            # Record flashcard creation for density tracking
+            note_size = len(note_content)
+            config.record_flashcards_created(note_path, note_size, successful_cards)
         else:
             print("  ❌ Failed to add cards to Anki")
 

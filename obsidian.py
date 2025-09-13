@@ -163,15 +163,18 @@ class ObsidianAPI:
             return random.sample(all_old_notes, limit)
 
     def _weighted_sample(self, notes: List[Dict], limit: int, config_manager) -> List[Dict]:
-        """Perform weighted sampling based on note tags"""
+        """Perform weighted sampling based on note tags and processing history"""
         import random
-        from config import get_sampling_weight_for_note_tags
+        from config import get_sampling_weight_for_note
 
         # Calculate weights for each note
         weights = []
         for note in notes:
             note_tags = note['result'].get('tags', []) or []
-            weight = get_sampling_weight_for_note_tags(note_tags, config_manager)
+            note_path = note['result'].get('path', '')
+            note_size = note['result'].get('size', 0)
+
+            weight = get_sampling_weight_for_note(note_tags, note_path, note_size, config_manager)
             weights.append(weight)
 
         # Weighted random selection
