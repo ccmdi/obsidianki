@@ -64,13 +64,13 @@ def main():
 
         print(f"  🧠 Generated {len(flashcards)} flashcards")
 
-        # Check if adding these cards would exceed limit
-        cards_to_add = flashcards[:MAX_CARDS - total_cards]
-        if len(cards_to_add) < len(flashcards):
-            print(f"  📊 Limiting to {len(cards_to_add)} cards to stay within daily limit")
+        # Hard limit (disabled)
+        # cards_to_add = flashcards[:MAX_CARDS - total_cards]
+        # if len(cards_to_add) < len(flashcards):
+        #     print(f"  📊 Limiting to {len(cards_to_add)} cards to stay within daily limit")
 
         # Add to Anki
-        result = anki.add_flashcards(cards_to_add)
+        result = anki.add_flashcards(flashcards)
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
