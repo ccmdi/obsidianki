@@ -2,6 +2,8 @@
 
 Automated flashcard generation to Anki from your Obsidian vault.
 
+![Preview](images/preview.png)
+
 ## Setup
 
 1. **Install dependencies:**
