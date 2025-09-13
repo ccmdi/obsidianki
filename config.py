@@ -18,7 +18,10 @@ PROCESSING_HISTORY_FILE = "processing_history.json"  # Track flashcards per note
 DENSITY_BIAS_STRENGTH = 0.5  # How strongly to bias against over-processed notes (0-1)
 
 # Obsidian Search Configuration
-SEARCH_FOLDERS = None  # Only search in these folders, or None for all folders
+SEARCH_FOLDERS = ["Research"]  # Only search in these folders, or None for all folders
+
+# Anki Card Configuration
+CARD_TYPE = "custom"  # "basic" or "custom" (custom adds Origin field with note link)
 
 class ConfigManager:
     def __init__(self):

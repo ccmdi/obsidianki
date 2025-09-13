@@ -2,7 +2,7 @@ import argparse
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
@@ -83,7 +83,8 @@ def main():
         #     print(f"  📊 Limiting to {len(cards_to_add)} cards to stay within daily limit")
 
         # Add to Anki
-        result = anki.add_flashcards(flashcards)
+        result = anki.add_flashcards(flashcards, card_type=CARD_TYPE,
+                                   note_path=note_path, note_title=note_title)
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:

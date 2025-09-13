@@ -1,6 +1,9 @@
 import requests
 import json
 from typing import List, Dict
+import urllib.parse
+
+CUSTOM_MODEL_NAME = "ObsidianKi"
 
 class AnkiAPI:
     def __init__(self, url: str = "http://127.0.0.1:8765"):
@@ -48,21 +51,82 @@ class AnkiAPI:
                 # Delete the temporary note
                 self._request("deleteNotes", {"notes": [note_id]})
 
-    def add_flashcards(self, flashcards: List[Dict[str, str]], deck_name: str = "Obsidian") -> List[int]:
+    def ensure_custom_model_exists(self) -> None:
+        """Create custom card model if it doesn't exist"""
+        model_names = self._request("modelNames")
+
+        if CUSTOM_MODEL_NAME not in model_names:
+            # Create custom model with Front, Back, and Origin fields
+            model = {
+                "modelName": CUSTOM_MODEL_NAME,
+                "inOrderFields": ["Front", "Back", "Origin"],
+                "css": """
+.card {
+ font-family: arial;
+ font-size: 20px;
+ text-align: center;
+ color: black;
+ background-color: white;
+}
+
+.origin {
+ font-size: 12px;
+ color: #666;
+ text-align: right;
+ margin-top: 20px;
+}
+""",
+                "cardTemplates": [
+                    {
+                        "Name": "Card 1",
+                        "Front": "{{Front}}",
+                        "Back": "{{Front}}<hr id=\"answer\">{{Back}}<div class=\"origin\">{{Origin}}</div>"
+                    }
+                ]
+            }
+
+            self._request("createModel", model)
+            print(f"✅ Created custom card model: {CUSTOM_MODEL_NAME}")
+
+    def generate_obsidian_link(self, note_path: str, note_title: str) -> str:
+        """Generate Obsidian URI link for a note"""
+        # URL encode the path for the Obsidian URI
+        encoded_path = urllib.parse.quote(note_path, safe='')
+        obsidian_link = f"obsidian://open?file={encoded_path}"
+        return f"<a href='{obsidian_link}'>{note_title}</a>"
+
+    def add_flashcards(self, flashcards: List[Dict[str, str]], deck_name: str = "Obsidian",
+                      card_type: str = "basic", note_path: str = "", note_title: str = "") -> List[int]:
         """Add multiple flashcards to the specified deck"""
         self.ensure_deck_exists(deck_name)
 
+        if card_type == "custom":
+            self.ensure_custom_model_exists()
+
         notes = []
         for card in flashcards:
-            note = {
-                "deckName": deck_name,
-                "modelName": "Basic",
-                "fields": {
-                    "Front": card["front"],
-                    "Back": card["back"]
-                },
-                "tags": ["obsidian-generated"]
-            }
+            if card_type == "custom":
+                origin_link = self.generate_obsidian_link(note_path, note_title)
+                note = {
+                    "deckName": deck_name,
+                    "modelName": CUSTOM_MODEL_NAME,
+                    "fields": {
+                        "Front": card["front"],
+                        "Back": card["back"],
+                        "Origin": origin_link
+                    },
+                    "tags": ["obsidian-generated"]
+                }
+            else:  # basic
+                note = {
+                    "deckName": deck_name,
+                    "modelName": "Basic",
+                    "fields": {
+                        "Front": card["front"],
+                        "Back": card["back"]
+                    },
+                    "tags": ["obsidian-generated"]
+                }
             notes.append(note)
 
         return self._request("addNotes", {"notes": notes})
