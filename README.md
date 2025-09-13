@@ -2,7 +2,7 @@
 
 Automated flashcard generation to Anki from your Obsidian vault.
 
-<img src="images/preview.png" width="400" alt="Preview">
+<img src="images/preview.png" width="600" alt="Preview">
 
 ## Setup
 
