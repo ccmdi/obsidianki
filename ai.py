@@ -73,10 +73,10 @@ class FlashcardAI:
 
         user_prompt = f"""Note Title: {note_title}
 
-Note Content:
-{note_content}
+        Note Content:
+        {note_content}
 
-Please analyze this note and create flashcards for the key information that would be valuable for spaced repetition learning."""
+        Please analyze this note and create flashcards for the key information that would be valuable for spaced repetition learning."""
 
         try:
             response = self.client.messages.create(
@@ -102,54 +102,15 @@ Please analyze this note and create flashcards for the key information that woul
             print(f"Error generating flashcards: {e}")
             return []
 
-    def test_flashcard_generation(self, note_content: str, note_title: str = "Test Note") -> None:
-        """Test flashcard generation and display results"""
-        print(f"\n=== Testing Flashcard Generation for: {note_title} ===")
-        print(f"Note content length: {len(note_content)} characters")
-        print("\n--- Generating flashcards... ---")
-
-        flashcards = self.generate_flashcards(note_content, note_title)
-
-        if flashcards:
-            print(f"\n✓ Generated {len(flashcards)} flashcards:")
-            for i, card in enumerate(flashcards, 1):
-                print(f"\n{i}. Front: {card['front']}")
-                print(f"   Back: {card['back']}")
-        else:
-            print("✗ No flashcards generated")
-
-
 if __name__ == "__main__":
-    try:
-        # Initialize both AI and Obsidian clients
-        ai = FlashcardAI()
-        obsidian = ObsidianAPI()
+    ai = FlashcardAI()
+    obsidian = ObsidianAPI()
 
-        print("Testing AI flashcard generation with a random old note...")
+    old_notes = obsidian.get_random_old_notes(days=7, limit=1)
+    note = old_notes[0]
+    note_content = obsidian.get_note_content(note['result']['path'])
 
-        # Get a random old note
-        old_notes = obsidian.get_random_old_notes(days=7, limit=1)
-
-        if old_notes:
-            note = old_notes[0]
-            note_path = note['result']['path']
-            note_title = note['result']['filename']
-
-            print(f"Selected note: {note_title}")
-
-            # Get note content
-            note_content = obsidian.get_note_content(note_path)
-
-            if note_content:
-                # Test flashcard generation
-                ai.test_flashcard_generation(note_content, note_title)
-            else:
-                print("Error: Could not retrieve note content")
-        else:
-            print("No old notes found to test with")
-
-    except ValueError as e:
-        print(f"Configuration error: {e}")
-        print("Please ensure both ANTHROPIC_API_KEY and OBSIDIAN_API_KEY are set in your .env file")
-    except Exception as e:
-        print(f"Error: {e}")
+    flashcards = ai.generate_flashcards(note_content, note['result']['filename'])
+    for card in flashcards:
+        print(f"Q: {card['front']}")
+        print(f"A: {card['back']}\n")
