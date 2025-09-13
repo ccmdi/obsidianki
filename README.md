@@ -23,9 +23,10 @@ Automated flashcard generation to Anki from your Obsidian vault.
    ANTHROPIC_API_KEY=your_anthropic_api_key
    ```
 
-5. **Configure search folders in `config.py`:** (optional)
-   ```python
-   SEARCH_FOLDERS = ["Research"]
+5. **Customize configuration:** (optional)
+   ```bash
+   # config.json is auto-created on first run
+   # Edit it to customize your settings
    ```
 
 6. **Create `tags.json` for weighted sampling:** (optional)

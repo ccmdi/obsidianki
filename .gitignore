@@ -1,0 +1,27 @@
+# Environment variables
+.env
+
+# Local configuration
+config.json
+
+# Generated files
+processing_history.json
+tags.json
+history.json
+response.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

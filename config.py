@@ -3,25 +3,58 @@ import os
 from typing import Dict, List, Optional
 from obsidian import ObsidianAPI
 
-# Basic Configuration
-MAX_CARDS = 6  # Daily limit of flashcards to generate
-NOTES_TO_SAMPLE = 3  # Number of old notes to sample from
-DAYS_OLD = 30  # Notes older than this many days
+import json
+import os
 
-# Tag Weighting Configuration
-SAMPLING_MODE = "weighted"  # "uniform" or "weighted"
-TAG_FAMILY_PREFIX = "field/"  # Only weight tags starting with this prefix (e.g., "field/history", "field/math")
-TAG_SCHEMA_FILE = "tags.json"  # File to store tag weights
+# Default Configuration
+DEFAULT_CONFIG = {
+    "MAX_CARDS": 6,
+    "NOTES_TO_SAMPLE": 3,
+    "DAYS_OLD": 30,
+    "SAMPLING_MODE": "weighted",  # "uniform" or "weighted"
+    "TAG_SCHEMA_FILE": "tags.json",
+    "PROCESSING_HISTORY_FILE": "processing_history.json",
+    "DENSITY_BIAS_STRENGTH": 0.5,
+    "SEARCH_FOLDERS": None,  # or None for all folders
+    "CARD_TYPE": "custom"  # "basic" or "custom"
+}
 
-# Flashcard Density Configuration
-PROCESSING_HISTORY_FILE = "processing_history.json"  # Track flashcards per note
-DENSITY_BIAS_STRENGTH = 0.5  # How strongly to bias against over-processed notes (0-1)
+def load_config():
+    """Load configuration from config.json, creating it from defaults if it doesn't exist"""
+    config = DEFAULT_CONFIG.copy()
 
-# Obsidian Search Configuration
-SEARCH_FOLDERS = ["Research"]  # Only search in these folders, or None for all folders
+    if os.path.exists("config.json"):
+        try:
+            with open("config.json", "r") as f:
+                local_config = json.load(f)
+                config.update(local_config)
+                print(f"📁 Loaded configuration from config.json")
+        except Exception as e:
+            print(f"⚠️ Error loading config.json: {e}")
+            print("Using default configuration")
+    else:
+        # Create config.json from defaults
+        try:
+            with open("config.json", "w") as f:
+                json.dump(DEFAULT_CONFIG, f, indent=2)
+            print(f"🆕 Created config.json with default settings - customize as needed!")
+        except Exception as e:
+            print(f"⚠️ Could not create config.json: {e}")
 
-# Anki Card Configuration
-CARD_TYPE = "custom"  # "basic" or "custom" (custom adds Origin field with note link)
+    return config
+
+# Load configuration
+_config = load_config()
+
+MAX_CARDS = _config["MAX_CARDS"]
+NOTES_TO_SAMPLE = _config["NOTES_TO_SAMPLE"]
+DAYS_OLD = _config["DAYS_OLD"]
+SAMPLING_MODE = _config["SAMPLING_MODE"]
+TAG_SCHEMA_FILE = _config["TAG_SCHEMA_FILE"]
+PROCESSING_HISTORY_FILE = _config["PROCESSING_HISTORY_FILE"]
+DENSITY_BIAS_STRENGTH = _config["DENSITY_BIAS_STRENGTH"]
+SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
+CARD_TYPE = _config["CARD_TYPE"]
 
 class ConfigManager:
     def __init__(self):
@@ -183,7 +216,6 @@ if __name__ == "__main__":
     config.show_current_weights()
 
     print(f"\nSampling mode: {SAMPLING_MODE}")
-    print(f"Tag family prefix: {TAG_FAMILY_PREFIX}")
 
     # Example of updating weights
     if config.tag_weights:
