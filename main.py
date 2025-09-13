@@ -7,15 +7,24 @@ from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
+    parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
     args = parser.parse_args()
 
-    max_cards = args.cards if args.cards is not None else MAX_CARDS
-
-    # Use config NOTES_TO_SAMPLE if using default cards, otherwise scale to 1/3 of custom cards
-    if args.cards is not None:
-        notes_to_sample = max(1, max_cards // 2)  # Scale notes to sample as 1/3 of cards, minimum 1
+    # Determine max_cards and notes_to_sample based on arguments
+    if args.notes:
+        # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
+        if args.cards is not None:
+            max_cards = args.cards
+        else:
+            max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
+    elif args.cards is not None:
+        # When --cards is provided, scale notes to 1/2 of cards
+        max_cards = args.cards
+        notes_to_sample = max(1, max_cards // 2)
     else:
-        notes_to_sample = NOTES_TO_SAMPLE  # Use config default
+        # Default behavior - use config values
+        max_cards = MAX_CARDS
+        notes_to_sample = NOTES_TO_SAMPLE
 
     print("🧠 ObsidianKi - Generating flashcards from old notes...")
 
@@ -40,16 +49,40 @@ def main():
 
     print("✅ Connected to Obsidian and Anki")
 
-    # Get old notes
-    print(f"📋 Finding {notes_to_sample} old notes (older than {DAYS_OLD} days)...")
-    old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
+    # Get notes to process
+    if args.notes:
+        print(f"🎯 Looking for specific notes: {', '.join(args.notes)}")
+        old_notes = []
 
-    if not old_notes:
-        print("❌ No old notes found")
-        return
+        for note_name in args.notes:
+            specific_note = obsidian.find_note_by_name(note_name)
 
-    print(f"✅ Found {len(old_notes)} notes")
-    print(f"🎯 Target: {max_cards} flashcards maximum")
+            if specific_note:
+                old_notes.append(specific_note)
+                print(f"✅ Found: {specific_note['result']['filename']}")
+            else:
+                print(f"❌ Not found: '{note_name}'")
+
+        if not old_notes:
+            print("❌ No notes found")
+            return
+
+        # Update max_cards based on actually found notes (if --cards wasn't specified)
+        if args.cards is None:
+            max_cards = len(old_notes) * 2
+
+        print(f"📊 Processing {len(old_notes)} note(s)")
+        print(f"🎯 Target: {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+    else:
+        print(f"📋 Finding {notes_to_sample} old notes (older than {DAYS_OLD} days)...")
+        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
+
+        if not old_notes:
+            print("❌ No old notes found")
+            return
+
+        print(f"✅ Found {len(old_notes)} notes")
+        print(f"🎯 Target: {max_cards} flashcards maximum")
 
     total_cards = 0
 

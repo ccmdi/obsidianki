@@ -178,6 +178,37 @@ class ObsidianAPI:
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
 
+    def find_note_by_name(self, note_name: str) -> Dict:
+        """Find a specific note by name (partial match)"""
+        from config import SEARCH_FOLDERS
+        folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
+
+        dql_query = f"""TABLE
+            file.name AS "filename",
+            file.path AS "path",
+            file.mtime AS "mtime",
+            file.size AS "size",
+            file.tags AS "tags"
+            FROM ""
+            WHERE contains(file.name, "{note_name}")
+            {folder_filter}
+            SORT file.name ASC"""
+
+        results = self.search_with_dql(dql_query)
+
+        if not results:
+            return None
+        elif len(results) == 1:
+            return results[0]
+        else:
+            # Multiple matches - find exact match first, otherwise return first partial match
+            for note in results:
+                if note['result']['filename'].lower() == note_name.lower():
+                    return note
+                if note['result']['filename'].lower() == f"{note_name.lower()}.md":
+                    return note
+            return results[0]  # Return first partial match
+
     def test_connection(self) -> bool:
         """Test if the connection to Obsidian API is working"""
         try:
