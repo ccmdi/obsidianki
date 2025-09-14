@@ -5,11 +5,15 @@ import urllib3
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from rich.console import Console
+from config import CONFIG_DIR
 
 console = Console()
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-load_dotenv()
+
+# Load dotenv from global config directory
+ENV_FILE = CONFIG_DIR / ".env"
+load_dotenv(ENV_FILE)
 
 class ObsidianAPI:
     def __init__(self):

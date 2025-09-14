@@ -5,10 +5,13 @@ from typing import List, Dict, Any
 import json
 from obsidian import ObsidianAPI
 from rich.console import Console
+from config import CONFIG_DIR
 
 console = Console()
 
-load_dotenv()
+# Load dotenv from global config directory
+ENV_FILE = CONFIG_DIR / ".env"
+load_dotenv(ENV_FILE)
 
 # Flashcard schema for tool calling
 FLASHCARD_TOOL = {

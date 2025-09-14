@@ -14,7 +14,7 @@ from config import CONFIG_DIR
 ENV_FILE = CONFIG_DIR / ".env"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-def setup():
+def setup(force_full_setup=False):
     """Interactive setup to configure API keys and preferences"""
     console.print(Panel(Text("ObsidianKi Setup", style="bold blue"), style="blue"))
 
@@ -23,8 +23,8 @@ def setup():
     # Ensure config directory exists
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Setup API keys only if .env doesn't exist
-    if not ENV_FILE.exists():
+    # Setup API keys only if .env doesn't exist OR if forcing full setup
+    if not ENV_FILE.exists() or force_full_setup:
         console.print(f"[cyan]Step {step_num}: API Keys[/cyan]")
         console.print("   Get Obsidian API key from: [blue]Obsidian Settings > Community Plugins > REST API > API Key[/blue]")
 
@@ -41,7 +41,7 @@ def setup():
 
         # Create .env file
         env_content = f"""OBSIDIAN_API_KEY={obsidian_key}
-        ANTHROPIC_API_KEY={anthropic_key}
+ANTHROPIC_API_KEY={anthropic_key}
         """
 
         try:
@@ -55,7 +55,7 @@ def setup():
     else:
         console.print("[green]✓[/green] API keys already configured")
 
-    if not CONFIG_FILE.exists():
+    if not CONFIG_FILE.exists() or force_full_setup:
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
         # Import config defaults here to avoid circular imports during build

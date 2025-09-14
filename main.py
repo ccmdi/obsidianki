@@ -29,7 +29,7 @@ def main():
         needs_setup = True
 
     if args.setup or needs_setup:
-        setup()
+        setup(force_full_setup=args.setup)
         return
 
     # Determine max_cards and notes_to_sample based on arguments
@@ -153,4 +153,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+    except Exception as e:
+        console.print(f"\n[red]ERROR:[/red] {e}")
+        raise
