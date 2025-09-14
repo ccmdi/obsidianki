@@ -1,10 +1,9 @@
 import json
 import os
 from typing import Dict, List, Optional
-from obsidian import ObsidianAPI
+from rich.console import Console
 
-import json
-import os
+console = Console()
 
 # Default Configuration
 DEFAULT_CONFIG = {
@@ -29,16 +28,16 @@ def load_config():
                 local_config = json.load(f)
                 config.update(local_config)
         except Exception as e:
-            print(f"⚠️ Error loading config.json: {e}")
-            print("Using default configuration")
+            console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
+            console.print("[cyan]Using default configuration[/cyan]")
     else:
         # Create config.json from defaults
         try:
             with open("config.json", "w") as f:
                 json.dump(DEFAULT_CONFIG, f, indent=2)
-            print(f"🆕 Created config.json with default settings - customize as needed!")
+            console.print(f"[green]SUCCESS:[/green] Created config.json with default settings - customize as needed!")
         except Exception as e:
-            print(f"⚠️ Could not create config.json: {e}")
+            console.print(f"[yellow]WARNING:[/yellow] Could not create config.json: {e}")
 
     return config
 
@@ -71,20 +70,20 @@ class ConfigManager:
             # Validate required keys for weighted sampling
             if SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
-                    print("⚠️ Warning: '_default' weight not found in tags.json")
+                    console.print("[yellow]WARNING:[/yellow] '_default' weight not found in tags.json")
                     self.tag_weights["_default"] = 0.1
 
         else:
-            print(f"❌ {TAG_SCHEMA_FILE} not found. For weighted sampling, create it with your tag weights.")
-            print("Example structure:")
-            print('{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}')
+            console.print(f"[red]ERROR:[/red] {TAG_SCHEMA_FILE} not found. For weighted sampling, create it with your tag weights.")
+            console.print("[cyan]Example structure:[/cyan]")
+            console.print('[green]{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}[/green]')
             self.tag_weights = {"_default": 1.0}
 
     def save_tag_schema(self):
         """Save current tag weights to file"""
         with open(TAG_SCHEMA_FILE, 'w') as f:
             json.dump(self.tag_weights, f, indent=2)
-        print(f"💾 Saved tag schema to {TAG_SCHEMA_FILE}")
+        console.print(f"[green]SUCCESS:[/green] Saved tag schema to {TAG_SCHEMA_FILE}")
 
     def get_tag_weights(self) -> Dict[str, float]:
         """Get current tag weights"""
@@ -95,19 +94,21 @@ class ConfigManager:
         if tag in self.tag_weights:
             self.tag_weights[tag] = weight
             self.save_tag_schema()
-            print(f"📊 Updated {tag} weight to {weight}")
+            console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
         else:
-            print(f"⚠️ Tag '{tag}' not found in schema")
+            console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
     def show_current_weights(self):
         """Display current tag weights"""
-        print("\n📊 Current Tag Weights:")
-        if not self.tag_weights:
-            print("  No tags configured")
+        # Only show if there are tags besides _default
+        non_default_tags = {k: v for k, v in self.tag_weights.items() if k != "_default"}
+
+        if not non_default_tags:
             return
 
+        console.print("\n[bold cyan]Current Tag Weights:[/bold cyan]")
         for tag, weight in sorted(self.tag_weights.items()):
-            print(f"  {tag}: {weight}")
+            console.print(f"  [green]{tag}:[/green] {weight}")
 
     def normalize_weights(self):
         """Normalize all weights so they sum to 1.0"""
@@ -119,7 +120,7 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] /= total
             self.save_tag_schema()
-            print("📐 Normalized tag weights")
+            console.print("[green]SUCCESS:[/green] Normalized tag weights")
 
     def reset_to_uniform(self):
         """Reset all weights to uniform distribution"""
@@ -128,7 +129,7 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] = uniform_weight
             self.save_tag_schema()
-            print("🔄 Reset to uniform weights")
+            console.print("[green]SUCCESS:[/green] Reset to uniform weights")
 
     def load_processing_history(self):
         """Load processing history from file"""
@@ -212,11 +213,11 @@ if __name__ == "__main__":
     config = ConfigManager()
     config.show_current_weights()
 
-    print(f"\nSampling mode: {SAMPLING_MODE}")
+    console.print(f"\n[cyan]Sampling mode:[/cyan] {SAMPLING_MODE}")
 
     # Example of updating weights
     if config.tag_weights:
         first_tag = list(config.tag_weights.keys())[0]
-        print(f"\nExample: Setting {first_tag} weight to 2.0")
+        console.print(f"\n[cyan]Example:[/cyan] Setting {first_tag} weight to 2.0")
         config.update_tag_weight(first_tag, 2.0)
         config.show_current_weights()

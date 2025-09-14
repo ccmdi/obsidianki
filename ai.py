@@ -4,6 +4,9 @@ from anthropic import Anthropic
 from typing import List, Dict, Any
 import json
 from obsidian import ObsidianAPI
+from rich.console import Console
+
+console = Console()
 
 load_dotenv()
 
@@ -95,11 +98,11 @@ class FlashcardAI:
                         tool_input = content_block.input
                         return tool_input.get("flashcards", [])
 
-            print("No flashcards generated - unexpected response format")
+            console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
 
         except Exception as e:
-            print(f"Error generating flashcards: {e}")
+            console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
 if __name__ == "__main__":
@@ -112,5 +115,5 @@ if __name__ == "__main__":
 
     flashcards = ai.generate_flashcards(note_content, note['result']['filename'])
     for card in flashcards:
-        print(f"Q: {card['front']}")
-        print(f"A: {card['back']}\n")
+        console.print(f"[cyan]Q:[/cyan] {card['front']}")
+        console.print(f"[green]A:[/green] {card['back']}\n")

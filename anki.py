@@ -2,6 +2,9 @@ import requests
 import json
 from typing import List, Dict
 import urllib.parse
+from rich.console import Console
+
+console = Console()
 
 CUSTOM_MODEL_NAME = "ObsidianKi"
 
@@ -61,21 +64,21 @@ class AnkiAPI:
                 "modelName": CUSTOM_MODEL_NAME,
                 "inOrderFields": ["Front", "Back", "Origin"],
                 "css": """
-.card {
- font-family: arial;
- font-size: 20px;
- text-align: center;
- color: black;
- background-color: white;
-}
+                    .card {
+                    font-family: arial;
+                    font-size: 20px;
+                    text-align: center;
+                    color: black;
+                    background-color: white;
+                    }
 
-.origin {
- font-size: 12px;
- color: #666;
- text-align: right;
- margin-top: 20px;
-}
-""",
+                    .origin {
+                    font-size: 12px;
+                    color: #666;
+                    text-align: right;
+                    margin-top: 20px;
+                    }
+                    """,
                 "cardTemplates": [
                     {
                         "Name": "Card 1",
@@ -86,7 +89,7 @@ class AnkiAPI:
             }
 
             self._request("createModel", model)
-            print(f"✅ Created custom card model: {CUSTOM_MODEL_NAME}")
+            console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
     def generate_obsidian_link(self, note_path: str, note_title: str) -> str:
         """Generate Obsidian URI link for a note"""
@@ -144,7 +147,7 @@ if __name__ == "__main__":
     anki = AnkiAPI()
 
     if anki.test_connection():
-        print("AnkiConnect is running")
+        console.print("[green]SUCCESS:[/green] AnkiConnect is running")
         
         # Test with sample flashcards
         test_cards = [
@@ -153,6 +156,6 @@ if __name__ == "__main__":
         ]
 
         result = anki.add_flashcards(test_cards)
-        print(f"Added {len([r for r in result if r is not None])} cards to Obsidian deck")
+        console.print(f"[green]Added {len([r for r in result if r is not None])} cards to Obsidian deck[/green]")
     else:
-        print("AnkiConnect not running on http://127.0.0.1:8765")
+        console.print("[red]ERROR:[/red] AnkiConnect not running on http://127.0.0.1:8765")

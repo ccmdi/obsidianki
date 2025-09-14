@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import urllib3
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
+from rich.console import Console
+
+console = Console()
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
@@ -66,7 +69,7 @@ class ObsidianAPI:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error executing DQL query: {e}")
+            console.print(f"[red]ERROR:[/red] Error executing DQL query: {e}")
             raise
 
     def get_notes_older_than(self, days: int, limit: int = None) -> List[Dict]:
@@ -215,7 +218,7 @@ class ObsidianAPI:
             self._make_request("/")
             return True
         except Exception as e:
-            print(f"✗ Failed to connect to Obsidian API: {e}")
+            console.print(f"[red]ERROR:[/red] Failed to connect to Obsidian API: {e}")
             return False
 
 if __name__ == "__main__":
@@ -223,16 +226,16 @@ if __name__ == "__main__":
         obsidian = ObsidianAPI()
 
         if obsidian.test_connection():
-            print("\n--- Testing DQL Queries ---")
+            console.print("\n[bold cyan]--- Testing DQL Queries ---[/bold cyan]")
 
-            print("\n1. Getting notes older than 30 days:")
+            console.print("\n[cyan]1. Getting notes older than 30 days:[/cyan]")
             old_notes = obsidian.get_random_old_notes(days=30)
             for note in old_notes:
-                print(f"  - {note.get('filename', 'Unknown')} (modified: {note['result'].get('mtime', 'Unknown')})")
+                console.print(f"  [green]-[/green] {note.get('filename', 'Unknown')} (modified: {note['result'].get('mtime', 'Unknown')})")
 
     except ValueError as e:
-        print(f"Configuration error: {e}")
-        print("Please create a .env file with OBSIDIAN_API_KEY=your_api_key")
+        console.print(f"[red]Configuration error:[/red] {e}")
+        console.print("[yellow]Please create a .env file with OBSIDIAN_API_KEY=your_api_key[/yellow]")
     except Exception as e:
-        print(f"Error: {e}")
-        print("Make sure your Obsidian REST API plugin is running on https://127.0.0.1:27124")
+        console.print(f"[red]Error:[/red] {e}")
+        console.print("[yellow]Make sure your Obsidian REST API plugin is running on https://127.0.0.1:27124[/yellow]")
