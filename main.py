@@ -29,7 +29,10 @@ def main():
         needs_setup = True
 
     if args.setup or needs_setup:
-        setup(force_full_setup=args.setup)
+        try:
+            setup(force_full_setup=args.setup)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Setup cancelled by user[/yellow]")
         return
 
     # Determine max_cards and notes_to_sample based on arguments

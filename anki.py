@@ -24,7 +24,14 @@ class AnkiAPI:
         result = response.json()
 
         if result.get("error"):
-            raise Exception(f"AnkiConnect error: {result['error']}")
+            error_msg = result['error']
+            # Handle duplicate note errors gracefully
+            error_str = str(error_msg).lower()
+            if 'duplicate' in error_str:
+                console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
+                return None
+            else:
+                raise Exception(f"AnkiConnect error: {error_msg}")
 
         return result.get("result")
 
@@ -132,7 +139,8 @@ class AnkiAPI:
                 }
             notes.append(note)
 
-        return self._request("addNotes", {"notes": notes})
+        result = self._request("addNotes", {"notes": notes})
+        return result if result is not None else []
 
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
