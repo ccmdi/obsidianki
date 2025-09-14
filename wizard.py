@@ -1,18 +1,8 @@
 import json
-from pathlib import Path
-from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 from rich.prompt import Prompt, IntPrompt, Confirm
-from rich.table import Table
-
-console = Console()
-
-from config import CONFIG_DIR
-
-# Standard config directory location
-ENV_FILE = CONFIG_DIR / ".env"
-CONFIG_FILE = CONFIG_DIR / "config.json"
+from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 
 def setup(force_full_setup=False):
     """Interactive setup to configure API keys and preferences"""
@@ -91,7 +81,6 @@ ANTHROPIC_API_KEY={anthropic_key}
         }
 
         try:
-            import json
             with open(CONFIG_FILE, "w") as f:
                 json.dump(user_config, f, indent=2)
             console.print("   [green]✓[/green] Configuration saved")

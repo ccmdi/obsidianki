@@ -1,18 +1,14 @@
 import argparse
 import os
 from pathlib import Path
-from rich.console import Console
-from rich.text import Text
 from rich.panel import Panel
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.text import Text
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE
-from wizard import setup, ENV_FILE, CONFIG_FILE
-
-console = Console()
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from wizard import setup
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
@@ -23,7 +19,6 @@ def main():
     args = parser.parse_args()
 
     if args.config:
-        from wizard import CONFIG_DIR
         console.print(str(CONFIG_DIR))
         return
 

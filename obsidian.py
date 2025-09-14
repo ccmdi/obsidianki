@@ -1,19 +1,11 @@
 import requests
 import os
-from dotenv import load_dotenv
 import urllib3
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
-from rich.console import Console
-from config import CONFIG_DIR
-
-console = Console()
+from typing import List, Dict
+from config import console
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Load dotenv from global config directory
-ENV_FILE = CONFIG_DIR / ".env"
-load_dotenv(ENV_FILE)
 
 class ObsidianAPI:
     def __init__(self):
@@ -163,9 +155,9 @@ class ObsidianAPI:
         # Weighted sampling if config_manager provided
         if config_manager:
             return self._weighted_sample(all_old_notes, limit, config_manager)
-        else:
-            import random
-            return random.sample(all_old_notes, limit)
+
+        import random
+        return random.sample(all_old_notes, limit)
 
     def _weighted_sample(self, notes: List[Dict], limit: int, config_manager) -> List[Dict]:
         """Perform weighted sampling based on note tags and processing history"""
@@ -225,21 +217,3 @@ class ObsidianAPI:
             console.print(f"[red]ERROR:[/red] Failed to connect to Obsidian API: {e}")
             return False
 
-if __name__ == "__main__":
-    try:
-        obsidian = ObsidianAPI()
-
-        if obsidian.test_connection():
-            console.print("\n[bold cyan]--- Testing DQL Queries ---[/bold cyan]")
-
-            console.print("\n[cyan]1. Getting notes older than 30 days:[/cyan]")
-            old_notes = obsidian.get_random_old_notes(days=30)
-            for note in old_notes:
-                console.print(f"  [green]-[/green] {note.get('filename', 'Unknown')} (modified: {note['result'].get('mtime', 'Unknown')})")
-
-    except ValueError as e:
-        console.print(f"[red]Configuration error:[/red] {e}")
-        console.print("[yellow]Please create a .env file with OBSIDIAN_API_KEY=your_api_key[/yellow]")
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        console.print("[yellow]Make sure your Obsidian REST API plugin is running on https://127.0.0.1:27124[/yellow]")

@@ -1,17 +1,7 @@
 import os
-from dotenv import load_dotenv
 from anthropic import Anthropic
-from typing import List, Dict, Any
-import json
-from obsidian import ObsidianAPI
-from rich.console import Console
-from config import CONFIG_DIR
-
-console = Console()
-
-# Load dotenv from global config directory
-ENV_FILE = CONFIG_DIR / ".env"
-load_dotenv(ENV_FILE)
+from typing import List, Dict
+from config import console
 
 # Flashcard schema for tool calling
 FLASHCARD_TOOL = {
@@ -108,15 +98,3 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-if __name__ == "__main__":
-    ai = FlashcardAI()
-    obsidian = ObsidianAPI()
-
-    old_notes = obsidian.get_random_old_notes(days=7, limit=1)
-    note = old_notes[0]
-    note_content = obsidian.get_note_content(note['result']['path'])
-
-    flashcards = ai.generate_flashcards(note_content, note['result']['filename'])
-    for card in flashcards:
-        console.print(f"[cyan]Q:[/cyan] {card['front']}")
-        console.print(f"[green]A:[/green] {card['back']}\n")

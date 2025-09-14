@@ -151,19 +151,3 @@ class AnkiAPI:
             return False
 
 
-if __name__ == "__main__":
-    anki = AnkiAPI()
-
-    if anki.test_connection():
-        console.print("[green]SUCCESS:[/green] AnkiConnect is running")
-        
-        # Test with sample flashcards
-        test_cards = [
-            {"front": "What is the capital of France?", "back": "Paris"},
-            {"front": "What is 2 + 2?", "back": "4"}
-        ]
-
-        result = anki.add_flashcards(test_cards)
-        console.print(f"[green]Added {len([r for r in result if r is not None])} cards to Obsidian deck[/green]")
-    else:
-        console.print("[red]ERROR:[/red] AnkiConnect not running on http://127.0.0.1:8765")

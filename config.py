@@ -2,11 +2,17 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
 from rich.console import Console
 
 console = Console()
 
 CONFIG_DIR = Path.home() / ".config" / "obsidianki"
+ENV_FILE = CONFIG_DIR / ".env"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+# Load environment variables once
+load_dotenv(ENV_FILE)
 
 # Default Configuration
 DEFAULT_CONFIG = {
@@ -208,16 +214,3 @@ def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size
     return final_weight
 
 
-if __name__ == "__main__":
-    # Demo the config system
-    config = ConfigManager()
-    config.show_current_weights()
-
-    console.print(f"\n[cyan]Sampling mode:[/cyan] {SAMPLING_MODE}")
-
-    # Example of updating weights
-    if config.tag_weights:
-        first_tag = list(config.tag_weights.keys())[0]
-        console.print(f"\n[cyan]Example:[/cyan] Setting {first_tag} weight to 2.0")
-        config.update_tag_weight(first_tag, 2.0)
-        config.show_current_weights()
