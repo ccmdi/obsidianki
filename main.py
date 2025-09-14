@@ -19,7 +19,13 @@ def main():
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
+    parser.add_argument("--config", action="store_true", help="Show configuration directory path")
     args = parser.parse_args()
+
+    if args.config:
+        from wizard import CONFIG_DIR
+        console.print(str(CONFIG_DIR))
+        return
 
     # Check if setup is needed (first run)
     needs_setup = False
