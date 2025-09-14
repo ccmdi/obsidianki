@@ -1,9 +1,12 @@
 import json
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 from rich.console import Console
 
 console = Console()
+
+CONFIG_DIR = Path.home() / ".config" / "obsidianki"
 
 # Default Configuration
 DEFAULT_CONFIG = {
@@ -19,25 +22,19 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
-    """Load configuration from config.json, creating it from defaults if it doesn't exist"""
+    """Load configuration from global config.json, using defaults if it doesn't exist"""
     config = DEFAULT_CONFIG.copy()
+    config_file = CONFIG_DIR / "config.json"
 
-    if os.path.exists("config.json"):
+    if config_file.exists():
         try:
-            with open("config.json", "r") as f:
+            with open(config_file, "r") as f:
                 local_config = json.load(f)
                 config.update(local_config)
         except Exception as e:
             console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
             console.print("[cyan]Using default configuration[/cyan]")
-    else:
-        # Create config.json from defaults
-        try:
-            with open("config.json", "w") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2)
-            console.print(f"[green]SUCCESS:[/green] Created config.json with default settings - customize as needed!")
-        except Exception as e:
-            console.print(f"[yellow]WARNING:[/yellow] Could not create config.json: {e}")
+    # Don't auto-create config - let setup handle it
 
     return config
 
@@ -58,13 +55,15 @@ class ConfigManager:
     def __init__(self):
         self.tag_weights = {}
         self.processing_history = {}
+        self.tag_schema_file = CONFIG_DIR / "tags.json"
+        self.processing_history_file = CONFIG_DIR / "processing_history.json"
         self.load_or_create_tag_schema()
         self.load_processing_history()
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
-        if os.path.exists(TAG_SCHEMA_FILE):
-            with open(TAG_SCHEMA_FILE, 'r') as f:
+        if self.tag_schema_file.exists():
+            with open(self.tag_schema_file, 'r') as f:
                 self.tag_weights = json.load(f)
 
             # Validate required keys for weighted sampling
@@ -74,16 +73,17 @@ class ConfigManager:
                     self.tag_weights["_default"] = 0.1
 
         else:
-            console.print(f"[red]ERROR:[/red] {TAG_SCHEMA_FILE} not found. For weighted sampling, create it with your tag weights.")
+            console.print(f"[red]ERROR:[/red] {self.tag_schema_file} not found. For weighted sampling, create it with your tag weights.")
             console.print("[cyan]Example structure:[/cyan]")
             console.print('[green]{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}[/green]')
             self.tag_weights = {"_default": 1.0}
 
     def save_tag_schema(self):
         """Save current tag weights to file"""
-        with open(TAG_SCHEMA_FILE, 'w') as f:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(self.tag_schema_file, 'w') as f:
             json.dump(self.tag_weights, f, indent=2)
-        console.print(f"[green]SUCCESS:[/green] Saved tag schema to {TAG_SCHEMA_FILE}")
+        console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
     def get_tag_weights(self) -> Dict[str, float]:
         """Get current tag weights"""
@@ -133,15 +133,16 @@ class ConfigManager:
 
     def load_processing_history(self):
         """Load processing history from file"""
-        if os.path.exists(PROCESSING_HISTORY_FILE):
-            with open(PROCESSING_HISTORY_FILE, 'r') as f:
+        if self.processing_history_file.exists():
+            with open(self.processing_history_file, 'r') as f:
                 self.processing_history = json.load(f)
         else:
             self.processing_history = {}
 
     def save_processing_history(self):
         """Save processing history to file"""
-        with open(PROCESSING_HISTORY_FILE, 'w') as f:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(self.processing_history_file, 'w') as f:
             json.dump(self.processing_history, f, indent=2)
 
     def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int):
