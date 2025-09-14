@@ -34,8 +34,7 @@ This will start the interactive setup. Here's what you'll need:
    - Add-on code: `2055492159`
    - Keep Anki running
 
-4. **Preferences configuration:**
-   - Cards per session, sampling mode, etc.
+You can then follow the interactive setup and edit the configuration as you like.
 
 ## Usage
 
@@ -54,9 +53,6 @@ obsidianki --notes "Note 1" "Note 2"  # Process specific notes
 ```
 
 ## Configuration Files
-
-Located in your config directory (use `obsidianki --config` to find):
-
 - `config.json` - Main settings (cards per session, sampling mode, etc.)
 - `tags.json` - Tag weights for weighted sampling
 - `processing_history.json` - Tracks flashcards created per note
