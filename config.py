@@ -34,7 +34,6 @@ def load_config():
         except Exception as e:
             console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
             console.print("[cyan]Using default configuration[/cyan]")
-    # Don't auto-create config - let setup handle it
 
     return config
 

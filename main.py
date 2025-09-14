@@ -29,8 +29,6 @@ def main():
         needs_setup = True
 
     if args.setup or needs_setup:
-        if needs_setup and not args.setup:
-            console.print("[yellow]First time setup required![/yellow]\n")
         setup()
         return
 
