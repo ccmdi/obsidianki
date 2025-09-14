@@ -25,3 +25,7 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+
+*.egg-info/
+*.md
+deprecated/

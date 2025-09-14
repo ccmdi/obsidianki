@@ -1,10 +1,18 @@
 import json
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
-from obsidian import ObsidianAPI
+from dotenv import load_dotenv
+from rich.console import Console
 
-import json
-import os
+console = Console()
+
+CONFIG_DIR = Path.home() / ".config" / "obsidianki"
+ENV_FILE = CONFIG_DIR / ".env"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+# Load environment variables once
+load_dotenv(ENV_FILE)
 
 # Default Configuration
 DEFAULT_CONFIG = {
@@ -20,25 +28,18 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
-    """Load configuration from config.json, creating it from defaults if it doesn't exist"""
+    """Load configuration from global config.json, using defaults if it doesn't exist"""
     config = DEFAULT_CONFIG.copy()
+    config_file = CONFIG_DIR / "config.json"
 
-    if os.path.exists("config.json"):
+    if config_file.exists():
         try:
-            with open("config.json", "r") as f:
+            with open(config_file, "r") as f:
                 local_config = json.load(f)
                 config.update(local_config)
         except Exception as e:
-            print(f"⚠️ Error loading config.json: {e}")
-            print("Using default configuration")
-    else:
-        # Create config.json from defaults
-        try:
-            with open("config.json", "w") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2)
-            print(f"🆕 Created config.json with default settings - customize as needed!")
-        except Exception as e:
-            print(f"⚠️ Could not create config.json: {e}")
+            console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
+            console.print("[cyan]Using default configuration[/cyan]")
 
     return config
 
@@ -59,32 +60,35 @@ class ConfigManager:
     def __init__(self):
         self.tag_weights = {}
         self.processing_history = {}
+        self.tag_schema_file = CONFIG_DIR / "tags.json"
+        self.processing_history_file = CONFIG_DIR / "processing_history.json"
         self.load_or_create_tag_schema()
         self.load_processing_history()
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
-        if os.path.exists(TAG_SCHEMA_FILE):
-            with open(TAG_SCHEMA_FILE, 'r') as f:
+        if self.tag_schema_file.exists():
+            with open(self.tag_schema_file, 'r') as f:
                 self.tag_weights = json.load(f)
 
             # Validate required keys for weighted sampling
             if SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
-                    print("⚠️ Warning: '_default' weight not found in tags.json")
+                    console.print("[yellow]WARNING:[/yellow] '_default' weight not found in tags.json")
                     self.tag_weights["_default"] = 0.1
 
         else:
-            print(f"❌ {TAG_SCHEMA_FILE} not found. For weighted sampling, create it with your tag weights.")
-            print("Example structure:")
-            print('{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}')
+            console.print(f"[red]ERROR:[/red] {self.tag_schema_file} not found. For weighted sampling, create it with your tag weights.")
+            console.print("[cyan]Example structure:[/cyan]")
+            console.print('[green]{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}[/green]')
             self.tag_weights = {"_default": 1.0}
 
     def save_tag_schema(self):
         """Save current tag weights to file"""
-        with open(TAG_SCHEMA_FILE, 'w') as f:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(self.tag_schema_file, 'w') as f:
             json.dump(self.tag_weights, f, indent=2)
-        print(f"💾 Saved tag schema to {TAG_SCHEMA_FILE}")
+        console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
     def get_tag_weights(self) -> Dict[str, float]:
         """Get current tag weights"""
@@ -95,19 +99,21 @@ class ConfigManager:
         if tag in self.tag_weights:
             self.tag_weights[tag] = weight
             self.save_tag_schema()
-            print(f"📊 Updated {tag} weight to {weight}")
+            console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
         else:
-            print(f"⚠️ Tag '{tag}' not found in schema")
+            console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
     def show_current_weights(self):
         """Display current tag weights"""
-        print("\n📊 Current Tag Weights:")
-        if not self.tag_weights:
-            print("  No tags configured")
+        # Only show if there are tags besides _default
+        non_default_tags = {k: v for k, v in self.tag_weights.items() if k != "_default"}
+
+        if not non_default_tags:
             return
 
+        console.print("\n[bold cyan]Current Tag Weights:[/bold cyan]")
         for tag, weight in sorted(self.tag_weights.items()):
-            print(f"  {tag}: {weight}")
+            console.print(f"  [green]{tag}:[/green] {weight}")
 
     def normalize_weights(self):
         """Normalize all weights so they sum to 1.0"""
@@ -119,7 +125,7 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] /= total
             self.save_tag_schema()
-            print("📐 Normalized tag weights")
+            console.print("[green]SUCCESS:[/green] Normalized tag weights")
 
     def reset_to_uniform(self):
         """Reset all weights to uniform distribution"""
@@ -128,19 +134,20 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] = uniform_weight
             self.save_tag_schema()
-            print("🔄 Reset to uniform weights")
+            console.print("[green]SUCCESS:[/green] Reset to uniform weights")
 
     def load_processing_history(self):
         """Load processing history from file"""
-        if os.path.exists(PROCESSING_HISTORY_FILE):
-            with open(PROCESSING_HISTORY_FILE, 'r') as f:
+        if self.processing_history_file.exists():
+            with open(self.processing_history_file, 'r') as f:
                 self.processing_history = json.load(f)
         else:
             self.processing_history = {}
 
     def save_processing_history(self):
         """Save processing history to file"""
-        with open(PROCESSING_HISTORY_FILE, 'w') as f:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(self.processing_history_file, 'w') as f:
             json.dump(self.processing_history, f, indent=2)
 
     def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int):
@@ -207,16 +214,3 @@ def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size
     return final_weight
 
 
-if __name__ == "__main__":
-    # Demo the config system
-    config = ConfigManager()
-    config.show_current_weights()
-
-    print(f"\nSampling mode: {SAMPLING_MODE}")
-
-    # Example of updating weights
-    if config.tag_weights:
-        first_tag = list(config.tag_weights.keys())[0]
-        print(f"\nExample: Setting {first_tag} weight to 2.0")
-        config.update_tag_weight(first_tag, 2.0)
-        config.show_current_weights()

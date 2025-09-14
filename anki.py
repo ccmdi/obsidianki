@@ -2,6 +2,9 @@ import requests
 import json
 from typing import List, Dict
 import urllib.parse
+from rich.console import Console
+
+console = Console()
 
 CUSTOM_MODEL_NAME = "ObsidianKi"
 
@@ -21,7 +24,14 @@ class AnkiAPI:
         result = response.json()
 
         if result.get("error"):
-            raise Exception(f"AnkiConnect error: {result['error']}")
+            error_msg = result['error']
+            # Handle duplicate note errors gracefully
+            error_str = str(error_msg).lower()
+            if 'duplicate' in error_str:
+                console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
+                return None
+            else:
+                raise Exception(f"AnkiConnect error: {error_msg}")
 
         return result.get("result")
 
@@ -61,21 +71,21 @@ class AnkiAPI:
                 "modelName": CUSTOM_MODEL_NAME,
                 "inOrderFields": ["Front", "Back", "Origin"],
                 "css": """
-.card {
- font-family: arial;
- font-size: 20px;
- text-align: center;
- color: black;
- background-color: white;
-}
+                    .card {
+                    font-family: arial;
+                    font-size: 20px;
+                    text-align: center;
+                    color: black;
+                    background-color: white;
+                    }
 
-.origin {
- font-size: 12px;
- color: #666;
- text-align: right;
- margin-top: 20px;
-}
-""",
+                    .origin {
+                    font-size: 12px;
+                    color: #666;
+                    text-align: right;
+                    margin-top: 20px;
+                    }
+                    """,
                 "cardTemplates": [
                     {
                         "Name": "Card 1",
@@ -86,7 +96,7 @@ class AnkiAPI:
             }
 
             self._request("createModel", model)
-            print(f"✅ Created custom card model: {CUSTOM_MODEL_NAME}")
+            console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
     def generate_obsidian_link(self, note_path: str, note_title: str) -> str:
         """Generate Obsidian URI link for a note"""
@@ -129,7 +139,8 @@ class AnkiAPI:
                 }
             notes.append(note)
 
-        return self._request("addNotes", {"notes": notes})
+        result = self._request("addNotes", {"notes": notes})
+        return result if result is not None else []
 
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
@@ -140,19 +151,3 @@ class AnkiAPI:
             return False
 
 
-if __name__ == "__main__":
-    anki = AnkiAPI()
-
-    if anki.test_connection():
-        print("AnkiConnect is running")
-        
-        # Test with sample flashcards
-        test_cards = [
-            {"front": "What is the capital of France?", "back": "Paris"},
-            {"front": "What is 2 + 2?", "back": "4"}
-        ]
-
-        result = anki.add_flashcards(test_cards)
-        print(f"Added {len([r for r in result if r is not None])} cards to Obsidian deck")
-    else:
-        print("AnkiConnect not running on http://127.0.0.1:8765")

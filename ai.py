@@ -1,11 +1,7 @@
 import os
-from dotenv import load_dotenv
 from anthropic import Anthropic
-from typing import List, Dict, Any
-import json
-from obsidian import ObsidianAPI
-
-load_dotenv()
+from typing import List, Dict
+from config import console
 
 # Flashcard schema for tool calling
 FLASHCARD_TOOL = {
@@ -95,22 +91,10 @@ class FlashcardAI:
                         tool_input = content_block.input
                         return tool_input.get("flashcards", [])
 
-            print("No flashcards generated - unexpected response format")
+            console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
 
         except Exception as e:
-            print(f"Error generating flashcards: {e}")
+            console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-if __name__ == "__main__":
-    ai = FlashcardAI()
-    obsidian = ObsidianAPI()
-
-    old_notes = obsidian.get_random_old_notes(days=7, limit=1)
-    note = old_notes[0]
-    note_content = obsidian.get_note_content(note['result']['path'])
-
-    flashcards = ai.generate_flashcards(note_content, note['result']['filename'])
-    for card in flashcards:
-        print(f"Q: {card['front']}")
-        print(f"A: {card['back']}\n")

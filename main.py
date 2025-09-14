@@ -1,14 +1,40 @@
 import argparse
+import os
+from pathlib import Path
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.text import Text
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from wizard import setup
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
+    parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
+    parser.add_argument("--config", action="store_true", help="Show configuration directory path")
     args = parser.parse_args()
+
+    if args.config:
+        console.print(str(CONFIG_DIR))
+        return
+
+    # Check if setup is needed (first run)
+    needs_setup = False
+    if not ENV_FILE.exists():
+        needs_setup = True
+    elif not CONFIG_FILE.exists():
+        needs_setup = True
+
+    if args.setup or needs_setup:
+        try:
+            setup(force_full_setup=args.setup)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Setup cancelled by user[/yellow]")
+        return
 
     # Determine max_cards and notes_to_sample based on arguments
     if args.notes:
@@ -26,7 +52,8 @@ def main():
         max_cards = MAX_CARDS
         notes_to_sample = NOTES_TO_SAMPLE
 
-    print("🧠 ObsidianKi - Generating flashcards...")
+    console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
+    console.print("")
 
     # Initialize APIs and config
     config = ConfigManager()
@@ -39,14 +66,14 @@ def main():
 
     # Test connections
     if not obsidian.test_connection():
-        print("❌ Cannot connect to Obsidian REST API")
+        console.print("[red]ERROR:[/red] Cannot connect to Obsidian REST API")
         return
 
     if not anki.test_connection():
-        print("❌ Cannot connect to AnkiConnect")
+        console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         return
 
-    print("✅ Connected to Obsidian and Anki\n")
+    console.print("[green]SUCCESS:[/green] Connected to Obsidian and Anki\n")
 
     # Get notes to process
     if args.notes:
@@ -58,27 +85,27 @@ def main():
             if specific_note:
                 old_notes.append(specific_note)
             else:
-                print(f"❌ Not found: '{note_name}'")
+                console.print(f"[red]ERROR:[/red] Not found: '{note_name}'")
 
         if not old_notes:
-            print("❌ No notes found")
+            console.print("[red]ERROR:[/red] No notes found")
             return
 
         # Update max_cards based on actually found notes (if --cards wasn't specified)
         if args.cards is None:
             max_cards = len(old_notes) * 2
 
-        print(f"📊 Processing {len(old_notes)} note(s)")
-        print(f"🎯 Target: {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+        console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
+        console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
     else:
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
 
         if not old_notes:
-            print("❌ No old notes found")
+            console.print("[red]ERROR:[/red] No old notes found")
             return
 
-        print(f"✅ Found {len(old_notes)} notes")
-        print(f"🎯 Target: {max_cards} flashcards maximum")
+        console.print(f"[green]SUCCESS:[/green] Found {len(old_notes)} notes")
+        console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
 
     total_cards = 0
 
@@ -89,21 +116,21 @@ def main():
         note_path = note['result']['path']
         note_title = note['result']['filename']
 
-        print(f"\n📝 Processing note {i}/{len(old_notes)}: {note_title}")
+        console.print(f"\n[yellow]PROCESSING:[/yellow] Note {i}/{len(old_notes)}: [bold]{note_title}[/bold]")
 
         # Get note content
         note_content = obsidian.get_note_content(note_path)
         if not note_content:
-            print("  ⚠️ Empty or inaccessible note, skipping")
+            console.print("  [yellow]WARNING:[/yellow] Empty or inaccessible note, skipping")
             continue
 
         # Generate flashcards
         flashcards = ai.generate_flashcards(note_content, note_title)
         if not flashcards:
-            print("  ⚠️ No flashcards generated, skipping")
+            console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue
 
-        print(f"  Generated {len(flashcards)} flashcards")
+        console.print(f"  [green]Generated {len(flashcards)} flashcards[/green]")
 
         # Hard limit (disabled)
         # cards_to_add = flashcards[:MAX_CARDS - total_cards]
@@ -116,17 +143,24 @@ def main():
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            print(f"  Added {successful_cards} cards to Anki")
+            console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking
             note_size = len(note_content)
             config.record_flashcards_created(note_path, note_size, successful_cards)
         else:
-            print("  ❌ Failed to add cards to Anki")
+            console.print("  [red]ERROR:[/red] Failed to add cards to Anki")
 
-    print(f"\Done! Added {total_cards}/{max_cards} flashcards to your Obsidian deck")
+    console.print("")
+    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+    except Exception as e:
+        console.print(f"\n[red]ERROR:[/red] {e}")
+        raise
