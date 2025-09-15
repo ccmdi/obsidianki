@@ -12,7 +12,6 @@ from wizard import setup
 
 def approve_note(note_title: str, note_path: str) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [yellow]Review note:[/yellow] [bold]{note_title}[/bold]")
     console.print(f"   [dim]Path: {note_path}[/dim]")
 
     from rich.prompt import Confirm
@@ -24,6 +23,7 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
     console.print(f"   [cyan]Front:[/cyan] {flashcard.get('front', 'N/A')}")
     console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
+    console.print()
 
     from rich.prompt import Confirm
     result = Confirm.ask("   Add this card to Anki?", default=True)
@@ -160,10 +160,11 @@ def main():
 
         if args.query:
             console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
         else:
             console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+        console.print()
     else:
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
 
@@ -190,7 +191,7 @@ def main():
         note_path = note['result']['path']
         note_title = note['result']['filename']
 
-        console.print(f"\n[yellow]PROCESSING:[/yellow] Note {i}/{len(old_notes)}: [bold]{note_title}[/bold]")
+        console.print(f"\n[blue]PROCESSING:[/blue] Note {i}/{len(old_notes)}: [bold]{note_title}[/bold]")
 
         # Note approval (before AI processing)
         if APPROVE_NOTES:

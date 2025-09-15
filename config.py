@@ -146,7 +146,7 @@ class ConfigManager:
         if not non_default_tags:
             return
 
-        console.print("\n[bold cyan]Current Tag Weights:[/bold cyan]")
+        console.print("\n[bold cyan]Tag weights:[/bold cyan]")
         for tag, weight in sorted(self.tag_weights.items()):
             console.print(f"  [green]{tag}:[/green] {weight}")
 
