@@ -49,7 +49,8 @@ obsidianki --config          # Show config path
 ```bash
 obsidianki --notes "React" "JavaScript"     # Process specific notes
 obsidianki --cards 10                       # Generate up to 10 cards total
-obsidianki --notes "React" --cards 6        # Generate ~3 cards per note (6 total)
+obsidianki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
+obsidianki --notes "React" --cards 6        # Generate ~6 cards from React note
 ```
 
 ### Query Mode

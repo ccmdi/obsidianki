@@ -179,6 +179,10 @@ def main():
     # Calculate target cards per note
     target_cards_per_note = max(1, max_cards // len(old_notes)) if args.cards else None
 
+    if args.cards and target_cards_per_note > 5:
+        console.print(f"[yellow]WARNING:[/yellow] Requesting more than 5 cards per note can decrease quality")
+        console.print(f"[yellow]Consider using fewer total cards or more notes for better results[/yellow]\n")
+
     # Process each note
     for i, note in enumerate(old_notes, 1):
         if total_cards >= max_cards:
