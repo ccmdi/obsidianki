@@ -95,9 +95,9 @@ oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 **Example tags.json for weighted sampling:**
 ```json
 {
-  "field/history": 2.0,
-  "field/math": 1.0,
-  "field/science": 1.5,
+  "#field/history": 2.0,
+  "#field/math": 1.0,
+  "#field/science": 1.5,
   "_default": 0.5,
   "_exclude": ["#private", "#draft", "#personal"]
 }
