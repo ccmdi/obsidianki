@@ -57,6 +57,48 @@ AVOID:
 
 Analyze the provided note content and extract the most valuable information as flashcards using the create_flashcards tool."""
 
+# System prompt for query-based flashcard generation
+QUERY_SYSTEM_PROMPT = """You are an expert at creating high-quality flashcards based on user queries. Your job is to generate educational flashcards that help users learn and remember information about their specific query.
+
+QUERY-BASED FLASHCARD GUIDELINES:
+1. Create flashcards that directly address the user's query
+2. Include fundamental concepts, definitions, and practical examples
+3. Break complex topics into digestible pieces
+4. Focus on information that benefits from spaced repetition
+5. Create 2-4 flashcards per query (depending on complexity)
+
+GOOD QUERY FLASHCARD EXAMPLES:
+Query: "how to center a div"
+- Front: "What CSS property centers a div horizontally using flexbox?" Back: "display: flex; justify-content: center;"
+- Front: "What CSS technique centers a div both horizontally and vertically?" Back: "display: flex; justify-content: center; align-items: center;"
+
+Query: "React fragments"
+- Front: "What is a React Fragment used for?" Back: "Grouping multiple elements without adding extra DOM nodes"
+- Front: "What are the two ways to write React Fragments?" Back: "<React.Fragment> or shorthand <>"
+
+Generate educational flashcards based on the user's query using the create_flashcards tool."""
+
+# System prompt for targeted extraction from notes
+TARGETED_SYSTEM_PROMPT = """You are an expert at extracting specific information from notes to create targeted flashcards. Your job is to analyze the provided note content and create flashcards that specifically address the user's query within the context of that note.
+
+TARGETED EXTRACTION GUIDELINES:
+1. Focus ONLY on information in the note that relates to the user's query
+2. Extract specific examples, syntax, or concepts that answer the query
+3. If the note doesn't contain relevant information, create fewer or no cards
+4. Prioritize practical, actionable information over theory
+5. Create 1-3 flashcards per note-query pair
+
+GOOD TARGETED EXTRACTION EXAMPLES:
+Query: "syntax for fragments" + React note content
+- Extract specific React Fragment syntax examples from the note
+- Focus on practical usage patterns mentioned in the note
+
+Query: "error handling" + JavaScript note content
+- Extract specific error handling patterns from the note
+- Focus on try-catch examples or error handling strategies mentioned
+
+Analyze the note content and extract information specifically related to the user's query using the create_flashcards tool."""
+
 class FlashcardAI:
     def __init__(self):
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -96,5 +138,71 @@ class FlashcardAI:
 
         except Exception as e:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
+            return []
+
+    def generate_flashcards_from_query(self, query: str) -> List[Dict[str, str]]:
+        """Generate flashcards based on a user query without source material"""
+
+        user_prompt = f"""User Query: {query}
+
+Please create educational flashcards to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-4-sonnet-20250514",
+                max_tokens=8000,
+                system=QUERY_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+                tools=[FLASHCARD_TOOL],
+                tool_choice={"type": "tool", "name": "create_flashcards"}
+            )
+
+            # Extract flashcards from tool call
+            if response.content and len(response.content) > 0:
+                for content_block in response.content:
+                    if content_block.type == "tool_use":
+                        tool_input = content_block.input
+                        return tool_input.get("flashcards", [])
+
+            console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
+            return []
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
+            return []
+
+    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str) -> List[Dict[str, str]]:
+        """Generate flashcards by extracting specific information from a note based on a query"""
+
+        user_prompt = f"""Note Title: {note_title}
+Query: {query}
+
+Note Content:
+{note_content}
+
+Please analyze this note and extract information specifically related to the query "{query}". Create flashcards only for information in the note that directly addresses or relates to this query."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-4-sonnet-20250514",
+                max_tokens=8000,
+                system=TARGETED_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+                tools=[FLASHCARD_TOOL],
+                tool_choice={"type": "tool", "name": "create_flashcards"}
+            )
+
+            # Extract flashcards from tool call
+            if response.content and len(response.content) > 0:
+                for content_block in response.content:
+                    if content_block.type == "tool_use":
+                        tool_input = content_block.input
+                        return tool_input.get("flashcards", [])
+
+            console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
+            return []
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 

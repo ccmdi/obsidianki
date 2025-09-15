@@ -31,6 +31,7 @@ def main():
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
+    parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
     parser.add_argument("--config", action="store_true", help="Show configuration directory path")
     args = parser.parse_args()
 
@@ -91,6 +92,48 @@ def main():
 
     console.print("[green]SUCCESS:[/green] Connected to Obsidian and Anki\n")
 
+    # Handle query mode
+    if args.query:
+        if not args.notes:
+            # Standalone query mode - generate cards from query alone
+            console.print(f"[cyan]QUERY MODE:[/cyan] Generating flashcards for: [bold]{args.query}[/bold]")
+
+            flashcards = ai.generate_flashcards_from_query(args.query)
+            if not flashcards:
+                console.print("[red]ERROR:[/red] No flashcards generated from query")
+                return
+
+            console.print(f"[green]Generated {len(flashcards)} flashcards[/green]")
+
+            # Flashcard approval (before adding to Anki)
+            approved_flashcards = []
+            if APPROVE_CARDS:
+                for flashcard in flashcards:
+                    if approve_flashcard(flashcard, f"Query: {args.query}"):
+                        approved_flashcards.append(flashcard)
+
+                if not approved_flashcards:
+                    console.print("[yellow]WARNING:[/yellow] No flashcards approved")
+                    return
+
+                console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+                cards_to_add = approved_flashcards
+            else:
+                cards_to_add = flashcards
+
+            # Add to Anki
+            result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
+                                       note_path="query", note_title=f"Query: {args.query}")
+            successful_cards = len([r for r in result if r is not None])
+
+            if successful_cards > 0:
+                console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
+            else:
+                console.print("[red]ERROR:[/red] Failed to add cards to Anki")
+
+            console.print(f"\n[bold green]COMPLETE![/bold green] Added {successful_cards} flashcards from query")
+            return
+
     # Get notes to process
     if args.notes:
         old_notes = []
@@ -111,8 +154,12 @@ def main():
         if args.cards is None:
             max_cards = len(old_notes) * 2
 
-        console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
-        console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+        if args.query:
+            console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
+        else:
+            console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum ({max_cards // len(old_notes)} per note average)")
     else:
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
 
@@ -146,7 +193,13 @@ def main():
             continue
 
         # Generate flashcards
-        flashcards = ai.generate_flashcards(note_content, note_title)
+        if args.query:
+            # Paired query mode - extract specific info from note based on query
+            console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
+            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query)
+        else:
+            # Normal mode - generate flashcards from note content
+            flashcards = ai.generate_flashcards(note_content, note_title)
         if not flashcards:
             console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue
