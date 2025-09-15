@@ -41,33 +41,51 @@ You can then follow the interactive setup and edit the configuration as you like
 ### Basic Usage
 ```bash
 obsidianki                   # Generate flashcards
-obsidianki --setup           # Reconfigure
-obsidianki --config          # Show config path
+oki                          # Alias
+```
+
+### Configuration Management
+```bash
+oki config                   # Show config commands
+oki config list              # List all settings
+oki config get max_cards     # Get specific setting
+oki config set max_cards 15  # Update setting
+oki config reset             # Reset to defaults
+oki config where             # Show config directory
+```
+
+### Tag Management
+```bash
+oki tag                      # Show tag commands
+oki tag list                 # List tag weights and exclusions
+oki tag add python 2.0       # Add/update tag weight
+oki tag remove python        # Remove tag weight
+```
+
+### History Management
+```bash
+oki history                  # Show history commands
+oki history clear            # Clear processing history (with confirmation)
 ```
 
 ### Note Selection
 ```bash
-obsidianki --notes "React" "JavaScript"     # Process specific notes
-obsidianki --cards 10                       # Generate up to 10 cards total
-obsidianki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
-obsidianki --notes "React" --cards 6        # Generate ~6 cards from React note
+oki --notes "React" "JavaScript"     # Process specific notes
+oki --cards 10                       # Generate up to 10 cards total
+oki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
+oki --notes "React" --cards 6        # Generate ~6 cards from React note
 ```
 
 ### Query Mode
 ```bash
-# Standalone query (no source material needed)
-obsidianki -q "how to center a div"
-obsidianki -q "CSS flexbox" --cards 8
+# Make flashcard without source note
+oki -q "how to center a div"
+oki -q "CSS flexbox" --cards 8
 
-# Targeted extraction
-obsidianki --notes "React" -q "error handling"
-obsidianki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
+# Targeted extraction from source note(s)
+oki --notes "React" -q "error handling"
+oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 ```
-
-### Approval Settings
-During setup, you can enable:
-- **Note approval**: Review each note before AI processing
-- **Card approval**: Review each flashcard before adding to Anki
 
 ## Configuration Files
 - `config.json` - Main settings (cards per session, sampling mode, approval settings, etc.)
@@ -81,7 +99,7 @@ During setup, you can enable:
   "field/math": 1.0,
   "field/science": 1.5,
   "_default": 0.5,
-  "_exclude": ["private", "draft", "personal"]
+  "_exclude": ["#private", "#draft", "#personal"]
 }
 ```
 
