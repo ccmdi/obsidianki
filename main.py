@@ -7,8 +7,24 @@ from rich.text import Text
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 from wizard import setup
+
+def approve_note(note_title: str, note_path: str) -> bool:
+    """Ask user to approve note processing"""
+    console.print(f"   [yellow]Review note:[/yellow] [bold]{note_title}[/bold]")
+    console.print(f"   [dim]Path: {note_path}[/dim]")
+
+    from rich.prompt import Confirm
+    return Confirm.ask("   Process this note?", default=True)
+
+def approve_flashcard(flashcard: dict, note_title: str) -> bool:
+    """Ask user to approve flashcard before adding to Anki"""
+    console.print(f"   [cyan]Front:[/cyan] {flashcard.get('front', 'N/A')}")
+    console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
+
+    from rich.prompt import Confirm
+    return Confirm.ask("   Add this card to Anki?", default=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
@@ -118,6 +134,11 @@ def main():
 
         console.print(f"\n[yellow]PROCESSING:[/yellow] Note {i}/{len(old_notes)}: [bold]{note_title}[/bold]")
 
+        # Note approval (before AI processing)
+        if APPROVE_NOTES:
+            if not approve_note(note_title, note_path):
+                continue
+
         # Get note content
         note_content = obsidian.get_note_content(note_path)
         if not note_content:
@@ -132,13 +153,24 @@ def main():
 
         console.print(f"  [green]Generated {len(flashcards)} flashcards[/green]")
 
-        # Hard limit (disabled)
-        # cards_to_add = flashcards[:MAX_CARDS - total_cards]
-        # if len(cards_to_add) < len(flashcards):
-        #     print(f"  📊 Limiting to {len(cards_to_add)} cards to stay within daily limit")
+        # Flashcard approval (before adding to Anki)
+        approved_flashcards = []
+        if APPROVE_CARDS:
+            for flashcard in flashcards:
+                if approve_flashcard(flashcard, note_title):
+                    approved_flashcards.append(flashcard)
+
+            if not approved_flashcards:
+                console.print("  [yellow]WARNING:[/yellow] No flashcards approved, skipping")
+                continue
+
+            console.print(f"  [cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+            cards_to_add = approved_flashcards
+        else:
+            cards_to_add = flashcards
 
         # Add to Anki
-        result = anki.add_flashcards(flashcards, card_type=CARD_TYPE,
+        result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
                                    note_path=note_path, note_title=note_title)
         successful_cards = len([r for r in result if r is not None])
 

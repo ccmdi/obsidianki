@@ -24,7 +24,9 @@ DEFAULT_CONFIG = {
     "PROCESSING_HISTORY_FILE": "processing_history.json",
     "DENSITY_BIAS_STRENGTH": 0.5,
     "SEARCH_FOLDERS": None,  # or None for all folders
-    "CARD_TYPE": "custom"  # "basic" or "custom"
+    "CARD_TYPE": "custom",  # "basic" or "custom"
+    "APPROVE_NOTES": False,  # Ask user approval before AI processes each note
+    "APPROVE_CARDS": False   # Ask user approval before adding each card to Anki
 }
 
 def load_config():
@@ -55,6 +57,8 @@ PROCESSING_HISTORY_FILE = _config["PROCESSING_HISTORY_FILE"]
 DENSITY_BIAS_STRENGTH = _config["DENSITY_BIAS_STRENGTH"]
 SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
 CARD_TYPE = _config["CARD_TYPE"]
+APPROVE_NOTES = _config["APPROVE_NOTES"]
+APPROVE_CARDS = _config["APPROVE_CARDS"]
 
 class ConfigManager:
     def __init__(self):
