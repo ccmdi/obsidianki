@@ -39,7 +39,6 @@ def main():
         console.print(str(CONFIG_DIR))
         return
 
-    # Check if setup is needed (first run)
     needs_setup = False
     if not ENV_FILE.exists():
         needs_setup = True
@@ -98,7 +97,8 @@ def main():
             # Standalone query mode - generate cards from query alone
             console.print(f"[cyan]QUERY MODE:[/cyan] Generating flashcards for: [bold]{args.query}[/bold]")
 
-            flashcards = ai.generate_flashcards_from_query(args.query)
+            target_cards = args.cards if args.cards else None
+            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
@@ -172,6 +172,9 @@ def main():
 
     total_cards = 0
 
+    # Calculate target cards per note
+    target_cards_per_note = max(1, max_cards // len(old_notes)) if args.cards else None
+
     # Process each note
     for i, note in enumerate(old_notes, 1):
         if total_cards >= max_cards:
@@ -196,10 +199,10 @@ def main():
         if args.query:
             # Paired query mode - extract specific info from note based on query
             console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query)
+            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note)
         else:
             # Normal mode - generate flashcards from note content
-            flashcards = ai.generate_flashcards(note_content, note_title)
+            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note)
         if not flashcards:
             console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue
