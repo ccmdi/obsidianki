@@ -59,6 +59,7 @@ CARD_TYPE = _config["CARD_TYPE"]
 class ConfigManager:
     def __init__(self):
         self.tag_weights = {}
+        self.excluded_tags = []
         self.processing_history = {}
         self.tag_schema_file = CONFIG_DIR / "tags.json"
         self.processing_history_file = CONFIG_DIR / "processing_history.json"
@@ -69,7 +70,18 @@ class ConfigManager:
         """Load existing tag schema"""
         if self.tag_schema_file.exists():
             with open(self.tag_schema_file, 'r') as f:
-                self.tag_weights = json.load(f)
+                schema = json.load(f)
+
+            # Handle both old format (flat dict) and new format (with exclude array)
+            if isinstance(schema, dict) and "_exclude" in schema:
+                # New format with exclude array
+                self.excluded_tags = schema.get("_exclude", [])
+                # Remove exclude key to get weights
+                self.tag_weights = {k: v for k, v in schema.items() if k != "_exclude"}
+            else:
+                # Old format (backward compatibility)
+                self.tag_weights = schema
+                self.excluded_tags = []
 
             # Validate required keys for weighted sampling
             if SAMPLING_MODE == "weighted":
@@ -80,19 +92,38 @@ class ConfigManager:
         else:
             console.print(f"[red]ERROR:[/red] {self.tag_schema_file} not found. For weighted sampling, create it with your tag weights.")
             console.print("[cyan]Example structure:[/cyan]")
-            console.print('[green]{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5\n}[/green]')
+            console.print('[green]{\n  "field/history": 2.0,\n  "field/math": 1.0,\n  "_default": 0.5,\n  "_exclude": ["private", "draft"]\n}[/green]')
             self.tag_weights = {"_default": 1.0}
+            self.excluded_tags = []
 
     def save_tag_schema(self):
-        """Save current tag weights to file"""
+        """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Combine weights and exclude array into single schema
+        schema = self.tag_weights.copy()
+        if self.excluded_tags:
+            schema["_exclude"] = self.excluded_tags
+
         with open(self.tag_schema_file, 'w') as f:
-            json.dump(self.tag_weights, f, indent=2)
+            json.dump(schema, f, indent=2)
         console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
     def get_tag_weights(self) -> Dict[str, float]:
         """Get current tag weights"""
         return self.tag_weights.copy()
+
+    def get_excluded_tags(self) -> List[str]:
+        """Get current excluded tags"""
+        return self.excluded_tags.copy()
+
+    def is_note_excluded(self, note_tags: List[str]) -> bool:
+        """Check if a note should be excluded based on its tags"""
+        if not self.excluded_tags:
+            return False
+
+        # Check if any of the note's tags are in the exclude list
+        return any(tag in self.excluded_tags for tag in note_tags)
 
     def update_tag_weight(self, tag: str, weight: float):
         """Update weight for a specific tag"""

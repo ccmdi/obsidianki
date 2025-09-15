@@ -87,7 +87,10 @@ ANTHROPIC_API_KEY={anthropic_key}
 
             # Create default tags.json
             tags_file = CONFIG_DIR / "tags.json"
-            default_tags = {"_default": 1.0}
+            default_tags = {
+                "_default": 1.0,
+                "_exclude": []
+            }
             with open(tags_file, "w") as f:
                 json.dump(default_tags, f, indent=2)
             console.print("   [green]✓[/green] Default tags schema created")

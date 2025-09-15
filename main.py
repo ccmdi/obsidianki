@@ -80,7 +80,7 @@ def main():
         old_notes = []
 
         for note_name in args.notes:
-            specific_note = obsidian.find_note_by_name(note_name)
+            specific_note = obsidian.find_note_by_name(note_name, config_manager=config)
 
             if specific_note:
                 old_notes.append(specific_note)
