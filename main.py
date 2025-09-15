@@ -121,8 +121,6 @@ def main():
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         return
 
-    console.print("[green]SUCCESS:[/green] Connected to Obsidian and Anki\n")
-
     # Handle query mode
     if args.query:
         if not args.notes:
@@ -140,9 +138,13 @@ def main():
             # Flashcard approval (before adding to Anki)
             approved_flashcards = []
             if APPROVE_CARDS:
-                for flashcard in flashcards:
-                    if approve_flashcard(flashcard, f"Query: {args.query}"):
-                        approved_flashcards.append(flashcard)
+                try:
+                    for flashcard in flashcards:
+                        if approve_flashcard(flashcard, f"Query: {args.query}"):
+                            approved_flashcards.append(flashcard)
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                    return
 
                 if not approved_flashcards:
                     console.print("[yellow]WARNING:[/yellow] No flashcards approved")
@@ -223,8 +225,12 @@ def main():
 
         # Note approval (before AI processing)
         if APPROVE_NOTES:
-            if not approve_note(note_title, note_path):
-                continue
+            try:
+                if not approve_note(note_title, note_path):
+                    continue
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                return
 
         # Get note content
         note_content = obsidian.get_note_content(note_path)
@@ -256,9 +262,13 @@ def main():
         # Flashcard approval (before adding to Anki)
         approved_flashcards = []
         if APPROVE_CARDS:
-            for flashcard in flashcards:
-                if approve_flashcard(flashcard, note_title):
-                    approved_flashcards.append(flashcard)
+            try:
+                for flashcard in flashcards:
+                    if approve_flashcard(flashcard, note_title):
+                        approved_flashcards.append(flashcard)
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                return
 
             if not approved_flashcards:
                 console.print("  [yellow]WARNING:[/yellow] No flashcards approved, skipping")

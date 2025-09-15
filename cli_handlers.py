@@ -10,9 +10,12 @@ def approve_note(note_title: str, note_path: str) -> bool:
     console.print(f"   [magenta]Review note:[/magenta] [bold]{note_title}[/bold]")
     console.print(f"   [dim]Path: {note_path}[/dim]")
 
-    result = Confirm.ask("   Process this note?", default=True)
-    console.print()  # Add newline after approval
-    return result
+    try:
+        result = Confirm.ask("   Process this note?", default=True)
+        console.print()  # Add newline after approval
+        return result
+    except KeyboardInterrupt:
+        raise
 
 def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
@@ -21,9 +24,12 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
     console.print()
 
-    result = Confirm.ask("   Add this card to Anki?", default=True)
-    console.print()  # Add newline after approval
-    return result
+    try:
+        result = Confirm.ask("   Add this card to Anki?", default=True)
+        console.print()  # Add newline after approval
+        return result
+    except KeyboardInterrupt:
+        raise
 
 def handle_config_command(args):
     """Handle config management commands"""
@@ -105,10 +111,13 @@ def handle_config_command(args):
         return
 
     if args.config_action == 'reset':
-        if Confirm.ask("Reset all configuration to defaults?", default=False):
-            if CONFIG_FILE.exists():
-                CONFIG_FILE.unlink()
-            console.print("[green]Configuration reset. Run 'obsidianki --setup' to reconfigure.[/green]")
+        try:
+            if Confirm.ask("Reset all configuration to defaults?", default=False):
+                if CONFIG_FILE.exists():
+                    CONFIG_FILE.unlink()
+                console.print("[green]Configuration reset. Run 'obsidianki --setup' to reconfigure.[/green]")
+        except KeyboardInterrupt:
+            raise
         return
 
 
