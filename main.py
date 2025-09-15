@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli_handlers import handle_config_command, handle_tag_command
+from cli_handlers import handle_config_command, handle_tag_command, handle_history_command
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
@@ -37,6 +37,13 @@ def main():
     # config where
     config_subparsers.add_parser('where', help='Show configuration directory path')
 
+    # History management
+    history_parser = subparsers.add_parser('history', help='Manage processing history')
+    history_subparsers = history_parser.add_subparsers(dest='history_action', help='History actions')
+
+    # history clear
+    history_subparsers.add_parser('clear', help='Clear processing history')
+
     # Tag management
     tag_parser = subparsers.add_parser('tag', help='Manage tag weights')
     tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
@@ -54,9 +61,12 @@ def main():
     remove_parser.add_argument('tag', help='Tag name to remove')
     args = parser.parse_args()
 
-    # Handle config and tag management commands
+    # Handle config, history, and tag management commands
     if args.command == 'config':
         handle_config_command(args)
+        return
+    elif args.command == 'history':
+        handle_history_command(args)
         return
     elif args.command == 'tag':
         handle_tag_command(args)

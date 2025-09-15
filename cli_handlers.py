@@ -158,3 +158,24 @@ def handle_tag_command(args):
         else:
             console.print(f"[red]Tag '{args.tag}' not found.[/red]")
         return
+
+
+def handle_history_command(args):
+    """Handle history management commands"""
+
+    if args.history_action == 'clear':
+        history_file = CONFIG_DIR / "processing_history.json"
+
+        if not history_file.exists():
+            console.print("[yellow]No processing history found.[/yellow]")
+            return
+
+        try:
+            if Confirm.ask("Clear all processing history? This will remove deduplication data.", default=False):
+                history_file.unlink()
+                console.print("[green]Processing history cleared.[/green]")
+            else:
+                console.print("[yellow]Operation cancelled.[/yellow]")
+        except KeyboardInterrupt:
+            raise
+        return
