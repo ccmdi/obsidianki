@@ -106,16 +106,27 @@ class FlashcardAI:
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
 
-    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None) -> List[Dict[str, str]]:
+    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
         """Generate flashcards from note content using Claude"""
 
         cards_to_create = target_cards if target_cards else 2
         card_instruction = f"Create approximately {cards_to_create} flashcards"
 
+        # Add deduplication context if previous fronts exist
+        dedup_context = ""
+        if previous_fronts:
+            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+            dedup_context = f"""
+
+IMPORTANT: We have previously created the following flashcards for this note:
+{previous_questions}
+
+DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
+
         user_prompt = f"""Note Title: {note_title}
 
         Note Content:
-        {note_content}
+        {note_content}{dedup_context}
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
@@ -177,17 +188,28 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None) -> List[Dict[str, str]]:
+    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
         cards_to_create = target_cards if target_cards else 2
         card_instruction = f"Create approximately {cards_to_create} flashcards"
 
+        # Add deduplication context if previous fronts exist
+        dedup_context = ""
+        if previous_fronts:
+            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+            dedup_context = f"""
+
+IMPORTANT: We have previously created the following flashcards for this note:
+{previous_questions}
+
+DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
+
         user_prompt = f"""Note Title: {note_title}
 Query: {query}
 
 Note Content:
-{note_content}
+{note_content}{dedup_context}
 
 Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 

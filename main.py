@@ -7,7 +7,7 @@ from rich.text import Text
 from obsidian import ObsidianAPI
 from ai import FlashcardAI
 from anki import AnkiAPI
-from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 from wizard import setup
 
 def approve_note(note_title: str, note_path: str) -> bool:
@@ -204,14 +204,21 @@ def main():
             console.print("  [yellow]WARNING:[/yellow] Empty or inaccessible note, skipping")
             continue
 
+        # Get previous flashcard fronts for deduplication if enabled
+        previous_fronts = []
+        if DEDUPLICATE_VIA_HISTORY:
+            previous_fronts = config.get_flashcard_fronts_for_note(note_path)
+            if previous_fronts:
+                console.print(f"  [dim]Found {len(previous_fronts)} previous flashcards for deduplication[/dim]")
+
         # Generate flashcards
         if args.query:
             # Paired query mode - extract specific info from note based on query
             console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note)
+            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
         else:
             # Normal mode - generate flashcards from note content
-            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note)
+            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
         if not flashcards:
             console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue
@@ -243,9 +250,11 @@ def main():
             console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
-            # Record flashcard creation for density tracking
+            # Record flashcard creation for density tracking and deduplication
             note_size = len(note_content)
-            config.record_flashcards_created(note_path, note_size, successful_cards)
+            # Extract fronts from successfully added cards for deduplication
+            flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
+            config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
         else:
             console.print("  [red]ERROR:[/red] Failed to add cards to Anki")
 

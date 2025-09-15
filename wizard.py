@@ -49,7 +49,7 @@ ANTHROPIC_API_KEY={anthropic_key}
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
         # Import config defaults here to avoid circular imports during build
-        from config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS
+        from config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
 
         max_cards = IntPrompt.ask("   How many flashcards per session?", default=MAX_CARDS)
         notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=NOTES_TO_SAMPLE)
@@ -78,6 +78,11 @@ ANTHROPIC_API_KEY={anthropic_key}
             default=APPROVE_CARDS
         )
 
+        deduplicate_via_history = Confirm.ask(
+            "   Avoid duplicate flashcards using processing history?",
+            default=DEDUPLICATE_VIA_HISTORY
+        )
+
         # Create config.json with user preferences and defaults
         user_config = {
             "MAX_CARDS": max_cards,
@@ -90,7 +95,8 @@ ANTHROPIC_API_KEY={anthropic_key}
             "PROCESSING_HISTORY_FILE": "processing_history.json",
             "DENSITY_BIAS_STRENGTH": 0.5,
             "APPROVE_NOTES": approve_notes,
-            "APPROVE_CARDS": approve_cards
+            "APPROVE_CARDS": approve_cards,
+            "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history
         }
 
         try:

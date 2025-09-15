@@ -26,7 +26,8 @@ DEFAULT_CONFIG = {
     "SEARCH_FOLDERS": None,  # or None for all folders
     "CARD_TYPE": "custom",  # "basic" or "custom"
     "APPROVE_NOTES": False,  # Ask user approval before AI processes each note
-    "APPROVE_CARDS": False   # Ask user approval before adding each card to Anki
+    "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
+    "DEDUPLICATE_VIA_HISTORY": False  # Include past flashcard questions in prompts to avoid duplicates
 }
 
 def load_config():
@@ -59,6 +60,7 @@ SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
 CARD_TYPE = _config["CARD_TYPE"]
 APPROVE_NOTES = _config["APPROVE_NOTES"]
 APPROVE_CARDS = _config["APPROVE_CARDS"]
+DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
 
 class ConfigManager:
     def __init__(self):
@@ -185,24 +187,39 @@ class ConfigManager:
         with open(self.processing_history_file, 'w') as f:
             json.dump(self.processing_history, f, indent=2)
 
-    def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int):
+    def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int, flashcard_fronts: list = None):
         """Record that we created flashcards for a note"""
         if note_path not in self.processing_history:
             self.processing_history[note_path] = {
                 "size": note_size,
                 "total_flashcards": 0,
-                "sessions": []
+                "sessions": [],
+                "flashcard_fronts": []  # Track all flashcard questions ever created
             }
 
         # Update totals
         self.processing_history[note_path]["total_flashcards"] += flashcard_count
         self.processing_history[note_path]["size"] = note_size  # Update in case note changed
+
+        # Add flashcard fronts to history if provided
+        if flashcard_fronts:
+            if "flashcard_fronts" not in self.processing_history[note_path]:
+                self.processing_history[note_path]["flashcard_fronts"] = []
+            self.processing_history[note_path]["flashcard_fronts"].extend(flashcard_fronts)
+
         self.processing_history[note_path]["sessions"].append({
             "date": __import__('time').time(),
             "flashcards": flashcard_count
         })
 
         self.save_processing_history()
+
+    def get_flashcard_fronts_for_note(self, note_path: str) -> list:
+        """Get all previously created flashcard fronts for a note"""
+        if note_path not in self.processing_history:
+            return []
+
+        return self.processing_history[note_path].get("flashcard_fronts", [])
 
     def get_density_bias_for_note(self, note_path: str, note_size: int) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
