@@ -34,6 +34,15 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
 def handle_config_command(args):
     """Handle config management commands"""
 
+    if args.config_action is None:
+        console.print("[bold cyan]Config Management Commands:[/bold cyan]")
+        console.print("  [green]oki config list[/green]        - List all configuration settings")
+        console.print("  [green]oki config get <key>[/green]   - Get a configuration value")
+        console.print("  [green]oki config set <key> <value>[/green] - Set a configuration value")
+        console.print("  [green]oki config reset[/green]      - Reset configuration to defaults")
+        console.print("  [green]oki config where[/green]      - Show configuration directory path")
+        return
+
     if args.config_action == 'where':
         console.print(str(CONFIG_DIR))
         return
@@ -123,6 +132,14 @@ def handle_config_command(args):
 
 def handle_tag_command(args):
     """Handle tag management commands"""
+
+    if args.tag_action is None:
+        console.print("[bold cyan]Tag Management Commands:[/bold cyan]")
+        console.print("  [green]oki tag list[/green]              - List all tag weights")
+        console.print("  [green]oki tag add <tag> <weight>[/green] - Add or update a tag weight")
+        console.print("  [green]oki tag remove <tag>[/green]      - Remove a tag weight")
+        return
+
     config = ConfigManager()
 
     if args.tag_action == 'list':
@@ -162,6 +179,11 @@ def handle_tag_command(args):
 
 def handle_history_command(args):
     """Handle history management commands"""
+
+    if args.history_action is None:
+        console.print("[bold cyan]History Management Commands:[/bold cyan]")
+        console.print("  [green]oki history clear[/green] - Clear processing history")
+        return
 
     if args.history_action == 'clear':
         history_file = CONFIG_DIR / "processing_history.json"
