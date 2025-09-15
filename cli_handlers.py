@@ -135,9 +135,11 @@ def handle_tag_command(args):
 
     if args.tag_action is None:
         console.print("[bold cyan]Tag Management Commands:[/bold cyan]")
-        console.print("  [green]oki tag list[/green]              - List all tag weights")
+        console.print("  [green]oki tag list[/green]              - List all tag weights and exclusions")
         console.print("  [green]oki tag add <tag> <weight>[/green] - Add or update a tag weight")
         console.print("  [green]oki tag remove <tag>[/green]      - Remove a tag weight")
+        console.print("  [green]oki tag exclude <tag>[/green]     - Add tag to exclusion list")
+        console.print("  [green]oki tag include <tag>[/green]     - Remove tag from exclusion list")
         return
 
     config = ConfigManager()
@@ -174,6 +176,24 @@ def handle_tag_command(args):
             console.print(f"[green]Removed tag '{args.tag}'[/green]")
         else:
             console.print(f"[red]Tag '{args.tag}' not found.[/red]")
+        return
+
+    if args.tag_action == 'exclude':
+        if args.tag not in config.excluded_tags:
+            config.excluded_tags.append(args.tag)
+            config.save_tag_schema()
+            console.print(f"[green]Added '{args.tag}' to exclusion list[/green]")
+        else:
+            console.print(f"[yellow]Tag '{args.tag}' is already excluded[/yellow]")
+        return
+
+    if args.tag_action == 'include':
+        if args.tag in config.excluded_tags:
+            config.excluded_tags.remove(args.tag)
+            config.save_tag_schema()
+            console.print(f"[green]Removed '{args.tag}' from exclusion list[/green]")
+        else:
+            console.print(f"[yellow]Tag '{args.tag}' is not in exclusion list[/yellow]")
         return
 
 

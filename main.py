@@ -59,6 +59,14 @@ def main():
     # tag remove <tag>
     remove_parser = tag_subparsers.add_parser('remove', help='Remove a tag weight')
     remove_parser.add_argument('tag', help='Tag name to remove')
+
+    # tag exclude <tag>
+    exclude_parser = tag_subparsers.add_parser('exclude', help='Add a tag to exclusion list')
+    exclude_parser.add_argument('tag', help='Tag name to exclude')
+
+    # tag include <tag>
+    include_parser = tag_subparsers.add_parser('include', help='Remove a tag from exclusion list')
+    include_parser.add_argument('tag', help='Tag name to include')
     args = parser.parse_args()
 
     # Handle config, history, and tag management commands
