@@ -16,7 +16,9 @@ def approve_note(note_title: str, note_path: str) -> bool:
     console.print(f"   [dim]Path: {note_path}[/dim]")
 
     from rich.prompt import Confirm
-    return Confirm.ask("   Process this note?", default=True)
+    result = Confirm.ask("   Process this note?", default=True)
+    console.print()  # Add newline after approval
+    return result
 
 def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
@@ -24,7 +26,9 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
 
     from rich.prompt import Confirm
-    return Confirm.ask("   Add this card to Anki?", default=True)
+    result = Confirm.ask("   Add this card to Anki?", default=True)
+    console.print()  # Add newline after approval
+    return result
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
@@ -95,7 +99,7 @@ def main():
     if args.query:
         if not args.notes:
             # Standalone query mode - generate cards from query alone
-            console.print(f"[cyan]QUERY MODE:[/cyan] Generating flashcards for: [bold]{args.query}[/bold]")
+            console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
 
             target_cards = args.cards if args.cards else None
             flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards)

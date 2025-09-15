@@ -42,7 +42,7 @@ FLASHCARD CREATION GUIDELINES:
 3. Keep answers concise but complete
 4. Avoid overly obvious or trivial information
 5. Look for information that would benefit from spaced repetition
-6. Create the requested number of flashcards when specified, otherwise 1-3 per note
+6. Create the number of flashcards requested in the prompt
 
 GOOD FLASHCARD EXAMPLES:
 - Front: "What is the primary function of mitochondria?" Back: "Generate ATP (energy) for cellular processes"
@@ -65,7 +65,7 @@ QUERY-BASED FLASHCARD GUIDELINES:
 2. Include fundamental concepts, definitions, and practical examples
 3. Break complex topics into digestible pieces
 4. Focus on information that benefits from spaced repetition
-5. Create the requested number of flashcards when specified, otherwise 2-4 per query
+5. Create the number of flashcards requested in the prompt
 
 GOOD QUERY FLASHCARD EXAMPLES:
 Query: "how to center a div"
@@ -86,7 +86,7 @@ TARGETED EXTRACTION GUIDELINES:
 2. Extract specific examples, syntax, or concepts that answer the query
 3. If the note doesn't contain relevant information, create fewer or no cards
 4. Prioritize practical, actionable information over theory
-5. Create the requested number of flashcards when specified, otherwise 1-3 per note-query pair
+5. Create the number of flashcards requested in the prompt
 
 GOOD TARGETED EXTRACTION EXAMPLES:
 Query: "syntax for fragments" + React note content
@@ -109,7 +109,8 @@ class FlashcardAI:
     def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None) -> List[Dict[str, str]]:
         """Generate flashcards from note content using Claude"""
 
-        card_instruction = f"Create approximately {target_cards} flashcards" if target_cards else "Create 1-3 flashcards"
+        cards_to_create = target_cards if target_cards else 2
+        card_instruction = f"Create approximately {cards_to_create} flashcards"
 
         user_prompt = f"""Note Title: {note_title}
 
@@ -145,7 +146,8 @@ class FlashcardAI:
     def generate_flashcards_from_query(self, query: str, target_cards: int = None) -> List[Dict[str, str]]:
         """Generate flashcards based on a user query without source material"""
 
-        card_instruction = f"Create approximately {target_cards} flashcards" if target_cards else "Create 2-4 flashcards"
+        cards_to_create = target_cards if target_cards else 3
+        card_instruction = f"Create approximately {cards_to_create} flashcards"
 
         user_prompt = f"""User Query: {query}
 
@@ -178,7 +180,8 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
     def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None) -> List[Dict[str, str]]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
-        card_instruction = f"Create approximately {target_cards} flashcards" if target_cards else "Create 1-3 flashcards"
+        cards_to_create = target_cards if target_cards else 2
+        card_instruction = f"Create approximately {cards_to_create} flashcards"
 
         user_prompt = f"""Note Title: {note_title}
 Query: {query}
