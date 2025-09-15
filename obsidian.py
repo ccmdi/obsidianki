@@ -31,6 +31,21 @@ class ObsidianAPI:
 
         return f"AND ({' OR '.join(folder_conditions)})"
 
+    def _build_exclude_filter(self, config_manager) -> str:
+        """Build DQL exclude filter condition based on excluded tags"""
+        if not config_manager or not hasattr(config_manager, 'excluded_tags'):
+            return ""
+
+        excluded_tags = config_manager.excluded_tags
+        if not excluded_tags:
+            return ""
+
+        exclude_conditions = []
+        for tag in excluded_tags:
+            exclude_conditions.append(f'!contains(file.tags, "{tag}")')
+
+        return f"AND ({' AND '.join(exclude_conditions)})"
+
     def _make_request(self, endpoint: str, method: str = "GET", data: dict = None):
         """Make a request to the Obsidian REST API, ignoring SSL verification"""
         response = requests.request(
@@ -68,13 +83,14 @@ class ObsidianAPI:
             console.print(f"[red]ERROR:[/red] Error executing DQL query: {e}")
             raise
 
-    def get_notes_older_than(self, days: int, limit: int = None) -> List[Dict]:
+    def get_notes_older_than(self, days: int, limit: int = None, config_manager=None) -> List[Dict]:
         """Get notes that haven't been modified in the specified number of days using DQL"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
         from config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
+        exclude_filter = self._build_exclude_filter(config_manager)
 
         dql_query = f"""TABLE
             file.name AS "filename",
@@ -84,6 +100,7 @@ class ObsidianAPI:
             FROM ""
             WHERE file.mtime < date("{cutoff_str}")
             {folder_filter}
+            {exclude_filter}
             SORT file.mtime ASC"""
 
         if limit:
@@ -91,11 +108,12 @@ class ObsidianAPI:
 
         return self.search_with_dql(dql_query)
 
-    def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0) -> List[Dict]:
+    def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Dict]:
         """Get notes that contain specific tags, optionally excluding recently modified ones"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
         from config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
+        exclude_filter = self._build_exclude_filter(config_manager)
 
         dql_query = f"""TABLE
             file.name AS "filename",
@@ -112,6 +130,9 @@ class ObsidianAPI:
 
         if folder_filter:
             dql_query += f"\n{folder_filter}"
+
+        if exclude_filter:
+            dql_query += f"\n{exclude_filter}"
 
         dql_query += "\nSORT file.mtime ASC"
 
@@ -132,6 +153,8 @@ class ObsidianAPI:
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
 
         # Get notes with tags for weighted sampling
+        exclude_filter = self._build_exclude_filter(config_manager)
+
         dql_query = f"""TABLE
             file.name AS "filename",
             file.path AS "path",
@@ -142,6 +165,7 @@ class ObsidianAPI:
             WHERE file.mtime < date("{cutoff_str}")
             AND file.size > 100
             {folder_filter}
+            {exclude_filter}
             SORT file.mtime ASC"""
 
         all_old_notes = self.search_with_dql(dql_query)
@@ -177,10 +201,11 @@ class ObsidianAPI:
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
 
-    def find_note_by_name(self, note_name: str) -> Dict:
+    def find_note_by_name(self, note_name: str, config_manager=None) -> Dict:
         """Find a specific note by name (partial match)"""
         from config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
+        exclude_filter = self._build_exclude_filter(config_manager)
 
         dql_query = f"""TABLE
             file.name AS "filename",
@@ -191,6 +216,7 @@ class ObsidianAPI:
             FROM ""
             WHERE contains(file.name, "{note_name}")
             {folder_filter}
+            {exclude_filter}
             SORT file.name ASC"""
 
         results = self.search_with_dql(dql_query)

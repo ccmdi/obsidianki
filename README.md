@@ -38,23 +38,40 @@ You can then follow the interactive setup and edit the configuration as you like
 
 ## Usage
 
-**Generate flashcards:**
+### Basic Usage
 ```bash
-obsidianki
-```
-
-**Options:**
-```bash
-obsidianki --config          # Show config directory
+obsidianki                   # Generate flashcards
 obsidianki --setup           # Reconfigure
-
-obsidianki --cards 10        # Override card limit
-obsidianki --notes "Note 1" "Note 2"  # Process specific notes
+obsidianki --config          # Show config path
 ```
+
+### Note Selection
+```bash
+obsidianki --notes "React" "JavaScript"     # Process specific notes
+obsidianki --cards 10                       # Generate up to 10 cards total
+obsidianki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
+obsidianki --notes "React" --cards 6        # Generate ~6 cards from React note
+```
+
+### Query Mode
+```bash
+# Standalone query (no source material needed)
+obsidianki -q "how to center a div"
+obsidianki -q "CSS flexbox" --cards 8
+
+# Targeted extraction
+obsidianki --notes "React" -q "error handling"
+obsidianki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
+```
+
+### Approval Settings
+During setup, you can enable:
+- **Note approval**: Review each note before AI processing
+- **Card approval**: Review each flashcard before adding to Anki
 
 ## Configuration Files
-- `config.json` - Main settings (cards per session, sampling mode, etc.)
-- `tags.json` - Tag weights for weighted sampling
+- `config.json` - Main settings (cards per session, sampling mode, approval settings, etc.)
+- `tags.json` - Tag weights and exclusions for weighted sampling
 - `processing_history.json` - Tracks flashcards created per note
 
 **Example tags.json for weighted sampling:**
@@ -63,21 +80,36 @@ obsidianki --notes "Note 1" "Note 2"  # Process specific notes
   "field/history": 2.0,
   "field/math": 1.0,
   "field/science": 1.5,
-  "_default": 0.5
+  "_default": 0.5,
+  "_exclude": ["private", "draft", "personal"]
 }
 ```
 
+**Tag exclusions**: Notes with tags in the `_exclude` array will be completely filtered out during note selection (applied at the database level for efficiency).
+
 ## How it works
 
+### Standard Mode
 1. Finds old notes in your vault (configurable age threshold)
-2. Weights notes by tags and processing history (avoids over-processed notes)
-3. Generates flashcards using Claude 4 Sonnet
-4. Creates cards in Anki **"Obsidian"** deck
+2. Excludes notes with tags in `_exclude` array (database-level filtering)
+3. Weights notes by tags and processing history (avoids over-processed notes)
+4. Generates flashcards using Claude 4 Sonnet
+5. Creates cards in Anki **"Obsidian"** deck
 
-**Smart sampling:**
+### Query Modes
+- **Standalone**: Generates flashcards from AI knowledge alone based on your query
+- **Targeted**: Extracts specific information from selected notes based on your query
+
+### Smart Features
+**Intelligent sampling:**
 - Higher-weighted tags get selected more often
 - Notes with fewer flashcards relative to size are preferred
 - Prevents exhausting small notes while allowing large notes more cards
+
+**Card generation:**
+- `--cards` parameter instructs the AI on exactly how many cards to generate
+- Distributes card count across multiple notes automatically
+- Supports approval workflows for both note selection and individual cards
 
 **Card Types:**
 - **Basic**: Standard front/back flashcards

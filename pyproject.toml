@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obsidianki"
-version = "0.1.0"
+version = "0.2.0"
 description = "Generate flashcards from Obsidian notes using AI and sync them to Anki"
 authors = [{name = "ccmdi", email = "ccmdi.dev@gmail.com"}]
 license = {text = "MIT"}
@@ -22,6 +22,7 @@ dependencies = [
 
 [project.scripts]
 obsidianki = "main:main"
+oki = "main:main"
 
 [project.urls]
 Homepage = "https://github.com/ccmdi/obsidianki"
@@ -29,4 +30,4 @@ Repository = "https://github.com/ccmdi/obsidianki"
 Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
-py-modules = ["main", "obsidian", "ai", "anki", "config", "wizard"]
+py-modules = ["main", "obsidian", "ai", "anki", "config", "wizard", "cli_handlers"]
