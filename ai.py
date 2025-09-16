@@ -191,6 +191,8 @@ IMPORTANT RULES:
 6. Multiple conditions: Use AND/OR with parentheses
 7. Case sensitive: file names and tags are case sensitive
 
+THIS IS DQL (Dataview Query Language), so only use functions that are supported by DQL.
+
 EXAMPLE QUERIES:
 
 Natural: "find React notes from last month"
@@ -240,6 +242,37 @@ TABLE
 ```
 
 Write a DQL query that matches the user's natural language request. Output ONLY the DQL query, no explanation."""
+
+# Note Ranking System Prompt
+NOTE_RANKING_PROMPT = """You are an expert at analyzing notes and ranking their relevance to a user's request. Your job is to evaluate a list of notes and select the most relevant ones for flashcard generation.
+
+You will receive:
+1. The user's original natural language request
+2. A list of notes with metadata (filename, path, tags, modification time, size)
+
+Your task:
+1. Rank the notes by relevance to the user's request
+2. Select the most relevant notes for flashcard generation
+3. Consider factors like:
+   - Direct relevance to the topic/request
+   - Content freshness (newer notes may be more relevant)
+   - Note tags that match the request
+   - File naming patterns that suggest relevance
+   - Note size (very small notes may have minimal content)
+
+Return a JSON array of the selected note paths in order of relevance (most relevant first).
+
+Example:
+User request: "React hooks from last month"
+Note list: [
+  {"path": "Frontend/React-Hooks-Guide.md", "tags": ["#react", "#hooks"], "mtime": "2024-08-15"},
+  {"path": "Random/Shopping-List.md", "tags": ["#personal"], "mtime": "2024-08-20"},
+  {"path": "Frontend/useState-Examples.md", "tags": ["#react"], "mtime": "2024-08-10"}
+]
+
+Response: ["Frontend/React-Hooks-Guide.md", "Frontend/useState-Examples.md"]
+
+Only return the JSON array, no explanation."""
 
 class FlashcardAI:
     def __init__(self):
@@ -422,7 +455,7 @@ Please analyze this note and extract information specifically related to the que
 
         for attempt in range(max_attempts):
             try:
-                console.print(f"[cyan]AI Agent:[/cyan] Generating DQL query (attempt {attempt + 1}/{max_attempts})")
+                console.print(f"[cyan]Agent:[/cyan] Generating DQL query")
 
                 # Add folder context to the request
                 folder_context = ""
@@ -430,7 +463,19 @@ Please analyze this note and extract information specifically related to the que
                 if effective_folders:
                     folder_context = f"\n\nIMPORTANT: Only search in these folders: {effective_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
-                user_prompt = f"""Natural language request: {natural_request}{folder_context}
+                # Add current date context for relative date calculations
+                from datetime import datetime, timedelta
+                today = datetime.now()
+                two_months_ago = today - timedelta(days=60)  # Approximate 2 months
+                one_month_ago = today - timedelta(days=30)
+
+                date_context = f"""\n\nIMPORTANT: Today's date is {today.strftime('%Y-%m-%d')}. For relative dates:
+- "2 months ago" = {two_months_ago.strftime('%Y-%m-%d')}
+- "1 month ago" = {one_month_ago.strftime('%Y-%m-%d')}
+- "last week" = {(today - timedelta(days=7)).strftime('%Y-%m-%d')}
+Use these calculated dates in your DQL queries."""
+
+                user_prompt = f"""Natural language request: {natural_request}{folder_context}{date_context}
 
 Generate a DQL query that finds the requested notes."""
 
@@ -458,106 +503,156 @@ Generate a DQL query that finds the requested notes."""
         console.print(f"[red]ERROR:[/red] Failed to generate DQL query after {max_attempts} attempts")
         return None
 
+    def rank_notes_by_relevance(self, natural_request: str, notes: List[Dict], target_count: int = None) -> List[str]:
+        """Use AI to rank notes by relevance and return the most relevant note paths"""
+
+        if not notes:
+            return []
+
+        # Prepare note metadata for AI ranking
+        note_metadata = []
+        for note in notes:
+            result = note.get('result', {})
+            metadata = {
+                "path": result.get('path', ''),
+                "filename": result.get('filename', ''),
+                "tags": result.get('tags', []) or [],
+                "mtime": result.get('mtime', ''),
+                "size": result.get('size', 0)
+            }
+            note_metadata.append(metadata)
+
+        # console.print(f"[cyan]Agent:[/cyan] Ranking {len(notes)} notes by relevance...")
+
+        user_prompt = f"""Original request: {natural_request}
+
+Note list: {note_metadata}
+
+Select and rank the most relevant notes for this request. Return a JSON array of note paths."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-4-sonnet-20250514",
+                max_tokens=2000,
+                system=NOTE_RANKING_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+
+            if response.content and len(response.content) > 0:
+                ranking_text = response.content[0].text.strip()
+
+                # Extract JSON array from response
+                try:
+                    import json
+                    # Try to parse as JSON directly
+                    if ranking_text.startswith('['):
+                        ranked_paths = json.loads(ranking_text)
+                    else:
+                        # Extract JSON from response if it's wrapped in text
+                        import re
+                        json_match = re.search(r'\[.*?\]', ranking_text, re.DOTALL)
+                        if json_match:
+                            ranked_paths = json.loads(json_match.group(0))
+                        else:
+                            raise ValueError("No JSON array found in response")
+
+                    # Apply target count if specified
+                    if target_count and len(ranked_paths) > target_count:
+                        ranked_paths = ranked_paths[:target_count]
+
+                    console.print(f"[green]Agent:[/green] Selected {len(ranked_paths)} most relevant notes")
+                    return ranked_paths
+
+                except json.JSONDecodeError as e:
+                    console.print(f"[yellow]Warning:[/yellow] Failed to parse AI ranking: {e}")
+                    # Fallback: return all note paths
+                    return [note['result'].get('path', '') for note in notes[:target_count] if note['result'].get('path')]
+
+        except Exception as e:
+            console.print(f"[yellow]Warning:[/yellow] Error ranking notes: {e}")
+            # Fallback: return all note paths
+            return [note['result'].get('path', '') for note in notes[:target_count] if note['result'].get('path')]
+
     def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
-        """Use AI agent to find notes via natural language DQL generation"""
+        """Use agent to find notes via natural language DQL generation and relevance ranking"""
 
-        max_query_attempts = 3
+        # Step 1: Generate DQL query (with retry on syntax errors)
+        max_query_attempts = 2
+        dql_query = None
 
-        for query_attempt in range(max_query_attempts):
-            # Generate DQL query
+        for attempt in range(max_query_attempts):
             dql_query = self.generate_dql_query(natural_request, search_folders)
             if not dql_query:
                 return []
 
             try:
-                # Test the query
-                console.print(f"[cyan]AI Agent:[/cyan] Executing DQL query...")
+                # Step 2: Execute query to get ALL matching results
+                console.print(f"[cyan]Agent:[/cyan] Executing DQL query...")
                 results = obsidian_api.search_with_dql(dql_query)
 
-                if results is None:
-                    console.print(f"[yellow]Warning:[/yellow] Query returned no results, trying again...")
-                    continue
-
-                # Apply additional filtering (SEARCH_FOLDERS and excluded tags)
-                if config_manager:
-                    from obsidian import ObsidianAPI
-                    filtered_results = []
-                    for result in results:
-                        note_path = result['result'].get('path', '')
-
-                        # Apply SEARCH_FOLDERS filtering if not already in query
-                        effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
-                        if effective_folders:
-                            path_matches = any(note_path.startswith(f"{folder}/") for folder in effective_folders)
-                            if not path_matches:
-                                continue
-
-                        # Apply excluded tags filtering
-                        note_tags = result['result'].get('tags', []) or []
-                        excluded_tags = config_manager.get_excluded_tags()
-                        if excluded_tags and any(tag in note_tags for tag in excluded_tags):
-                            continue
-
-                        filtered_results.append(result)
-
-                    results = filtered_results
-
-                # Apply sampling if requested
-                if sample_size and len(results) > sample_size:
-                    if config_manager:
-                        results = obsidian_api._weighted_sample(results, sample_size, config_manager, bias_strength)
+                if results is None or len(results) == 0:
+                    if attempt < max_query_attempts - 1:
+                        console.print(f"[yellow]No results found, trying alternative query...[/yellow]")
+                        continue
                     else:
-                        import random
-                        results = random.sample(results, sample_size)
+                        console.print("[yellow]No matching notes found[/yellow]")
+                        return []
 
-                console.print(f"[green]AI Agent:[/green] Found {len(results)} matching notes")
-                return results
+                console.print(f"[cyan]Agent:[/cyan] Found {len(results)} candidate notes")
+                break
 
             except Exception as e:
                 error_msg = str(e)
-                console.print(f"[yellow]DQL Error (attempt {query_attempt + 1}):[/yellow] {error_msg}")
+                console.print(f"[yellow]DQL Error (attempt {attempt + 1}):[/yellow] {error_msg}")
 
-                if query_attempt < max_query_attempts - 1:
-                    # Try to fix the query with error feedback
-                    console.print(f"[cyan]AI Agent:[/cyan] Attempting to fix query based on error...")
+                if attempt < max_query_attempts - 1:
+                    # Try to fix the query
+                    console.print(f"[cyan]Agent:[/cyan] Fixing query syntax...")
+                    # Query will be regenerated in next iteration
+                else:
+                    console.print(f"[red]ERROR:[/red] Failed to execute DQL query")
+                    return []
 
-                    fix_prompt = f"""The previous DQL query failed with this error:
-{error_msg}
+        # Step 3: Apply basic filtering (folders, excluded tags)
+        if config_manager:
+            filtered_results = []
+            for result in results:
+                note_path = result['result'].get('path', '')
 
-Original request: {natural_request}
-Failed query: {dql_query}
+                # Apply SEARCH_FOLDERS filtering
+                effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
+                if effective_folders:
+                    path_matches = any(note_path.startswith(f"{folder}/") for folder in effective_folders)
+                    if not path_matches:
+                        continue
 
-Generate a corrected DQL query that fixes this error. Common fixes:
-- Check property names (case sensitive)
-- Use proper date format: date("YYYY-MM-DD")
-- Check tag format: contains(file.tags, "#tagname")
-- Verify array operations: length(array_property)
-- Use proper string escaping
+                # Apply excluded tags filtering
+                note_tags = result['result'].get('tags', []) or []
+                excluded_tags = config_manager.get_excluded_tags()
+                if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                    continue
 
-Output ONLY the corrected DQL query."""
+                filtered_results.append(result)
 
-                    try:
-                        fix_response = self.client.messages.create(
-                            model="claude-4-sonnet-20250514",
-                            max_tokens=2000,
-                            system=DQL_AGENT_PROMPT,
-                            messages=[{"role": "user", "content": fix_prompt}]
-                        )
+            results = filtered_results
 
-                        if fix_response.content and len(fix_response.content) > 0:
-                            dql_query = fix_response.content[0].text.strip()
+        if not results:
+            console.print("[yellow]No notes remaining after filtering[/yellow]")
+            return []
 
-                            # Clean up the query
-                            if "```" in dql_query:
-                                dql_query = re.sub(r'```[a-zA-Z]*\n?', '', dql_query)
-                                dql_query = dql_query.replace("```", "").strip()
+        # Step 4: AI ranking to select most relevant notes
+        target_count = sample_size if sample_size else min(10, len(results))  # Default to top 10
+        ranked_paths = self.rank_notes_by_relevance(natural_request, results, target_count)
 
-                            console.print(f"[dim]Corrected query:[/dim] {dql_query[:100]}...")
-                            continue  # Try the corrected query
+        # Step 5: Convert back to note objects in ranked order
+        ranked_notes = []
+        for path in ranked_paths:
+            for note in results:
+                if note['result'].get('path') == path:
+                    ranked_notes.append(note)
+                    break
+        
+        console.print()
 
-                    except Exception as fix_error:
-                        console.print(f"[red]Error generating fix:[/red] {fix_error}")
-
-        console.print(f"[red]ERROR:[/red] Failed to execute DQL query after {max_query_attempts} attempts")
-        return []
+        return ranked_notes
 

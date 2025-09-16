@@ -29,7 +29,7 @@ def show_main_help():
     console.print("  [cyan]--cards <n>[/cyan]           Set target card limit")
     console.print("  [cyan]--notes <patterns>[/cyan]    Process specific notes or directory patterns")
     console.print("  [cyan]--query <text>[/cyan]        Generate cards from query, e.g. \"do X\"")
-    console.print("  [cyan]--agent <request>[/cyan]     AI agent mode: natural language note discovery")
+    console.print("  [cyan]--agent <request>[/cyan]     Agent mode: natural language note discovery")
     console.print("  [cyan]--deck <name>[/cyan]         Anki deck to add cards to")
     console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
     console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
@@ -49,7 +49,7 @@ def main():
     parser.add_argument("--cards", type=int, help="Override max card limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
-    parser.add_argument("-a", "--agent", type=str, help="AI agent mode: natural language note discovery using DQL queries")
+    parser.add_argument("-a", "--agent", type=str, help="Agent mode: natural language note discovery using DQL queries")
     parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
@@ -192,7 +192,6 @@ def main():
             effective_search_folders = list(effective_search_folders) + args.allow
         else:
             effective_search_folders = args.allow
-        console.print(f"[cyan]Allowing additional folders:[/cyan] {', '.join(args.allow)}")
         console.print(f"[dim]Effective search folders:[/dim] {', '.join(effective_search_folders)}")
         console.print()
 
@@ -202,7 +201,7 @@ def main():
     console.print()
 
     # Show warning for experimental features
-    if DEDUPLICATE_VIA_DECK:
+    if args.query and DEDUPLICATE_VIA_DECK:
         console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
@@ -270,14 +269,13 @@ def main():
 
     # Handle agent mode
     if args.agent:
-        console.print(f"[cyan]AI AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        console.print("[dim]Using AI to discover relevant notes with DQL queries...[/dim]")
+        console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
 
-        # Use AI agent to find notes
+        # Use agent to find notes
         agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample, bias_strength=args.bias, search_folders=effective_search_folders)
 
         if not agent_notes:
-            console.print("[red]ERROR:[/red] AI agent found no matching notes")
+            console.print("[red]ERROR:[/red] Agent found no matching notes")
             return
 
         old_notes = agent_notes
