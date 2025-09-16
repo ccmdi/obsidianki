@@ -50,8 +50,6 @@ oki config                   # Show config commands
 oki config list              # List all settings
 oki config get max_cards     # Get specific setting
 oki config set max_cards 15  # Update setting
-oki config reset             # Reset to defaults
-oki config where             # Show config directory
 ```
 
 ### Tag Management
@@ -60,12 +58,6 @@ oki tag                      # Show tag commands
 oki tag list                 # List tag weights and exclusions
 oki tag add python 2.0       # Add/update tag weight
 oki tag remove python        # Remove tag weight
-```
-
-### History Management
-```bash
-oki history                  # Show history commands
-oki history clear            # Clear processing history (with confirmation)
 ```
 
 ### Note Selection
@@ -87,24 +79,6 @@ oki --notes "React" -q "error handling"
 oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 ```
 
-## Configuration Files
-- `config.json` - Main settings (cards per session, sampling mode, approval settings, etc.)
-- `tags.json` - Tag weights and exclusions for weighted sampling
-- `processing_history.json` - Tracks flashcards created per note
-
-**Example tags.json for weighted sampling:**
-```json
-{
-  "#field/history": 2.0,
-  "#field/math": 1.0,
-  "#field/science": 1.5,
-  "_default": 0.5,
-  "_exclude": ["#private", "#draft", "#personal"]
-}
-```
-
-**Tag exclusions**: Notes with tags in the `_exclude` array will be completely filtered out during note selection (applied at the database level for efficiency).
-
 ## How it works
 
 ### Standard Mode
@@ -118,17 +92,10 @@ oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 - **Standalone**: Generates flashcards from AI knowledge alone based on your query
 - **Targeted**: Extracts specific information from selected notes based on your query
 
-### Smart Features
+### Features
 **Intelligent sampling:**
 - Higher-weighted tags get selected more often
 - Notes with fewer flashcards relative to size are preferred
 - Prevents exhausting small notes while allowing large notes more cards
 
-**Card generation:**
-- `--cards` parameter instructs the AI on exactly how many cards to generate
-- Distributes card count across multiple notes automatically
-- Supports approval workflows for both note selection and individual cards
-
-**Card Types:**
-- **Basic**: Standard front/back flashcards
-- **Custom**: Includes clickable "Origin" field that opens the source note
+**Custom flashcard type**: Includes clickable "Origin" field that opens the source note
