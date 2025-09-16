@@ -100,6 +100,23 @@ class AnkiAPI:
                     font-size: 0.9em;
                     line-height: 1.4;
                     }
+
+                    .highlight {
+                    display: block;
+                    text-align: left;
+                    font-family: 'Iosevka Nerd Font', monospace;
+                    border-radius: 6px;
+                    margin: 8px 0;
+                    border-left: 4px solid #4a90e2;
+                    font-size: 0.9em;
+                    line-height: 1.4;
+                    overflow-x: auto;
+                    }
+
+                    .highlight pre {
+                    margin: 0;
+                    padding: 12px 16px;
+                    }
                     """,
                 "cardTemplates": [
                     {
