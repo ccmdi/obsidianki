@@ -10,11 +10,12 @@ from cli_handlers import handle_config_command, handle_tag_command, handle_histo
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
-    parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
+    parser.add_argument("--cards", type=int, help="Override max card limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
     parser.add_argument("--deck", type=str, default="Obsidian", help="Anki deck to add cards to (default: Obsidian)")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
+    parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -196,7 +197,7 @@ def main():
             # Check if this looks like a directory pattern
             if '*' in note_pattern or '/' in note_pattern:
                 # Use pattern matching with optional sampling
-                pattern_notes = obsidian.find_notes_by_pattern(note_pattern, config_manager=config, sample_size=args.sample)
+                pattern_notes = obsidian.find_notes_by_pattern(note_pattern, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
 
                 if pattern_notes:
                     old_notes.extend(pattern_notes)
@@ -231,7 +232,7 @@ def main():
             console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
         console.print()
     else:
-        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
+        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
 
         if not old_notes:
             console.print("[red]ERROR:[/red] No old notes found")
