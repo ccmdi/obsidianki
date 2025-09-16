@@ -83,6 +83,9 @@ def main():
     # history clear
     history_subparsers.add_parser('clear', help='Clear processing history')
 
+    # history stats
+    history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
+
     # Tag management
     tag_parser = subparsers.add_parser('tag', help='Manage tag weights', add_help=False)
     tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")

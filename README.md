@@ -58,6 +58,8 @@ oki tag                      # Show tag commands
 oki tag list                 # List tag weights and exclusions
 oki tag add python 2.0       # Add/update tag weight
 oki tag remove python        # Remove tag weight
+oki tag exclude boring       # Exclude notes with 'boring' tag
+oki tag include boring       # Remove 'boring' from exclusion list
 ```
 
 ### Note Selection
@@ -66,6 +68,11 @@ oki --notes "React" "JavaScript"     # Process specific notes
 oki --cards 10                       # Generate up to 10 cards total
 oki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
 oki --notes "React" --cards 6        # Generate ~6 cards from React note
+
+# Directory patterns
+oki --notes "path/to/files/*"      # Process all notes in directory
+oki --notes "path/*" --sample 5          # Sample 5 random notes from directory
+oki --notes "path/*" --sample 10 --bias 1 # Sample with maximum bias against over-processed notes
 ```
 
 ### Query Mode
@@ -79,23 +86,28 @@ oki --notes "React" -q "error handling"
 oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 ```
 
+### Deck Management
+```bash
+oki --deck "Programming"             # Add cards to specific deck
+oki -q "Python basics" --deck "CS"  # Query mode with custom deck
+oki config set deck "MyDeck"         # Change default deck
+```
+
 ## How it works
 
 ### Standard Mode
 1. Finds old notes in your vault (configurable age threshold)
-2. Excludes notes with tags in `_exclude` array (database-level filtering)
-3. Weights notes by tags and processing history (avoids over-processed notes)
-4. Generates flashcards using Claude 4 Sonnet
-5. Creates cards in Anki **"Obsidian"** deck
+2. Weights notes by tags and processing history (avoids over-processed notes)
+3. Generates flashcards using Claude 4 Sonnet
+4. Creates cards in Anki **"Obsidian"** deck (or `DECK` set in config)
 
 ### Query Modes
 - **Standalone**: Generates flashcards from AI knowledge alone based on your query
 - **Targeted**: Extracts specific information from selected notes based on your query
 
-### Features
-**Intelligent sampling:**
-- Higher-weighted tags get selected more often
-- Notes with fewer flashcards relative to size are preferred
-- Prevents exhausting small notes while allowing large notes more cards
-
+### Other features
 **Custom flashcard type**: Includes clickable "Origin" field that opens the source note
+
+**Deduplication**: History-based and deck-based options to avoid the same repeated content
+
+**Statistics**: View generation history and top notes

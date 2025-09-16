@@ -202,7 +202,7 @@ class ObsidianAPI:
         return random.choices(notes, weights=weights, k=limit)
 
     def find_notes_by_pattern(self, pattern: str, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Dict]:
-        """Find notes by directory pattern (e.g., 'Life/Instances/LeetCode/*')"""
+        """Find notes by directory pattern"""
         exclude_filter = self._build_exclude_filter(config_manager)
 
         # Handle directory patterns ending with /*
