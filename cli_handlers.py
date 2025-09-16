@@ -266,14 +266,16 @@ def handle_history_command(args):
     # Handle help request
     if hasattr(args, 'help') and args.help:
         show_simple_help("History Management", {
-            "history clear": "Clear processing history",
+            "history clear": "Clear all processing history",
+            "history clear --notes <patterns>": "Clear history for specific notes/patterns only",
             "history stats": "Show flashcard generation statistics"
         })
         return
 
     if args.history_action is None:
         show_simple_help("History Management", {
-            "history clear": "Clear processing history",
+            "history clear": "Clear all processing history",
+            "history clear --notes <patterns>": "Clear history for specific notes/patterns only",
             "history stats": "Show flashcard generation statistics"
         })
         return
@@ -286,14 +288,73 @@ def handle_history_command(args):
             console.print("[yellow]No processing history found.[/yellow]")
             return
 
-        try:
-            if Confirm.ask("Clear all processing history? This will remove deduplication data.", default=False):
-                history_file.unlink()
-                console.print("[green]✓[/green] Processing history cleared")
-            else:
-                console.print("[yellow]Operation cancelled[/yellow]")
-        except KeyboardInterrupt:
-            raise
+        # Check if specific notes were requested
+        if hasattr(args, 'notes') and args.notes:
+            # Selective clearing for specific notes
+            try:
+                import json
+                with open(history_file, 'r') as f:
+                    history_data = json.load(f)
+
+                if not history_data:
+                    console.print("[yellow]No processing history found[/yellow]")
+                    return
+
+                # Find matching notes
+                notes_to_clear = []
+                for pattern in args.notes:
+                    # Simple pattern matching - if pattern contains *, use substring matching
+                    if '*' in pattern:
+                        # Convert pattern to substring check
+                        pattern_part = pattern.replace('*', '')
+                        matching_notes = [note_path for note_path in history_data.keys()
+                                        if pattern_part in note_path]
+                    else:
+                        # Exact or partial name matching
+                        matching_notes = [note_path for note_path in history_data.keys()
+                                        if pattern in note_path]
+
+                    notes_to_clear.extend(matching_notes)
+
+                # Remove duplicates
+                notes_to_clear = list(set(notes_to_clear))
+
+                if not notes_to_clear:
+                    console.print(f"[yellow]No notes found matching the patterns: {', '.join(args.notes)}[/yellow]")
+                    return
+
+                console.print(f"[cyan]Found {len(notes_to_clear)} notes to clear:[/cyan]")
+                for note in notes_to_clear:
+                    console.print(f"  [dim]{note}[/dim]")
+
+                if Confirm.ask(f"Clear history for these {len(notes_to_clear)} notes?", default=False):
+                    # Remove selected notes from history
+                    for note_path in notes_to_clear:
+                        if note_path in history_data:
+                            del history_data[note_path]
+
+                    # Save updated history
+                    with open(history_file, 'w') as f:
+                        json.dump(history_data, f, indent=2)
+
+                    console.print(f"[green]✓[/green] Cleared history for {len(notes_to_clear)} notes")
+                else:
+                    console.print("[yellow]Operation cancelled[/yellow]")
+
+            except json.JSONDecodeError:
+                console.print("[red]Invalid history file format[/red]")
+            except Exception as e:
+                console.print(f"[red]Error processing history: {e}[/red]")
+        else:
+            # Clear all history (original behavior)
+            try:
+                if Confirm.ask("Clear all processing history? This will remove deduplication data.", default=False):
+                    history_file.unlink()
+                    console.print("[green]✓[/green] Processing history cleared")
+                else:
+                    console.print("[yellow]Operation cancelled[/yellow]")
+            except KeyboardInterrupt:
+                raise
         return
 
     if args.history_action == 'stats':

@@ -243,7 +243,7 @@ class ConfigManager:
         # Apply bias - higher density = lower weight
         # Bias strength controls how aggressively we avoid over-processed notes
         effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
-        bias_factor = max(0.1, 1.0 - (density * 1000 * effective_bias))
+        bias_factor = max(0.0, 1.0 - (density * 1000 * effective_bias))
 
         return bias_factor
 

@@ -81,7 +81,8 @@ def main():
     history_subparsers = history_parser.add_subparsers(dest='history_action', help='History actions')
 
     # history clear
-    history_subparsers.add_parser('clear', help='Clear processing history')
+    clear_parser = history_subparsers.add_parser('clear', help='Clear processing history')
+    clear_parser.add_argument('--notes', nargs='+', help='Clear history for specific notes only (patterns supported)')
 
     # history stats
     history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
