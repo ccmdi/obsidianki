@@ -27,7 +27,8 @@ DEFAULT_CONFIG = {
     "CARD_TYPE": "custom",  # "basic" or "custom"
     "APPROVE_NOTES": False,  # Ask user approval before AI processes each note
     "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
-    "DEDUPLICATE_VIA_HISTORY": False  # Include past flashcard questions in prompts to avoid duplicates
+    "DEDUPLICATE_VIA_HISTORY": False,  # Include past flashcard questions in prompts to avoid duplicates
+    "DECK": "Obsidian"  # Default Anki deck for adding cards
 }
 
 def load_config():
@@ -61,6 +62,7 @@ CARD_TYPE = _config["CARD_TYPE"]
 APPROVE_NOTES = _config["APPROVE_NOTES"]
 APPROVE_CARDS = _config["APPROVE_CARDS"]
 DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
+DECK = _config["DECK"]
 
 class ConfigManager:
     def __init__(self):

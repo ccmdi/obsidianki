@@ -96,7 +96,8 @@ ANTHROPIC_API_KEY={anthropic_key}
             "DENSITY_BIAS_STRENGTH": 0.5,
             "APPROVE_NOTES": approve_notes,
             "APPROVE_CARDS": approve_cards,
-            "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history
+            "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
+            "DECK": "Obsidian"
         }
 
         try:

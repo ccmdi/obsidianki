@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--cards", type=int, help="Override max card limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
-    parser.add_argument("--deck", type=str, default="Obsidian", help="Anki deck to add cards to (default: Obsidian)")
+    parser.add_argument("--deck", type=str, help="Anki deck to add cards to (overrides config default)")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
 
@@ -102,8 +102,11 @@ def main():
     from obsidian import ObsidianAPI
     from ai import FlashcardAI
     from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
+    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DECK
     from cli_handlers import approve_note, approve_flashcard
+
+    # Set deck from CLI argument or config default
+    deck_name = args.deck if args.deck else DECK
 
     # Determine max_cards and notes_to_sample based on arguments
     if args.notes:
@@ -151,9 +154,9 @@ def main():
             # Get previous flashcard fronts for deduplication if enabled
             previous_fronts = []
             if DEDUPLICATE_VIA_HISTORY:
-                previous_fronts = anki.get_deck_card_fronts(args.deck)
+                previous_fronts = anki.get_deck_card_fronts(deck_name)
                 if previous_fronts:
-                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{args.deck}' for deduplication[/dim]")
+                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]")
 
             target_cards = args.cards if args.cards else None
             flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
@@ -184,7 +187,7 @@ def main():
                 cards_to_add = flashcards
 
             # Add to Anki
-            result = anki.add_flashcards(cards_to_add, deck_name=args.deck, card_type=CARD_TYPE,
+            result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
                                        note_path="query", note_title=f"Query: {args.query}")
             successful_cards = len([r for r in result if r is not None])
 
@@ -323,7 +326,7 @@ def main():
             cards_to_add = flashcards
 
         # Add to Anki
-        result = anki.add_flashcards(cards_to_add, deck_name=args.deck, card_type=CARD_TYPE,
+        result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
                                    note_path=note_path, note_title=note_title)
         successful_cards = len([r for r in result if r is not None])
 
