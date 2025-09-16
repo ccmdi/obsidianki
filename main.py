@@ -12,8 +12,8 @@ def main():
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("--cards", type=int, help="Override max card limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
-    parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
-    parser.add_argument("--deck", type=str, help="Anki deck to add cards to (overrides config default)")
+    parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
+    parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
 
@@ -102,7 +102,7 @@ def main():
     from obsidian import ObsidianAPI
     from ai import FlashcardAI
     from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DECK
+    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK
     from cli_handlers import approve_note, approve_flashcard
 
     # Set deck from CLI argument or config default
@@ -125,7 +125,6 @@ def main():
         notes_to_sample = NOTES_TO_SAMPLE
 
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
-    console.print("")
 
     # Initialize APIs and config
     config = ConfigManager()
@@ -135,6 +134,12 @@ def main():
 
     if SAMPLING_MODE == "weighted":
         config.show_current_weights()
+    
+    console.print()
+
+    # Show warning for experimental features
+    if DEDUPLICATE_VIA_DECK:
+        console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
     if not obsidian.test_connection():
@@ -153,10 +158,10 @@ def main():
 
             # Get previous flashcard fronts for deduplication if enabled
             previous_fronts = []
-            if DEDUPLICATE_VIA_HISTORY:
+            if DEDUPLICATE_VIA_DECK:
                 previous_fronts = anki.get_deck_card_fronts(deck_name)
                 if previous_fronts:
-                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]")
+                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
 
             target_cards = args.cards if args.cards else None
             flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
@@ -331,7 +336,7 @@ def main():
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
+            # console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking and deduplication

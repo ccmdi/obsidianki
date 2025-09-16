@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "APPROVE_NOTES": False,  # Ask user approval before AI processes each note
     "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
     "DEDUPLICATE_VIA_HISTORY": False,  # Include past flashcard questions in prompts to avoid duplicates
+    "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
     "DECK": "Obsidian"  # Default Anki deck for adding cards
 }
 
@@ -62,6 +63,7 @@ CARD_TYPE = _config["CARD_TYPE"]
 APPROVE_NOTES = _config["APPROVE_NOTES"]
 APPROVE_CARDS = _config["APPROVE_CARDS"]
 DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
+DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
 DECK = _config["DECK"]
 
 class ConfigManager:
@@ -150,7 +152,6 @@ class ConfigManager:
         if not non_default_tags:
             return
 
-        console.print("\n[bold cyan]Tag weights:[/bold cyan]")
         for tag, weight in sorted(self.tag_weights.items()):
             console.print(f"  [green]{tag}:[/green] {weight}")
 

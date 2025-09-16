@@ -153,9 +153,9 @@ def handle_tag_command(args):
             return
 
         if weights:
-            console.print("[bold cyan]Tag Weights:[/bold cyan]")
             for tag, weight in sorted(weights.items()):
                 console.print(f"  [green]{tag}:[/green] {weight}")
+            console.print()
 
         if excluded:
             console.print(f"\n[bold cyan]Excluded Tags:[/bold cyan]")

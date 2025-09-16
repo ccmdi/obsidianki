@@ -97,6 +97,7 @@ ANTHROPIC_API_KEY={anthropic_key}
             "APPROVE_NOTES": approve_notes,
             "APPROVE_CARDS": approve_cards,
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
+            "DEDUPLICATE_VIA_DECK": False,
             "DECK": "Obsidian"
         }
 
