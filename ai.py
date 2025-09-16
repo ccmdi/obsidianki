@@ -2,7 +2,7 @@ import os
 import re
 from anthropic import Anthropic
 from typing import List, Dict
-from config import console
+from config import console, SYNTAX_HIGHLIGHTING
 
 def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> str:
     """Convert markdown code blocks to HTML, optionally with syntax highlighting"""
@@ -157,9 +157,8 @@ Query: "error handling" + JavaScript note content
 Analyze the note content and extract information specifically related to the user's query using the create_flashcards tool."""
 
 class FlashcardAI:
-    def __init__(self, config_manager=None):
+    def __init__(self):
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        self.config_manager = config_manager
 
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
@@ -205,9 +204,7 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
-                        syntax_highlighting = True
-                        if self.config_manager:
-                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
 
                         for card in flashcards:
                             if 'front' in card:
@@ -261,9 +258,7 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
-                        syntax_highlighting = True
-                        if self.config_manager:
-                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
 
                         for card in flashcards:
                             if 'front' in card:
@@ -321,9 +316,7 @@ Please analyze this note and extract information specifically related to the que
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
-                        syntax_highlighting = True
-                        if self.config_manager:
-                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
 
                         for card in flashcards:
                             if 'front' in card:

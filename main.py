@@ -177,7 +177,7 @@ def main():
     # Initialize APIs and config
     config = ConfigManager()
     obsidian = ObsidianAPI()
-    ai = FlashcardAI(config)
+    ai = FlashcardAI()
     anki = AnkiAPI()
 
     if SAMPLING_MODE == "weighted":
