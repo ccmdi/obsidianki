@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
+    parser.add_argument("--deck", type=str, default="Obsidian", help="Anki deck to add cards to (default: Obsidian)")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -69,17 +70,6 @@ def main():
     include_parser.add_argument('tag', help='Tag name to include')
     args = parser.parse_args()
 
-    # Handle config, history, and tag management commands
-    if args.command == 'config':
-        handle_config_command(args)
-        return
-    elif args.command == 'history':
-        handle_history_command(args)
-        return
-    elif args.command == 'tag':
-        handle_tag_command(args)
-        return
-
     needs_setup = False
     if not ENV_FILE.exists():
         needs_setup = True
@@ -93,6 +83,17 @@ def main():
             setup(force_full_setup=args.setup)
         except KeyboardInterrupt:
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
+        return
+
+    # Handle config, history, and tag management commands
+    if args.command == 'config':
+        handle_config_command(args)
+        return
+    elif args.command == 'history':
+        handle_history_command(args)
+        return
+    elif args.command == 'tag':
+        handle_tag_command(args)
         return
 
     # Lazy import heavy dependencies only when needed for flashcard generation
@@ -174,7 +175,7 @@ def main():
                 cards_to_add = flashcards
 
             # Add to Anki
-            result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
+            result = anki.add_flashcards(cards_to_add, deck_name=args.deck, card_type=CARD_TYPE,
                                        note_path="query", note_title=f"Query: {args.query}")
             successful_cards = len([r for r in result if r is not None])
 
@@ -298,7 +299,7 @@ def main():
             cards_to_add = flashcards
 
         # Add to Anki
-        result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
+        result = anki.add_flashcards(cards_to_add, deck_name=args.deck, card_type=CARD_TYPE,
                                    note_path=note_path, note_title=note_title)
         successful_cards = len([r for r in result if r is not None])
 
