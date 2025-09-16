@@ -1,11 +1,20 @@
 """Command-line configuration and tag management"""
 
 import json
+import re
 from pathlib import Path
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
 from config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
+
+def strip_html_for_terminal(text: str) -> str:
+    """Strip HTML tags for cleaner terminal display"""
+    # Remove HTML tags but keep the content
+    text = re.sub(r'<[^>]+>', '', text)
+    # Convert HTML entities
+    text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+    return text
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -45,8 +54,10 @@ def approve_note(note_title: str, note_path: str) -> bool:
 def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
     console.print(f"   [magenta]Review flashcard from:[/magenta] [bold]{note_title}[/bold]")
-    console.print(f"   [cyan]Front:[/cyan] {flashcard.get('front', 'N/A')}")
-    console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
+    front_clean = strip_html_for_terminal(flashcard.get('front', 'N/A'))
+    back_clean = strip_html_for_terminal(flashcard.get('back', 'N/A'))
+    console.print(f"   [cyan]Front:[/cyan] {front_clean}")
+    console.print(f"   [cyan]Back:[/cyan] {back_clean}")
     console.print()
 
     try:

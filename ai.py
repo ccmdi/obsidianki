@@ -4,8 +4,13 @@ from anthropic import Anthropic
 from typing import List, Dict
 from config import console
 
-def process_code_blocks(text: str) -> str:
-    """Convert markdown code blocks to syntax-highlighted HTML"""
+def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> str:
+    """Convert markdown code blocks to HTML, optionally with syntax highlighting"""
+    if not enable_syntax_highlighting:
+        # Simple conversion without syntax highlighting
+        text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
+        return text
+
     try:
         from pygments import highlight
         from pygments.lexers import get_lexer_by_name, ClassNotFound
@@ -152,8 +157,9 @@ Query: "error handling" + JavaScript note content
 Analyze the note content and extract information specifically related to the user's query using the create_flashcards tool."""
 
 class FlashcardAI:
-    def __init__(self):
+    def __init__(self, config_manager=None):
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.config_manager = config_manager
 
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
@@ -199,11 +205,15 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
+                        syntax_highlighting = True
+                        if self.config_manager:
+                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+
                         for card in flashcards:
                             if 'front' in card:
-                                card['front'] = process_code_blocks(card['front'])
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
-                                card['back'] = process_code_blocks(card['back'])
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
@@ -251,11 +261,15 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
+                        syntax_highlighting = True
+                        if self.config_manager:
+                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+
                         for card in flashcards:
                             if 'front' in card:
-                                card['front'] = process_code_blocks(card['front'])
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
-                                card['back'] = process_code_blocks(card['back'])
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
@@ -307,11 +321,15 @@ Please analyze this note and extract information specifically related to the que
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
                         # Post-process code blocks
+                        syntax_highlighting = True
+                        if self.config_manager:
+                            syntax_highlighting = self.config_manager.config.get('SYNTAX_HIGHLIGHTING', True)
+
                         for card in flashcards:
                             if 'front' in card:
-                                card['front'] = process_code_blocks(card['front'])
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
-                                card['back'] = process_code_blocks(card['back'])
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")

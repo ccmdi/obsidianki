@@ -29,7 +29,8 @@ DEFAULT_CONFIG = {
     "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
     "DEDUPLICATE_VIA_HISTORY": False,  # Include past flashcard questions in prompts to avoid duplicates
     "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
-    "DECK": "Obsidian"  # Default Anki deck for adding cards
+    "DECK": "Obsidian",  # Default Anki deck for adding cards
+    "SYNTAX_HIGHLIGHTING": True  # Enable syntax highlighting for code blocks in flashcards
 }
 
 def load_config():
