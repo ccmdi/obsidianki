@@ -219,7 +219,7 @@ TABLE
     FROM ""
     WHERE contains(file.tags, "#obj/leetcode")
     AND difficulty <= 7
-    AND (length(attempts) = 0 OR !contains(attempts, date("2024-07-16")))
+    AND (length(attempts) = 0 OR file.mtime < date("2024-07-16"))
     SORT difficulty ASC
 ```
 
@@ -417,7 +417,7 @@ Please analyze this note and extract information specifically related to the que
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def generate_dql_query(self, natural_request: str, max_attempts: int = 3) -> str:
+    def generate_dql_query(self, natural_request: str, search_folders=None, max_attempts: int = 3) -> str:
         """Generate DQL query from natural language with error correction"""
 
         for attempt in range(max_attempts):
@@ -426,8 +426,9 @@ Please analyze this note and extract information specifically related to the que
 
                 # Add folder context to the request
                 folder_context = ""
-                if SEARCH_FOLDERS:
-                    folder_context = f"\n\nIMPORTANT: Only search in these folders: {SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+                effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
+                if effective_folders:
+                    folder_context = f"\n\nIMPORTANT: Only search in these folders: {effective_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
                 user_prompt = f"""Natural language request: {natural_request}{folder_context}
 
@@ -448,7 +449,7 @@ Generate a DQL query that finds the requested notes."""
                         dql_query = re.sub(r'```[a-zA-Z]*\n?', '', dql_query)
                         dql_query = dql_query.replace("```", "").strip()
 
-                    console.print(f"[dim]Generated query:[/dim] {dql_query}...")
+                    console.print(f"[dim]Generated query:[/dim] {dql_query}")
                     return dql_query
 
             except Exception as e:
@@ -457,14 +458,14 @@ Generate a DQL query that finds the requested notes."""
         console.print(f"[red]ERROR:[/red] Failed to generate DQL query after {max_attempts} attempts")
         return None
 
-    def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Dict]:
+    def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
         """Use AI agent to find notes via natural language DQL generation"""
 
         max_query_attempts = 3
 
         for query_attempt in range(max_query_attempts):
             # Generate DQL query
-            dql_query = self.generate_dql_query(natural_request)
+            dql_query = self.generate_dql_query(natural_request, search_folders)
             if not dql_query:
                 return []
 
@@ -485,8 +486,9 @@ Generate a DQL query that finds the requested notes."""
                         note_path = result['result'].get('path', '')
 
                         # Apply SEARCH_FOLDERS filtering if not already in query
-                        if SEARCH_FOLDERS:
-                            path_matches = any(note_path.startswith(f"{folder}/") for folder in SEARCH_FOLDERS)
+                        effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
+                        if effective_folders:
+                            path_matches = any(note_path.startswith(f"{folder}/") for folder in effective_folders)
                             if not path_matches:
                                 continue
 

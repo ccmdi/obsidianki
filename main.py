@@ -33,6 +33,7 @@ def show_main_help():
     console.print("  [cyan]--deck <name>[/cyan]         Anki deck to add cards to")
     console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
     console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
+    console.print("  [cyan]--allow <folders>[/cyan]     Temporarily expand search to additional folders")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -52,6 +53,7 @@ def main():
     parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
+    parser.add_argument("--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -153,7 +155,7 @@ def main():
     from obsidian import ObsidianAPI
     from ai import FlashcardAI
     from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK
+    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK, SEARCH_FOLDERS
     from cli_handlers import approve_note, approve_flashcard
 
     # Set deck from CLI argument or config default
@@ -182,6 +184,17 @@ def main():
     obsidian = ObsidianAPI()
     ai = FlashcardAI()
     anki = AnkiAPI()
+
+    # Handle --allow flag: expand SEARCH_FOLDERS for this run
+    effective_search_folders = SEARCH_FOLDERS
+    if args.allow:
+        if effective_search_folders:
+            effective_search_folders = list(effective_search_folders) + args.allow
+        else:
+            effective_search_folders = args.allow
+        console.print(f"[cyan]Allowing additional folders:[/cyan] {', '.join(args.allow)}")
+        console.print(f"[dim]Effective search folders:[/dim] {', '.join(effective_search_folders)}")
+        console.print()
 
     if SAMPLING_MODE == "weighted":
         config.show_current_weights()
@@ -261,7 +274,7 @@ def main():
         console.print("[dim]Using AI to discover relevant notes with DQL queries...[/dim]")
 
         # Use AI agent to find notes
-        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
+        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample, bias_strength=args.bias, search_folders=effective_search_folders)
 
         if not agent_notes:
             console.print("[red]ERROR:[/red] AI agent found no matching notes")
@@ -324,6 +337,10 @@ def main():
             console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
         console.print()
     else:
+        # For now, --allow only works with agent mode due to obsidian.py global dependencies
+        if args.allow:
+            console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
+
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
 
         if not old_notes:
