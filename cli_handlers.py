@@ -1,9 +1,43 @@
 """Command-line configuration and tag management"""
 
 import json
+import re
 from pathlib import Path
 from rich.prompt import Confirm
+from rich.panel import Panel
+from rich.text import Text
 from config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
+
+def strip_html_for_terminal(text: str) -> str:
+    """Strip HTML tags for cleaner terminal display"""
+    # Remove HTML tags but keep the content
+    text = re.sub(r'<[^>]+>', '', text)
+    # Convert HTML entities
+    text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+    return text
+
+def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
+    """Display help for a command group in consistent style"""
+    console.print(Panel(
+        Text(title, style="bold blue"),
+        style="blue",
+        padding=(0, 1)
+    ))
+    console.print()
+
+    for cmd, desc in commands.items():
+        console.print(f"  [cyan]{command_prefix} {cmd}[/cyan]")
+        console.print(f"    {desc}")
+        console.print()
+
+def show_simple_help(title: str, commands: dict):
+    """Display simple help without panels for inline commands"""
+    console.print(f"[bold blue]{title}[/bold blue]")
+    console.print()
+
+    for cmd, desc in commands.items():
+        console.print(f"  [cyan]oki {cmd}[/cyan] - {desc}")
+    console.print()
 
 def approve_note(note_title: str, note_path: str) -> bool:
     """Ask user to approve note processing"""
@@ -20,8 +54,10 @@ def approve_note(note_title: str, note_path: str) -> bool:
 def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
     console.print(f"   [magenta]Review flashcard from:[/magenta] [bold]{note_title}[/bold]")
-    console.print(f"   [cyan]Front:[/cyan] {flashcard.get('front', 'N/A')}")
-    console.print(f"   [cyan]Back:[/cyan] {flashcard.get('back', 'N/A')}")
+    front_clean = strip_html_for_terminal(flashcard.get('front', 'N/A'))
+    back_clean = strip_html_for_terminal(flashcard.get('back', 'N/A'))
+    console.print(f"   [cyan]Front:[/cyan] {front_clean}")
+    console.print(f"   [cyan]Back:[/cyan] {back_clean}")
     console.print()
 
     try:
@@ -34,13 +70,25 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
 def handle_config_command(args):
     """Handle config management commands"""
 
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Configuration Management", {
+            "config list": "List all configuration settings",
+            "config get <key>": "Get a configuration value",
+            "config set <key> <value>": "Set a configuration value",
+            "config reset": "Reset configuration to defaults",
+            "config where": "Show configuration directory path"
+        })
+        return
+
     if args.config_action is None:
-        console.print("[bold cyan]Config Management Commands:[/bold cyan]")
-        console.print("  [green]oki config list[/green]        - List all configuration settings")
-        console.print("  [green]oki config get <key>[/green]   - Get a configuration value")
-        console.print("  [green]oki config set <key> <value>[/green] - Set a configuration value")
-        console.print("  [green]oki config reset[/green]      - Reset configuration to defaults")
-        console.print("  [green]oki config where[/green]      - Show configuration directory path")
+        show_simple_help("Configuration Management", {
+            "config list": "List all configuration settings",
+            "config get <key>": "Get a configuration value",
+            "config set <key> <value>": "Set a configuration value",
+            "config reset": "Reset configuration to defaults",
+            "config where": "Show configuration directory path"
+        })
         return
 
     if args.config_action == 'where':
@@ -52,15 +100,16 @@ def handle_config_command(args):
             with open(CONFIG_FILE, 'r') as f:
                 user_config = json.load(f)
         except FileNotFoundError:
-            console.print("[red]No configuration file found. Run 'obsidianki --setup' first.[/red]")
+            console.print("[red]No configuration file found. Run 'oki --setup' first.[/red]")
             return
         except json.JSONDecodeError:
-            console.print("[red]Invalid configuration file. Run 'obsidianki --setup' to reset.[/red]")
+            console.print("[red]Invalid configuration file. Run 'oki --setup' to reset.[/red]")
             return
 
-        console.print("[bold cyan]Current Configuration:[/bold cyan]")
+        console.print("[bold blue]Current Configuration[/bold blue]")
         for key, value in sorted(user_config.items()):
-            console.print(f"  [green]{key.lower()}:[/green] {value}")
+            console.print(f"  [cyan]{key.lower()}:[/cyan] {value}")
+        console.print()
         return
 
     if args.config_action == 'get':
@@ -73,9 +122,9 @@ def handle_config_command(args):
                 console.print(f"{user_config[key_upper]}")
             else:
                 console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
-                console.print("[dim]Use 'obsidianki config list' to see available keys.[/dim]")
+                console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
         except FileNotFoundError:
-            console.print("[red]No configuration file found. Run 'obsidianki --setup' first.[/red]")
+            console.print("[red]No configuration file found. Run 'oki --setup' first.[/red]")
         return
 
     if args.config_action == 'set':
@@ -83,13 +132,13 @@ def handle_config_command(args):
             with open(CONFIG_FILE, 'r') as f:
                 user_config = json.load(f)
         except FileNotFoundError:
-            console.print("[red]No configuration file found. Run 'obsidianki --setup' first.[/red]")
+            console.print("[red]No configuration file found. Run 'oki --setup' first.[/red]")
             return
 
         key_upper = args.key.upper()
         if key_upper not in user_config:
             console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
-            console.print("[dim]Use 'obsidianki config list' to see available keys.[/dim]")
+            console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
             return
 
         # Try to convert value to appropriate type
@@ -116,7 +165,7 @@ def handle_config_command(args):
         with open(CONFIG_FILE, 'w') as f:
             json.dump(user_config, f, indent=2)
 
-        console.print(f"[green]Set {args.key.lower()} = {value}[/green]")
+        console.print(f"[green]✓[/green] Set [cyan]{args.key.lower()}[/cyan] = [bold]{value}[/bold]")
         return
 
     if args.config_action == 'reset':
@@ -124,7 +173,7 @@ def handle_config_command(args):
             if Confirm.ask("Reset all configuration to defaults?", default=False):
                 if CONFIG_FILE.exists():
                     CONFIG_FILE.unlink()
-                console.print("[green]Configuration reset. Run 'obsidianki --setup' to reconfigure.[/green]")
+                console.print("[green]✓[/green] Configuration reset. Run [cyan]oki --setup[/cyan] to reconfigure")
         except KeyboardInterrupt:
             raise
         return
@@ -133,13 +182,25 @@ def handle_config_command(args):
 def handle_tag_command(args):
     """Handle tag management commands"""
 
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Tag Management", {
+            "tag list": "List all tag weights and exclusions",
+            "tag add <tag> <weight>": "Add or update a tag weight",
+            "tag remove <tag>": "Remove a tag weight",
+            "tag exclude <tag>": "Add tag to exclusion list",
+            "tag include <tag>": "Remove tag from exclusion list"
+        })
+        return
+
     if args.tag_action is None:
-        console.print("[bold cyan]Tag Management Commands:[/bold cyan]")
-        console.print("  [green]oki tag list[/green]              - List all tag weights and exclusions")
-        console.print("  [green]oki tag add <tag> <weight>[/green] - Add or update a tag weight")
-        console.print("  [green]oki tag remove <tag>[/green]      - Remove a tag weight")
-        console.print("  [green]oki tag exclude <tag>[/green]     - Add tag to exclusion list")
-        console.print("  [green]oki tag include <tag>[/green]     - Remove tag from exclusion list")
+        show_simple_help("Tag Management", {
+            "tag list": "List all tag weights and exclusions",
+            "tag add <tag> <weight>": "Add or update a tag weight",
+            "tag remove <tag>": "Remove a tag weight",
+            "tag exclude <tag>": "Add tag to exclusion list",
+            "tag include <tag>": "Remove tag from exclusion list"
+        })
         return
 
     config = ConfigManager()
@@ -149,31 +210,33 @@ def handle_tag_command(args):
         excluded = config.get_excluded_tags()
 
         if not weights and not excluded:
-            console.print("[dim]No tag weights configured. Use 'obsidianki tag add <tag> <weight>' to add tags.[/dim]")
+            console.print("[dim]No tag weights configured. Use 'oki tag add <tag> <weight>' to add tags.[/dim]")
             return
 
         if weights:
-            console.print("[bold cyan]Tag Weights:[/bold cyan]")
+            console.print("[bold blue]Tag Weights[/bold blue]")
             for tag, weight in sorted(weights.items()):
-                console.print(f"  [green]{tag}:[/green] {weight}")
+                console.print(f"  [cyan]{tag}:[/cyan] {weight}")
+            console.print()
 
         if excluded:
-            console.print(f"\n[bold cyan]Excluded Tags:[/bold cyan]")
+            console.print("[bold blue]Excluded Tags[/bold blue]")
             for tag in sorted(excluded):
                 console.print(f"  [red]{tag}[/red]")
+            console.print()
         return
 
     if args.tag_action == 'add':
         config.tag_weights[args.tag] = args.weight
         config.save_tag_schema()
-        console.print(f"[green]Added tag '{args.tag}' with weight {args.weight}[/green]")
+        console.print(f"[green]✓[/green] Added tag [cyan]{args.tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         if args.tag in config.tag_weights:
             del config.tag_weights[args.tag]
             config.save_tag_schema()
-            console.print(f"[green]Removed tag '{args.tag}'[/green]")
+            console.print(f"[green]✓[/green] Removed tag [cyan]{args.tag}[/cyan]")
         else:
             console.print(f"[red]Tag '{args.tag}' not found.[/red]")
         return
@@ -182,7 +245,7 @@ def handle_tag_command(args):
         if args.tag not in config.excluded_tags:
             config.excluded_tags.append(args.tag)
             config.save_tag_schema()
-            console.print(f"[green]Added '{args.tag}' to exclusion list[/green]")
+            console.print(f"[green]✓[/green] Added [cyan]{args.tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{args.tag}' is already excluded[/yellow]")
         return
@@ -191,7 +254,7 @@ def handle_tag_command(args):
         if args.tag in config.excluded_tags:
             config.excluded_tags.remove(args.tag)
             config.save_tag_schema()
-            console.print(f"[green]Removed '{args.tag}' from exclusion list[/green]")
+            console.print(f"[green]✓[/green] Removed [cyan]{args.tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{args.tag}' is not in exclusion list[/yellow]")
         return
@@ -200,13 +263,24 @@ def handle_tag_command(args):
 def handle_history_command(args):
     """Handle history management commands"""
 
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("History Management", {
+            "history clear": "Clear processing history",
+            "history stats": "Show flashcard generation statistics"
+        })
+        return
+
     if args.history_action is None:
-        console.print("[bold cyan]History Management Commands:[/bold cyan]")
-        console.print("  [green]oki history clear[/green] - Clear processing history")
+        show_simple_help("History Management", {
+            "history clear": "Clear processing history",
+            "history stats": "Show flashcard generation statistics"
+        })
         return
 
     if args.history_action == 'clear':
-        history_file = CONFIG_DIR / "processing_history.json"
+        from config import PROCESSING_HISTORY_FILE
+        history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -215,9 +289,81 @@ def handle_history_command(args):
         try:
             if Confirm.ask("Clear all processing history? This will remove deduplication data.", default=False):
                 history_file.unlink()
-                console.print("[green]Processing history cleared.[/green]")
+                console.print("[green]✓[/green] Processing history cleared")
             else:
-                console.print("[yellow]Operation cancelled.[/yellow]")
+                console.print("[yellow]Operation cancelled[/yellow]")
         except KeyboardInterrupt:
             raise
+        return
+
+    if args.history_action == 'stats':
+        from config import PROCESSING_HISTORY_FILE
+        history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
+
+        if not history_file.exists():
+            console.print("[yellow]No processing history found[/yellow]")
+            console.print("[dim]Generate some flashcards first to see statistics[/dim]")
+            return
+
+        try:
+            import json
+            with open(history_file, 'r') as f:
+                history_data = json.load(f)
+
+            if not history_data:
+                console.print("[yellow]No processing history found[/yellow]")
+                return
+
+            # Calculate stats
+            total_notes = len(history_data)
+            total_flashcards = sum(note_data.get("total_flashcards", 0) for note_data in history_data.values())
+
+            # Sort notes by flashcard count (descending)
+            sorted_notes = sorted(
+                history_data.items(),
+                key=lambda x: x[1].get("total_flashcards", 0),
+                reverse=True
+            )
+
+            console.print("[bold blue]Flashcard Generation Statistics[/bold blue]")
+            console.print()
+            console.print(f"  [cyan]Total notes processed:[/cyan] {total_notes}")
+            console.print(f"  [cyan]Total flashcards created:[/cyan] {total_flashcards}")
+            if total_notes > 0:
+                avg_cards = total_flashcards / total_notes
+                console.print(f"  [cyan]Average cards per note:[/cyan] {avg_cards:.1f}")
+            console.print()
+
+            console.print("[bold blue]Top Notes by Flashcard Count[/bold blue]")
+
+            # Show top 15 notes (or all if fewer than 15)
+            top_notes = sorted_notes[:15]
+            if not top_notes:
+                console.print("[dim]No notes processed yet[/dim]")
+                return
+
+            for i, (note_path, note_data) in enumerate(top_notes, 1):
+                flashcard_count = note_data.get("total_flashcards", 0)
+                note_size = note_data.get("size", 0)
+
+                # Calculate density (flashcards per KB)
+                density = (flashcard_count / (note_size / 1000)) if note_size > 0 else 0
+
+                # Extract just filename from path for cleaner display
+                from pathlib import Path
+                note_name = Path(note_path).name
+
+                console.print(f"  [dim]{i:2d}.[/dim] [cyan]{note_name}[/cyan]")
+                console.print(f"       [bold]{flashcard_count}[/bold] cards • {note_size:,} chars • {density:.1f} cards/KB")
+
+            if len(sorted_notes) > 15:
+                remaining = len(sorted_notes) - 15
+                console.print(f"\n[dim]... and {remaining} more notes[/dim]")
+
+            console.print()
+
+        except json.JSONDecodeError:
+            console.print("[red]Invalid history file format[/red]")
+        except Exception as e:
+            console.print(f"[red]Error reading history: {e}[/red]")
         return

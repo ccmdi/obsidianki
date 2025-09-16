@@ -7,16 +7,54 @@ from rich.text import Text
 from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 from cli_handlers import handle_config_command, handle_tag_command, handle_history_command
 
+def show_main_help():
+    """Display the main help screen"""
+    from rich.panel import Panel
+    from rich.text import Text
+    from config import console
+
+    console.print(Panel(
+        Text("ObsidianKi - Generate flashcards from Obsidian notes", style="bold blue"),
+        style="blue"
+    ))
+    console.print()
+
+    console.print("[bold blue]Usage[/bold blue]")
+    console.print("  [cyan]oki[/cyan] [options]")
+    console.print("  [cyan]oki[/cyan] <command> [command-options]")
+    console.print()
+
+    console.print("[bold blue]Main Options[/bold blue]")
+    console.print("  [cyan]--setup[/cyan]               Run interactive setup")
+    console.print("  [cyan]--cards <n>[/cyan]           Set target card limit")
+    console.print("  [cyan]--notes <patterns>[/cyan]    Process specific notes or directory patterns")
+    console.print("  [cyan]--query <text>[/cyan]        Generate cards from query, e.g. \"do X\"")
+    console.print("  [cyan]--deck <name>[/cyan]         Anki deck to add cards to")
+    console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
+    console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
+    console.print()
+
+    console.print("[bold blue]Commands[/bold blue]")
+    console.print("  [cyan]config[/cyan]                Manage configuration")
+    console.print("  [cyan]tag[/cyan]                   Manage tag weights")
+    console.print("  [cyan]history[/cyan]               Manage processing history")
+    console.print()
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
+    parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes", add_help=False)
+    parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
-    parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
-    parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
-    parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
+    parser.add_argument("--cards", type=int, help="Override max card limit")
+    parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
+    parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
+    parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
+    parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
+    parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
-    config_parser = subparsers.add_parser('config', help='Manage configuration')
+    config_parser = subparsers.add_parser('config', help='Manage configuration', add_help=False)
+    config_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     config_subparsers = config_parser.add_subparsers(dest='config_action', help='Config actions')
 
     # config list
@@ -38,14 +76,19 @@ def main():
     config_subparsers.add_parser('where', help='Show configuration directory path')
 
     # History management
-    history_parser = subparsers.add_parser('history', help='Manage processing history')
+    history_parser = subparsers.add_parser('history', help='Manage processing history', add_help=False)
+    history_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     history_subparsers = history_parser.add_subparsers(dest='history_action', help='History actions')
 
     # history clear
     history_subparsers.add_parser('clear', help='Clear processing history')
 
+    # history stats
+    history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
+
     # Tag management
-    tag_parser = subparsers.add_parser('tag', help='Manage tag weights')
+    tag_parser = subparsers.add_parser('tag', help='Manage tag weights', add_help=False)
+    tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
 
     # tag list
@@ -68,6 +111,14 @@ def main():
     include_parser = tag_subparsers.add_parser('include', help='Remove a tag from exclusion list')
     include_parser.add_argument('tag', help='Tag name to include')
     args = parser.parse_args()
+
+    # Handle help requests
+    if hasattr(args, 'help') and args.help:
+        if not args.command:
+            show_main_help()
+            return
+        # For subcommands, pass the help flag through to their handlers
+        # The handlers will detect it and show their custom help
 
     # Handle config, history, and tag management commands
     if args.command == 'config':
@@ -99,8 +150,11 @@ def main():
     from obsidian import ObsidianAPI
     from ai import FlashcardAI
     from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
+    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK
     from cli_handlers import approve_note, approve_flashcard
+
+    # Set deck from CLI argument or config default
+    deck_name = args.deck if args.deck else DECK
 
     # Determine max_cards and notes_to_sample based on arguments
     if args.notes:
@@ -119,7 +173,6 @@ def main():
         notes_to_sample = NOTES_TO_SAMPLE
 
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
-    console.print("")
 
     # Initialize APIs and config
     config = ConfigManager()
@@ -129,6 +182,12 @@ def main():
 
     if SAMPLING_MODE == "weighted":
         config.show_current_weights()
+    
+    console.print()
+
+    # Show warning for experimental features
+    if DEDUPLICATE_VIA_DECK:
+        console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
     if not obsidian.test_connection():
@@ -145,8 +204,15 @@ def main():
             # Standalone query mode - generate cards from query alone
             console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
 
+            # Get previous flashcard fronts for deduplication if enabled
+            previous_fronts = []
+            if DEDUPLICATE_VIA_DECK:
+                previous_fronts = anki.get_deck_card_fronts(deck_name)
+                if previous_fronts:
+                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
+
             target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards)
+            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
@@ -174,7 +240,7 @@ def main():
                 cards_to_add = flashcards
 
             # Add to Anki
-            result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
+            result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
                                        note_path="query", note_title=f"Query: {args.query}")
             successful_cards = len([r for r in result if r is not None])
 
@@ -190,13 +256,28 @@ def main():
     if args.notes:
         old_notes = []
 
-        for note_name in args.notes:
-            specific_note = obsidian.find_note_by_name(note_name, config_manager=config)
+        for note_pattern in args.notes:
+            # Check if this looks like a directory pattern
+            if '*' in note_pattern or '/' in note_pattern:
+                # Use pattern matching with optional sampling
+                pattern_notes = obsidian.find_notes_by_pattern(note_pattern, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
 
-            if specific_note:
-                old_notes.append(specific_note)
+                if pattern_notes:
+                    old_notes.extend(pattern_notes)
+                    if args.sample and len(pattern_notes) == args.sample:
+                        console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                    else:
+                        console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                else:
+                    console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
             else:
-                console.print(f"[red]ERROR:[/red] Not found: '{note_name}'")
+                # Use existing single note lookup
+                specific_note = obsidian.find_note_by_name(note_pattern, config_manager=config)
+
+                if specific_note:
+                    old_notes.append(specific_note)
+                else:
+                    console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
 
         if not old_notes:
             console.print("[red]ERROR:[/red] No notes found")
@@ -214,7 +295,7 @@ def main():
             console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
         console.print()
     else:
-        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config)
+        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
 
         if not old_notes:
             console.print("[red]ERROR:[/red] No old notes found")
@@ -298,12 +379,12 @@ def main():
             cards_to_add = flashcards
 
         # Add to Anki
-        result = anki.add_flashcards(cards_to_add, card_type=CARD_TYPE,
+        result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
                                    note_path=note_path, note_title=note_title)
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
+            # console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking and deduplication

@@ -85,6 +85,38 @@ class AnkiAPI:
                     text-align: right;
                     margin-top: 20px;
                     }
+
+                    code {
+                    display: block;
+                    text-align: left;
+                    white-space: pre-wrap;
+                    font-family: 'Iosevka Nerd Font', monospace;
+                    background-color: #2d3748;
+                    color: #e2e8f0;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    margin: 8px 0;
+                    border-left: 4px solid #4a90e2;
+                    font-size: 0.9em;
+                    line-height: 1.4;
+                    }
+
+                    .highlight {
+                    display: block;
+                    text-align: left;
+                    font-family: 'Iosevka Nerd Font', monospace;
+                    border-radius: 6px;
+                    margin: 8px 0;
+                    border-left: 4px solid #4a90e2;
+                    font-size: 0.9em;
+                    line-height: 1.4;
+                    overflow-x: auto;
+                    }
+
+                    .highlight pre {
+                    margin: 0;
+                    padding: 12px 16px;
+                    }
                     """,
                 "cardTemplates": [
                     {
@@ -141,6 +173,35 @@ class AnkiAPI:
 
         result = self._request("addNotes", {"notes": notes})
         return result if result is not None else []
+
+    def get_deck_card_fronts(self, deck_name: str = "Obsidian") -> List[str]:
+        """Get all card fronts from a specific deck for deduplication"""
+        try:
+            # Find all cards in the deck
+            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+
+            if not card_ids:
+                return []
+
+            # Get card info for all cards
+            cards_info = self._request("cardsInfo", {"cards": card_ids})
+
+            if not cards_info:
+                return []
+
+            # Extract front field values
+            fronts = []
+            for card in cards_info:
+                fields = card.get("fields", {})
+                front = fields.get("Front", {}).get("value", "")
+                if front:
+                    fronts.append(front)
+
+            return fronts
+
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not get deck card fronts: {e}")
+            return []
 
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""

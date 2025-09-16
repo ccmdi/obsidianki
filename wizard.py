@@ -83,6 +83,11 @@ ANTHROPIC_API_KEY={anthropic_key}
             default=DEDUPLICATE_VIA_HISTORY
         )
 
+        syntax_highlighting = Confirm.ask(
+            "   Enable syntax highlighting for code blocks in flashcards?",
+            default=True
+        )
+
         # Create config.json with user preferences and defaults
         user_config = {
             "MAX_CARDS": max_cards,
@@ -96,7 +101,10 @@ ANTHROPIC_API_KEY={anthropic_key}
             "DENSITY_BIAS_STRENGTH": 0.5,
             "APPROVE_NOTES": approve_notes,
             "APPROVE_CARDS": approve_cards,
-            "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history
+            "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
+            "DEDUPLICATE_VIA_DECK": False,
+            "DECK": "Obsidian",
+            "SYNTAX_HIGHLIGHTING": syntax_highlighting
         }
 
         try:

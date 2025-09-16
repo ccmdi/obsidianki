@@ -1,7 +1,54 @@
 import os
+import re
 from anthropic import Anthropic
 from typing import List, Dict
-from config import console
+from config import console, SYNTAX_HIGHLIGHTING
+
+def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> str:
+    """Convert markdown code blocks to HTML, optionally with syntax highlighting"""
+    if not enable_syntax_highlighting:
+        # Simple conversion without syntax highlighting
+        text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
+        return text
+
+    try:
+        from pygments import highlight
+        from pygments.lexers import get_lexer_by_name, ClassNotFound
+        from pygments.formatters import HtmlFormatter
+
+        def replace_code_block(match):
+            full_content = match.group(1)
+            lines = full_content.split('\n')
+
+            # Check if first line is a language identifier
+            if lines and lines[0].strip() and not ' ' in lines[0].strip():
+                language = lines[0].strip()
+                code_content = '\n'.join(lines[1:])
+            else:
+                language = 'text'
+                code_content = full_content
+
+            try:
+                lexer = get_lexer_by_name(language)
+                formatter = HtmlFormatter(
+                    style='monokai',
+                    noclasses=True,
+                    cssclass='highlight'
+                )
+                highlighted = highlight(code_content, lexer, formatter)
+                return highlighted
+            except ClassNotFound:
+                # Fallback to simple code tag if language not found
+                return f'<code>{code_content}</code>'
+
+        # Replace triple backticks with syntax highlighted HTML
+        text = re.sub(r'```([^`]+)```', replace_code_block, text, flags=re.DOTALL)
+        return text
+
+    except ImportError:
+        # Fallback to simple code tags if Pygments not available
+        text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
+        return text
 
 # Flashcard schema for tool calling
 FLASHCARD_TOOL = {
@@ -43,11 +90,15 @@ FLASHCARD CREATION GUIDELINES:
 4. Avoid overly obvious or trivial information
 5. Look for information that would benefit from spaced repetition
 6. Create the number of flashcards requested in the prompt
+7. For code-related content, ALWAYS include actual code examples
+8. Use markdown code blocks with triple backticks for code formatting
 
 GOOD FLASHCARD EXAMPLES:
 - Front: "What is the primary function of mitochondria?" Back: "Generate ATP (energy) for cellular processes"
 - Front: "Who developed the concept of 'deliberate practice'?" Back: "Anders Ericsson"
 - Front: "What are the three pillars of observability?" Back: "Metrics, logs, and traces"
+- Front: "How do you create a list in Python?" Back: "Use square brackets: ```my_list = [1, 2, 3]```"
+- Front: "What's the syntax for a JavaScript arrow function?" Back: "```const func = (param) => { return param * 2; }```"
 
 AVOID:
 - Questions with yes/no answers unless conceptually important
@@ -66,15 +117,21 @@ QUERY-BASED FLASHCARD GUIDELINES:
 3. Break complex topics into digestible pieces
 4. Focus on information that benefits from spaced repetition
 5. Create the number of flashcards requested in the prompt
+6. For code-related queries, ALWAYS include actual code examples
+7. Use markdown code blocks with triple backticks for code formatting
 
 GOOD QUERY FLASHCARD EXAMPLES:
 Query: "how to center a div"
-- Front: "What CSS property centers a div horizontally using flexbox?" Back: "display: flex; justify-content: center;"
-- Front: "What CSS technique centers a div both horizontally and vertically?" Back: "display: flex; justify-content: center; align-items: center;"
+- Front: "What CSS properties center a div horizontally using flexbox?" Back: "```display: flex; justify-content: center;```"
+- Front: "What CSS technique centers a div both horizontally and vertically?" Back: "```display: flex; justify-content: center; align-items: center;```"
 
 Query: "React fragments"
 - Front: "What is a React Fragment used for?" Back: "Grouping multiple elements without adding extra DOM nodes"
-- Front: "What are the two ways to write React Fragments?" Back: "<React.Fragment> or shorthand <>"
+- Front: "What are the two ways to write React Fragments?" Back: "```<React.Fragment>``` or shorthand ```<>```"
+
+Query: "Python list comprehension"
+- Front: "How do you create a list of squares using list comprehension?" Back: "```[x**2 for x in range(10)]```"
+- Front: "What's the syntax for conditional list comprehension?" Back: "```[x for x in list if condition]```"
 
 Generate educational flashcards based on the user's query using the create_flashcards tool."""
 
@@ -145,7 +202,16 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -154,15 +220,26 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_flashcards_from_query(self, query: str, target_cards: int = None) -> List[Dict[str, str]]:
+    def generate_flashcards_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
         """Generate flashcards based on a user query without source material"""
 
         cards_to_create = target_cards if target_cards else 3
         card_instruction = f"Create approximately {cards_to_create} flashcards"
 
+        # Add deduplication context if previous fronts exist
+        dedup_context = ""
+        if previous_fronts:
+            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+            dedup_context = f"""
+
+IMPORTANT: We have previously created the following flashcards for this deck:
+{previous_questions}
+
+Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
+
         user_prompt = f"""User Query: {query}
 
-Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query."""
+Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}"""
 
         try:
             response = self.client.messages.create(
@@ -179,7 +256,16 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -228,7 +314,16 @@ Please analyze this note and extract information specifically related to the que
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []

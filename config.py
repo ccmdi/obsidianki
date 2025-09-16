@@ -27,7 +27,10 @@ DEFAULT_CONFIG = {
     "CARD_TYPE": "custom",  # "basic" or "custom"
     "APPROVE_NOTES": False,  # Ask user approval before AI processes each note
     "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
-    "DEDUPLICATE_VIA_HISTORY": False  # Include past flashcard questions in prompts to avoid duplicates
+    "DEDUPLICATE_VIA_HISTORY": False,  # Include past flashcard questions in prompts to avoid duplicates
+    "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
+    "DECK": "Obsidian",  # Default Anki deck for adding cards
+    "SYNTAX_HIGHLIGHTING": True  # Enable syntax highlighting for code blocks in flashcards
 }
 
 def load_config():
@@ -61,6 +64,9 @@ CARD_TYPE = _config["CARD_TYPE"]
 APPROVE_NOTES = _config["APPROVE_NOTES"]
 APPROVE_CARDS = _config["APPROVE_CARDS"]
 DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
+DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
+DECK = _config["DECK"]
+SYNTAX_HIGHLIGHTING = _config["SYNTAX_HIGHLIGHTING"]
 
 class ConfigManager:
     def __init__(self):
@@ -148,7 +154,6 @@ class ConfigManager:
         if not non_default_tags:
             return
 
-        console.print("\n[bold cyan]Tag weights:[/bold cyan]")
         for tag, weight in sorted(self.tag_weights.items()):
             console.print(f"  [green]{tag}:[/green] {weight}")
 
@@ -221,7 +226,7 @@ class ConfigManager:
 
         return self.processing_history[note_path].get("flashcard_fronts", [])
 
-    def get_density_bias_for_note(self, note_path: str, note_size: int) -> float:
+    def get_density_bias_for_note(self, note_path: str, note_size: int, bias_strength: float = None) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
         if note_path not in self.processing_history:
             return 1.0  # No bias for unprocessed notes
@@ -237,11 +242,12 @@ class ConfigManager:
 
         # Apply bias - higher density = lower weight
         # Bias strength controls how aggressively we avoid over-processed notes
-        bias_factor = max(0.1, 1.0 - (density * 1000 * DENSITY_BIAS_STRENGTH))
+        effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
+        bias_factor = max(0.1, 1.0 - (density * 1000 * effective_bias))
 
         return bias_factor
 
-def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager) -> float:
+def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager, bias_strength: float = None) -> float:
     """Calculate total sampling weight for a note based on tags and processing history"""
 
     # Base weight from tags
@@ -258,7 +264,7 @@ def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size
             tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
 
     # Density bias (lower for over-processed notes)
-    density_bias = config.get_density_bias_for_note(note_path, note_size)
+    density_bias = config.get_density_bias_for_note(note_path, note_size, bias_strength)
 
     # Combine weights
     final_weight = tag_weight * density_bias

@@ -145,7 +145,7 @@ class ObsidianAPI:
         response = self._make_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def get_random_old_notes(self, days: int, limit: int = None, config_manager=None) -> List[Dict]:
+    def get_random_old_notes(self, days: int, limit: int = None, config_manager=None, bias_strength: float = None) -> List[Dict]:
         """Get a random sample of notes older than specified days, optionally weighted by tags"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
@@ -178,12 +178,12 @@ class ObsidianAPI:
 
         # Weighted sampling if config_manager provided
         if config_manager:
-            return self._weighted_sample(all_old_notes, limit, config_manager)
+            return self._weighted_sample(all_old_notes, limit, config_manager, bias_strength)
 
         import random
         return random.sample(all_old_notes, limit)
 
-    def _weighted_sample(self, notes: List[Dict], limit: int, config_manager) -> List[Dict]:
+    def _weighted_sample(self, notes: List[Dict], limit: int, config_manager, bias_strength: float = None) -> List[Dict]:
         """Perform weighted sampling based on note tags and processing history"""
         import random
         from config import get_sampling_weight_for_note
@@ -195,11 +195,78 @@ class ObsidianAPI:
             note_path = note['result'].get('path', '')
             note_size = note['result'].get('size', 0)
 
-            weight = get_sampling_weight_for_note(note_tags, note_path, note_size, config_manager)
+            weight = get_sampling_weight_for_note(note_tags, note_path, note_size, config_manager, bias_strength)
             weights.append(weight)
 
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
+
+    def find_notes_by_pattern(self, pattern: str, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Dict]:
+        """Find notes by directory pattern"""
+        exclude_filter = self._build_exclude_filter(config_manager)
+
+        # Handle directory patterns ending with /*
+        if pattern.endswith('/*'):
+            directory_path = pattern[:-2]  # Remove /*
+            dql_query = f"""TABLE
+                file.name AS "filename",
+                file.path AS "path",
+                file.mtime AS "mtime",
+                file.size AS "size",
+                file.tags AS "tags"
+                FROM ""
+                WHERE startswith(file.path, "{directory_path}/")
+                AND file.size > 100
+                {exclude_filter}
+                SORT file.mtime ASC"""
+        else:
+            # Handle wildcards in filenames
+            if '*' in pattern:
+                # Convert simple glob pattern to DQL contains/startswith
+                if pattern.startswith('*'):
+                    search_term = pattern[1:]
+                    condition = f'endswith(file.path, "{search_term}")'
+                elif pattern.endswith('*'):
+                    search_term = pattern[:-1]
+                    condition = f'startswith(file.path, "{search_term}")'
+                else:
+                    # Middle wildcard - use contains
+                    parts = pattern.split('*')
+                    conditions = []
+                    for part in parts:
+                        if part:
+                            conditions.append(f'contains(file.path, "{part}")')
+                    condition = ' AND '.join(conditions) if conditions else 'true'
+            else:
+                # No wildcards - treat as exact path or name match
+                condition = f'(file.path = "{pattern}" OR contains(file.name, "{pattern}"))'
+
+            dql_query = f"""TABLE
+                file.name AS "filename",
+                file.path AS "path",
+                file.mtime AS "mtime",
+                file.size AS "size",
+                file.tags AS "tags"
+                FROM ""
+                WHERE {condition}
+                AND file.size > 100
+                {exclude_filter}
+                SORT file.mtime ASC"""
+
+        results = self.search_with_dql(dql_query)
+
+        if not results:
+            return []
+
+        # Apply sampling if requested and we have more results than sample_size
+        if sample_size and len(results) > sample_size:
+            if config_manager:
+                return self._weighted_sample(results, sample_size, config_manager, bias_strength)
+            else:
+                import random
+                return random.sample(results, sample_size)
+
+        return results
 
     def find_note_by_name(self, note_name: str, config_manager=None) -> Dict:
         """Find a specific note by name (partial match)"""
