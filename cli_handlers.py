@@ -59,6 +59,17 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
 def handle_config_command(args):
     """Handle config management commands"""
 
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Configuration Management", {
+            "config list": "List all configuration settings",
+            "config get <key>": "Get a configuration value",
+            "config set <key> <value>": "Set a configuration value",
+            "config reset": "Reset configuration to defaults",
+            "config where": "Show configuration directory path"
+        })
+        return
+
     if args.config_action is None:
         show_simple_help("Configuration Management", {
             "config list": "List all configuration settings",
@@ -160,6 +171,17 @@ def handle_config_command(args):
 def handle_tag_command(args):
     """Handle tag management commands"""
 
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Tag Management", {
+            "tag list": "List all tag weights and exclusions",
+            "tag add <tag> <weight>": "Add or update a tag weight",
+            "tag remove <tag>": "Remove a tag weight",
+            "tag exclude <tag>": "Add tag to exclusion list",
+            "tag include <tag>": "Remove tag from exclusion list"
+        })
+        return
+
     if args.tag_action is None:
         show_simple_help("Tag Management", {
             "tag list": "List all tag weights and exclusions",
@@ -229,6 +251,13 @@ def handle_tag_command(args):
 
 def handle_history_command(args):
     """Handle history management commands"""
+
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("History Management", {
+            "history clear": "Clear processing history"
+        })
+        return
 
     if args.history_action is None:
         show_simple_help("History Management", {
