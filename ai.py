@@ -2,7 +2,7 @@ import os
 import re
 from anthropic import Anthropic
 from typing import List, Dict
-from config import console, SYNTAX_HIGHLIGHTING
+from config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
 
 def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> str:
     """Convert markdown code blocks to HTML, optionally with syntax highlighting"""
@@ -155,6 +155,91 @@ Query: "error handling" + JavaScript note content
 - Focus on try-catch examples or error handling strategies mentioned
 
 Analyze the note content and extract information specifically related to the user's query using the create_flashcards tool."""
+
+# DQL Agent System Prompt
+DQL_AGENT_PROMPT = """You are an expert at writing Dataview DQL queries for Obsidian vaults. Your job is to translate natural language requests into precise DQL queries that find relevant notes.
+
+KEY DQL CAPABILITIES:
+- **Property filtering**: `file.property = value`, `property.field > 5`, `length(attempts) = 0`
+- **Tag filtering**: `contains(file.tags, "#tag")`, `contains(tags, "#obj/leetcode")`
+- **Date filtering**: `file.mtime > date("2024-08-01")`, `file.ctime < date("2024-12-01")`
+- **Content search**: `contains(file.name, "text")`, `contains(content, "keyword")`
+- **Size filtering**: `file.size > 1000`, `file.size < 50000`
+- **Array operations**: `length(attempts) > 0`, `contains(attempts, "2024-08-15")`
+- **Sorting**: `SORT file.mtime ASC`, `SORT difficulty DESC`, `SORT file.name ASC`
+- **Regex**: Use `regexmatch(field, "pattern")` for pattern matching
+
+QUERY STRUCTURE:
+```
+TABLE
+    file.name AS "filename",
+    file.path AS "path",
+    file.mtime AS "mtime",
+    file.size AS "size",
+    file.tags AS "tags"
+    FROM ""
+    WHERE [conditions]
+    SORT [field] [ASC|DESC]
+```
+
+IMPORTANT RULES:
+1. Always include the exact TABLE structure shown above
+2. Use double quotes for strings: `"React"`, `"#leetcode"`
+3. Use date() function for date comparisons: `date("2024-08-01")`
+4. Property access: `difficulty` for frontmatter properties
+5. Array length: `length(property_array)`
+6. Multiple conditions: Use AND/OR with parentheses
+7. Case sensitive: file names and tags are case sensitive
+
+EXAMPLE QUERIES:
+
+Natural: "find React notes from last month"
+DQL:
+```
+TABLE
+    file.name AS "filename",
+    file.path AS "path",
+    file.mtime AS "mtime",
+    file.size AS "size",
+    file.tags AS "tags"
+    FROM ""
+    WHERE contains(file.name, "React") AND file.mtime > date("2024-08-01")
+    SORT file.mtime DESC
+```
+
+Natural: "leetcode problems with difficulty 7 or below, not attempted in 2 months"
+DQL:
+```
+TABLE
+    file.name AS "filename",
+    file.path AS "path",
+    file.mtime AS "mtime",
+    file.size AS "size",
+    file.tags AS "tags"
+    FROM ""
+    WHERE contains(file.tags, "#obj/leetcode")
+    AND difficulty <= 7
+    AND (length(attempts) = 0 OR !contains(attempts, date("2024-07-16")))
+    SORT difficulty ASC
+```
+
+Natural: "machine learning notes with math tag, larger files"
+DQL:
+```
+TABLE
+    file.name AS "filename",
+    file.path AS "path",
+    file.mtime AS "mtime",
+    file.size AS "size",
+    file.tags AS "tags"
+    FROM ""
+    WHERE (contains(file.name, "machine learning") OR contains(content, "machine learning"))
+    AND contains(file.tags, "#math")
+    AND file.size > 2000
+    SORT file.size DESC
+```
+
+Write a DQL query that matches the user's natural language request. Output ONLY the DQL query, no explanation."""
 
 class FlashcardAI:
     def __init__(self):
@@ -331,4 +416,146 @@ Please analyze this note and extract information specifically related to the que
         except Exception as e:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
+
+    def generate_dql_query(self, natural_request: str, max_attempts: int = 3) -> str:
+        """Generate DQL query from natural language with error correction"""
+
+        for attempt in range(max_attempts):
+            try:
+                console.print(f"[cyan]AI Agent:[/cyan] Generating DQL query (attempt {attempt + 1}/{max_attempts})")
+
+                # Add folder context to the request
+                folder_context = ""
+                if SEARCH_FOLDERS:
+                    folder_context = f"\n\nIMPORTANT: Only search in these folders: {SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+
+                user_prompt = f"""Natural language request: {natural_request}{folder_context}
+
+Generate a DQL query that finds the requested notes."""
+
+                response = self.client.messages.create(
+                    model="claude-4-sonnet-20250514",
+                    max_tokens=2000,
+                    system=DQL_AGENT_PROMPT,
+                    messages=[{"role": "user", "content": user_prompt}]
+                )
+
+                if response.content and len(response.content) > 0:
+                    dql_query = response.content[0].text.strip()
+
+                    # Clean up the query (remove markdown code blocks if present)
+                    if "```" in dql_query:
+                        dql_query = re.sub(r'```[a-zA-Z]*\n?', '', dql_query)
+                        dql_query = dql_query.replace("```", "").strip()
+
+                    console.print(f"[dim]Generated query:[/dim] {dql_query}...")
+                    return dql_query
+
+            except Exception as e:
+                console.print(f"[red]ERROR:[/red] Failed to generate DQL query (attempt {attempt + 1}): {e}")
+
+        console.print(f"[red]ERROR:[/red] Failed to generate DQL query after {max_attempts} attempts")
+        return None
+
+    def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Dict]:
+        """Use AI agent to find notes via natural language DQL generation"""
+
+        max_query_attempts = 3
+
+        for query_attempt in range(max_query_attempts):
+            # Generate DQL query
+            dql_query = self.generate_dql_query(natural_request)
+            if not dql_query:
+                return []
+
+            try:
+                # Test the query
+                console.print(f"[cyan]AI Agent:[/cyan] Executing DQL query...")
+                results = obsidian_api.search_with_dql(dql_query)
+
+                if results is None:
+                    console.print(f"[yellow]Warning:[/yellow] Query returned no results, trying again...")
+                    continue
+
+                # Apply additional filtering (SEARCH_FOLDERS and excluded tags)
+                if config_manager:
+                    from obsidian import ObsidianAPI
+                    filtered_results = []
+                    for result in results:
+                        note_path = result['result'].get('path', '')
+
+                        # Apply SEARCH_FOLDERS filtering if not already in query
+                        if SEARCH_FOLDERS:
+                            path_matches = any(note_path.startswith(f"{folder}/") for folder in SEARCH_FOLDERS)
+                            if not path_matches:
+                                continue
+
+                        # Apply excluded tags filtering
+                        note_tags = result['result'].get('tags', []) or []
+                        excluded_tags = config_manager.get_excluded_tags()
+                        if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                            continue
+
+                        filtered_results.append(result)
+
+                    results = filtered_results
+
+                # Apply sampling if requested
+                if sample_size and len(results) > sample_size:
+                    if config_manager:
+                        results = obsidian_api._weighted_sample(results, sample_size, config_manager, bias_strength)
+                    else:
+                        import random
+                        results = random.sample(results, sample_size)
+
+                console.print(f"[green]AI Agent:[/green] Found {len(results)} matching notes")
+                return results
+
+            except Exception as e:
+                error_msg = str(e)
+                console.print(f"[yellow]DQL Error (attempt {query_attempt + 1}):[/yellow] {error_msg}")
+
+                if query_attempt < max_query_attempts - 1:
+                    # Try to fix the query with error feedback
+                    console.print(f"[cyan]AI Agent:[/cyan] Attempting to fix query based on error...")
+
+                    fix_prompt = f"""The previous DQL query failed with this error:
+{error_msg}
+
+Original request: {natural_request}
+Failed query: {dql_query}
+
+Generate a corrected DQL query that fixes this error. Common fixes:
+- Check property names (case sensitive)
+- Use proper date format: date("YYYY-MM-DD")
+- Check tag format: contains(file.tags, "#tagname")
+- Verify array operations: length(array_property)
+- Use proper string escaping
+
+Output ONLY the corrected DQL query."""
+
+                    try:
+                        fix_response = self.client.messages.create(
+                            model="claude-4-sonnet-20250514",
+                            max_tokens=2000,
+                            system=DQL_AGENT_PROMPT,
+                            messages=[{"role": "user", "content": fix_prompt}]
+                        )
+
+                        if fix_response.content and len(fix_response.content) > 0:
+                            dql_query = fix_response.content[0].text.strip()
+
+                            # Clean up the query
+                            if "```" in dql_query:
+                                dql_query = re.sub(r'```[a-zA-Z]*\n?', '', dql_query)
+                                dql_query = dql_query.replace("```", "").strip()
+
+                            console.print(f"[dim]Corrected query:[/dim] {dql_query[:100]}...")
+                            continue  # Try the corrected query
+
+                    except Exception as fix_error:
+                        console.print(f"[red]Error generating fix:[/red] {fix_error}")
+
+        console.print(f"[red]ERROR:[/red] Failed to execute DQL query after {max_query_attempts} attempts")
+        return []
 

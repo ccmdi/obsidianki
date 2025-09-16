@@ -29,6 +29,7 @@ def show_main_help():
     console.print("  [cyan]--cards <n>[/cyan]           Set target card limit")
     console.print("  [cyan]--notes <patterns>[/cyan]    Process specific notes or directory patterns")
     console.print("  [cyan]--query <text>[/cyan]        Generate cards from query, e.g. \"do X\"")
+    console.print("  [cyan]--agent <request>[/cyan]     AI agent mode: natural language note discovery")
     console.print("  [cyan]--deck <name>[/cyan]         Anki deck to add cards to")
     console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
     console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
@@ -47,6 +48,7 @@ def main():
     parser.add_argument("--cards", type=int, help="Override max card limit")
     parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
+    parser.add_argument("-a", "--agent", type=str, help="AI agent mode: natural language note discovery using DQL queries")
     parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
@@ -253,8 +255,34 @@ def main():
             console.print(f"\n[bold green]COMPLETE![/bold green] Added {successful_cards} flashcards from query")
             return
 
+    # Handle agent mode
+    if args.agent:
+        console.print(f"[cyan]AI AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
+        console.print("[dim]Using AI to discover relevant notes with DQL queries...[/dim]")
+
+        # Use AI agent to find notes
+        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
+
+        if not agent_notes:
+            console.print("[red]ERROR:[/red] AI agent found no matching notes")
+            return
+
+        old_notes = agent_notes
+
+        # Update max_cards based on found notes (if --cards wasn't specified)
+        if args.cards is None:
+            max_cards = len(old_notes) * 2
+
+        if args.query:
+            console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} AI-discovered note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+        else:
+            console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} AI-discovered note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+        console.print()
+
     # Get notes to process
-    if args.notes:
+    elif args.notes:
         old_notes = []
 
         for note_pattern in args.notes:
