@@ -11,9 +11,10 @@ def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes")
     parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("--cards", type=int, help="Override MAX_CARDS limit")
-    parser.add_argument("--notes", nargs='+', help="Process specific notes by name")
+    parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from query (standalone) or extract specific info from notes")
     parser.add_argument("--deck", type=str, default="Obsidian", help="Anki deck to add cards to (default: Obsidian)")
+    parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -191,13 +192,28 @@ def main():
     if args.notes:
         old_notes = []
 
-        for note_name in args.notes:
-            specific_note = obsidian.find_note_by_name(note_name, config_manager=config)
+        for note_pattern in args.notes:
+            # Check if this looks like a directory pattern
+            if '*' in note_pattern or '/' in note_pattern:
+                # Use pattern matching with optional sampling
+                pattern_notes = obsidian.find_notes_by_pattern(note_pattern, config_manager=config, sample_size=args.sample)
 
-            if specific_note:
-                old_notes.append(specific_note)
+                if pattern_notes:
+                    old_notes.extend(pattern_notes)
+                    if args.sample and len(pattern_notes) == args.sample:
+                        console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                    else:
+                        console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                else:
+                    console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
             else:
-                console.print(f"[red]ERROR:[/red] Not found: '{note_name}'")
+                # Use existing single note lookup
+                specific_note = obsidian.find_note_by_name(note_pattern, config_manager=config)
+
+                if specific_note:
+                    old_notes.append(specific_note)
+                else:
+                    console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
 
         if not old_notes:
             console.print("[red]ERROR:[/red] No notes found")
