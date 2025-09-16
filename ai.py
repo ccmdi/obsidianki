@@ -154,15 +154,26 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_flashcards_from_query(self, query: str, target_cards: int = None) -> List[Dict[str, str]]:
+    def generate_flashcards_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
         """Generate flashcards based on a user query without source material"""
 
         cards_to_create = target_cards if target_cards else 3
         card_instruction = f"Create approximately {cards_to_create} flashcards"
 
+        # Add deduplication context if previous fronts exist
+        dedup_context = ""
+        if previous_fronts:
+            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+            dedup_context = f"""
+
+IMPORTANT: We have previously created the following flashcards for this deck:
+{previous_questions}
+
+Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
+
         user_prompt = f"""User Query: {query}
 
-Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query."""
+Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}"""
 
         try:
             response = self.client.messages.create(

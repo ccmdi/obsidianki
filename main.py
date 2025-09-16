@@ -148,8 +148,15 @@ def main():
             # Standalone query mode - generate cards from query alone
             console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
 
+            # Get previous flashcard fronts for deduplication if enabled
+            previous_fronts = []
+            if DEDUPLICATE_VIA_HISTORY:
+                previous_fronts = anki.get_deck_card_fronts(args.deck)
+                if previous_fronts:
+                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{args.deck}' for deduplication[/dim]")
+
             target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards)
+            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
