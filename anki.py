@@ -85,6 +85,21 @@ class AnkiAPI:
                     text-align: right;
                     margin-top: 20px;
                     }
+
+                    code {
+                    display: block;
+                    text-align: left;
+                    white-space: pre-wrap;
+                    font-family: 'Iosevka Nerd Font', monospace;
+                    background-color: #2d3748;
+                    color: #e2e8f0;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    margin: 8px 0;
+                    border-left: 4px solid #4a90e2;
+                    font-size: 0.9em;
+                    line-height: 1.4;
+                    }
                     """,
                 "cardTemplates": [
                     {

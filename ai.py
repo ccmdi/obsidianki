@@ -1,7 +1,14 @@
 import os
+import re
 from anthropic import Anthropic
 from typing import List, Dict
 from config import console
+
+def process_code_blocks(text: str) -> str:
+    """Convert markdown code blocks to HTML code tags"""
+    # Replace triple backticks with HTML code tags
+    text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
+    return text
 
 # Flashcard schema for tool calling
 FLASHCARD_TOOL = {
@@ -43,11 +50,15 @@ FLASHCARD CREATION GUIDELINES:
 4. Avoid overly obvious or trivial information
 5. Look for information that would benefit from spaced repetition
 6. Create the number of flashcards requested in the prompt
+7. For code-related content, ALWAYS include actual code examples
+8. Use markdown code blocks with triple backticks for code formatting
 
 GOOD FLASHCARD EXAMPLES:
 - Front: "What is the primary function of mitochondria?" Back: "Generate ATP (energy) for cellular processes"
 - Front: "Who developed the concept of 'deliberate practice'?" Back: "Anders Ericsson"
 - Front: "What are the three pillars of observability?" Back: "Metrics, logs, and traces"
+- Front: "How do you create a list in Python?" Back: "Use square brackets: ```my_list = [1, 2, 3]```"
+- Front: "What's the syntax for a JavaScript arrow function?" Back: "```const func = (param) => { return param * 2; }```"
 
 AVOID:
 - Questions with yes/no answers unless conceptually important
@@ -66,15 +77,21 @@ QUERY-BASED FLASHCARD GUIDELINES:
 3. Break complex topics into digestible pieces
 4. Focus on information that benefits from spaced repetition
 5. Create the number of flashcards requested in the prompt
+6. For code-related queries, ALWAYS include actual code examples
+7. Use markdown code blocks with triple backticks for code formatting
 
 GOOD QUERY FLASHCARD EXAMPLES:
 Query: "how to center a div"
-- Front: "What CSS property centers a div horizontally using flexbox?" Back: "display: flex; justify-content: center;"
-- Front: "What CSS technique centers a div both horizontally and vertically?" Back: "display: flex; justify-content: center; align-items: center;"
+- Front: "What CSS properties center a div horizontally using flexbox?" Back: "```display: flex; justify-content: center;```"
+- Front: "What CSS technique centers a div both horizontally and vertically?" Back: "```display: flex; justify-content: center; align-items: center;```"
 
 Query: "React fragments"
 - Front: "What is a React Fragment used for?" Back: "Grouping multiple elements without adding extra DOM nodes"
-- Front: "What are the two ways to write React Fragments?" Back: "<React.Fragment> or shorthand <>"
+- Front: "What are the two ways to write React Fragments?" Back: "```<React.Fragment>``` or shorthand ```<>```"
+
+Query: "Python list comprehension"
+- Front: "How do you create a list of squares using list comprehension?" Back: "```[x**2 for x in range(10)]```"
+- Front: "What's the syntax for conditional list comprehension?" Back: "```[x for x in list if condition]```"
 
 Generate educational flashcards based on the user's query using the create_flashcards tool."""
 
@@ -145,7 +162,14 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'])
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'])
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -190,7 +214,14 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'])
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'])
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -239,7 +270,14 @@ Please analyze this note and extract information specifically related to the que
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        return tool_input.get("flashcards", [])
+                        flashcards = tool_input.get("flashcards", [])
+                        # Post-process code blocks
+                        for card in flashcards:
+                            if 'front' in card:
+                                card['front'] = process_code_blocks(card['front'])
+                            if 'back' in card:
+                                card['back'] = process_code_blocks(card['back'])
+                        return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
