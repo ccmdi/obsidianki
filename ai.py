@@ -651,19 +651,26 @@ Select and rank the most relevant notes for this request. Return a JSON array of
             console.print("[yellow]No notes remaining after filtering[/yellow]")
             return []
 
-        # Step 4: AI ranking to select most relevant notes
-        target_count = sample_size if sample_size else min(10, len(results))  # Default to top 10
-        ranked_paths = self.rank_notes_by_relevance(natural_request, results, target_count)
+        # Step 4: Use existing weighted sampling logic instead of AI ranking
+        # TODO: In future, add processing history context to AI ranking for better selection
+        target_count = sample_size if sample_size else len(results)  # Use all results if no sample_size specified
 
-        # Step 5: Convert back to note objects in ranked order
-        ranked_notes = []
-        for path in ranked_paths:
-            for note in results:
-                if note['result'].get('path') == path:
-                    ranked_notes.append(note)
-                    break
+        # Use the existing weighted sampling that considers processing history and tag weights
+        sampled_notes = obsidian_api._weighted_sample(results, target_count, config_manager, bias_strength)
+
+        # # Step 4: AI ranking to select most relevant notes (COMMENTED OUT - doesn't use processing history)
+        # target_count = sample_size if sample_size else min(10, len(results))  # Default to top 10
+        # ranked_paths = self.rank_notes_by_relevance(natural_request, results, target_count)
+        #
+        # # Step 5: Convert back to note objects in ranked order
+        # ranked_notes = []
+        # for path in ranked_paths:
+        #     for note in results:
+        #         if note['result'].get('path') == path:
+        #             ranked_notes.append(note)
+        #             break
         
         console.print()
 
-        return ranked_notes
+        return sampled_notes
 

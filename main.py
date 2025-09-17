@@ -272,7 +272,7 @@ def main():
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
 
         # Use agent to find notes
-        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample, bias_strength=args.bias, search_folders=effective_search_folders)
+        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample or notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
 
         if not agent_notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
