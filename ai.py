@@ -599,6 +599,17 @@ Select and rank the most relevant notes for this request. Return a JSON array of
                         return []
 
                 console.print(f"[cyan]Agent:[/cyan] Found {len(results)} candidate notes")
+
+                # Check if too many results - force retry with more filtering
+                if len(results) >= 100:
+                    if attempt < max_query_attempts - 1:
+                        console.print(f"[yellow]Too many results ({len(results)}), generating more specific query...[/yellow]")
+                        # Mark this attempt as needing more filtering
+                        natural_request = f"{natural_request}\n\nIMPORTANT: The previous query returned {len(results)} results which is too many. Please make your query MORE SPECIFIC and FILTERED to return fewer results."
+                        continue
+                    else:
+                        console.print(f"[yellow]WARNING:[/yellow] Query still returned {len(results)} results after retry. Proceeding with ranking...")
+
                 break
 
             except Exception as e:
