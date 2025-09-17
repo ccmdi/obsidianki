@@ -326,8 +326,10 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
 
                         for card in flashcards:
                             if 'front' in card:
+                                card['front_original'] = card['front']  # Save original for terminal display
                                 card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
+                                card['back_original'] = card['back']  # Save original for terminal display
                                 card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 
@@ -380,8 +382,10 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
 
                         for card in flashcards:
                             if 'front' in card:
+                                card['front_original'] = card['front']  # Save original for terminal display
                                 card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
+                                card['back_original'] = card['back']  # Save original for terminal display
                                 card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 
@@ -438,8 +442,10 @@ Please analyze this note and extract information specifically related to the que
 
                         for card in flashcards:
                             if 'front' in card:
+                                card['front_original'] = card['front']  # Save original for terminal display
                                 card['front'] = process_code_blocks(card['front'], syntax_highlighting)
                             if 'back' in card:
+                                card['back_original'] = card['back']  # Save original for terminal display
                                 card['back'] = process_code_blocks(card['back'], syntax_highlighting)
                         return flashcards
 

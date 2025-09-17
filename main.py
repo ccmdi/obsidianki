@@ -201,7 +201,7 @@ def main():
     console.print()
 
     # Show warning for experimental features
-    if args.query and DEDUPLICATE_VIA_DECK:
+    if args.query and not args.notes and DEDUPLICATE_VIA_DECK:
         console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
