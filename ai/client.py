@@ -339,10 +339,6 @@ class FlashcardAI:
 
     def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
-
-        console.print(f"[cyan]Agent:[/cyan] Starting multi-turn note discovery...")
-
-        # Add current date context
         from datetime import datetime
         today = datetime.now()
         date_context = f"\n\nToday's date is {today.strftime('%Y-%m-%d')}."
@@ -438,10 +434,6 @@ class FlashcardAI:
                                         size = note.get('size', 0)
                                         result_list.append(f"{i+1}. {name} ({path}) - {size} chars, tags: {tags}")
                                     result_summary = f"Found {len(results)} notes:\n" + "\n".join(result_list)
-
-                                    # Encourage finalization for good result sets
-                                    if len(results) <= 15:
-                                        result_summary += "\n\nThis looks like a good set of results! Consider finalizing your selection if these notes match the request well."
                                 else:
                                     # Show summary for large result sets
                                     result_summary = f"Found {len(results)} notes - this may be too many. Consider refining your query to be more specific."

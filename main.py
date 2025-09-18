@@ -26,7 +26,7 @@ def show_main_help():
     console.print("  [cyan]-c, --cards <n>[/cyan]        Set target card limit")
     console.print("  [cyan]-n, --notes <patterns>[/cyan] Process specific notes or directory patterns")
     console.print("  [cyan]-q, --query <text>[/cyan]     Generate cards from query, e.g. \"do X\"")
-    console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery")
+    console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
     console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
     console.print("  [cyan]-s, --sample <n>[/cyan]       Sample N notes (directory patterns only)")
     console.print("  [cyan]-b, --bias <float>[/cyan]     Note density bias (0-1)")
@@ -47,7 +47,7 @@ def main():
     parser.add_argument("-c", "--cards", type=int, help="Override max card limit")
     parser.add_argument("-n", "--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
-    parser.add_argument("-a", "--agent", type=str, help="Agent mode: natural language note discovery using DQL queries")
+    parser.add_argument("-a", "--agent", type=str, help="Agent mode: natural language note discovery using DQL queries (EXPERIMENTAL)")
     parser.add_argument("-d", "--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("-s", "--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
@@ -270,6 +270,7 @@ def main():
 
     # Handle agent mode
     if args.agent:
+        console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
 
         # Use agent to find notes
