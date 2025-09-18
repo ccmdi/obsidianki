@@ -202,36 +202,40 @@ def handle_tag_command(args):
         return
 
     if args.tag_action == 'add':
-        config.tag_weights[args.tag] = args.weight
+        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        config.tag_weights[tag] = args.weight
         config.save_tag_schema()
-        console.print(f"[green]✓[/green] Added tag [cyan]{args.tag}[/cyan] with weight [bold]{args.weight}[/bold]")
+        console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
-        if args.tag in config.tag_weights:
-            del config.tag_weights[args.tag]
+        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        if tag in config.tag_weights:
+            del config.tag_weights[tag]
             config.save_tag_schema()
-            console.print(f"[green]✓[/green] Removed tag [cyan]{args.tag}[/cyan]")
+            console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan]")
         else:
-            console.print(f"[red]Tag '{args.tag}' not found.[/red]")
+            console.print(f"[red]Tag '{tag}' not found.[/red]")
         return
 
     if args.tag_action == 'exclude':
-        if args.tag not in config.excluded_tags:
-            config.excluded_tags.append(args.tag)
+        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        if tag not in config.excluded_tags:
+            config.excluded_tags.append(tag)
             config.save_tag_schema()
-            console.print(f"[green]✓[/green] Added [cyan]{args.tag}[/cyan] to exclusion list")
+            console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
-            console.print(f"[yellow]Tag '{args.tag}' is already excluded[/yellow]")
+            console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
         return
 
     if args.tag_action == 'include':
-        if args.tag in config.excluded_tags:
-            config.excluded_tags.remove(args.tag)
+        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        if tag in config.excluded_tags:
+            config.excluded_tags.remove(tag)
             config.save_tag_schema()
-            console.print(f"[green]✓[/green] Removed [cyan]{args.tag}[/cyan] from exclusion list")
+            console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
-            console.print(f"[yellow]Tag '{args.tag}' is not in exclusion list[/yellow]")
+            console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
         return
 
 
