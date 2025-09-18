@@ -29,6 +29,7 @@ DEFAULT_CONFIG = {
     "APPROVE_CARDS": False,   # Ask user approval before adding each card to Anki
     "DEDUPLICATE_VIA_HISTORY": False,  # Include past flashcard questions in prompts to avoid duplicates
     "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
+    "USE_DECK_SCHEMA": False,  # Sample existing cards from deck to enforce consistent formatting/style
     "DECK": "Obsidian",  # Default Anki deck for adding cards
     "SYNTAX_HIGHLIGHTING": True  # Enable syntax highlighting for code blocks in flashcards
 }
@@ -65,6 +66,7 @@ APPROVE_NOTES = _config["APPROVE_NOTES"]
 APPROVE_CARDS = _config["APPROVE_CARDS"]
 DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
 DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
+USE_DECK_SCHEMA = _config["USE_DECK_SCHEMA"]
 DECK = _config["DECK"]
 SYNTAX_HIGHLIGHTING = _config["SYNTAX_HIGHLIGHTING"]
 

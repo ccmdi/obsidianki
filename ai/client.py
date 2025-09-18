@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
 from cli.utils import process_code_blocks
-from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, DQL_AGENT_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
+from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
 class FlashcardAI:
@@ -15,7 +15,30 @@ class FlashcardAI:
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
 
-    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
+    def _build_schema_context(self, deck_examples: List[Dict[str, str]]) -> str:
+        """Build schema context from existing deck cards"""
+        if not deck_examples:
+            return ""
+
+        schema_context = "\n\nIMPORTANT FORMATTING REQUIREMENTS:"
+        schema_context += "\nYou MUST generate flashcards that strongly mirror the style and formatting of these existing cards from the deck:"
+        schema_context += "\n\nEXISTING CARD EXAMPLES:"
+
+        for i, example in enumerate(deck_examples, 1):
+            schema_context += f"\n\nExample {i}:"
+            schema_context += f"\nFront: {example['front']}"
+            schema_context += f"\nBack: {example['back']}"
+
+        schema_context += "\n\nYour new flashcards MUST follow the same:"
+        schema_context += "\n- Question/answer structure and style"
+        schema_context += "\n- Level of detail and complexity"
+        schema_context += "\n- Formatting patterns (code blocks, emphasis, etc.)"
+        schema_context += "\n- Length and conciseness"
+        schema_context += "\nGenerate cards that would fit seamlessly with these examples."
+
+        return schema_context
+
+    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
         """Generate flashcards from note content using Claude"""
 
         cards_to_create = target_cards if target_cards else 2
@@ -32,10 +55,13 @@ class FlashcardAI:
 
         DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
 
+        # Add schema context if deck examples provided
+        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+
         user_prompt = f"""Note Title: {note_title}
 
         Note Content:
-        {note_content}{dedup_context}
+        {note_content}{dedup_context}{schema_context}
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
@@ -74,7 +100,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_flashcards_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
+    def generate_flashcards_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
         """Generate flashcards based on a user query without source material"""
 
         cards_to_create = target_cards if target_cards else 3
@@ -91,9 +117,12 @@ class FlashcardAI:
 
         Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
 
+        # Add schema context if deck examples provided
+        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+
         user_prompt = f"""User Query: {query}
 
-        Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}"""
+        Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}{schema_context}"""
 
         try:
             response = self.client.messages.create(
@@ -130,7 +159,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None) -> List[Dict[str, str]]:
+    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
         cards_to_create = target_cards if target_cards else 2
@@ -147,11 +176,14 @@ class FlashcardAI:
 
             DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
 
+            # Add schema context if deck examples provided
+            schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+
             user_prompt = f"""Note Title: {note_title}
             Query: {query}
 
             Note Content:
-            {note_content}{dedup_context}
+            {note_content}{dedup_context}{schema_context}
 
             Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 

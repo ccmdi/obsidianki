@@ -31,6 +31,7 @@ def show_main_help():
     console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
     console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
     console.print("  [cyan]--allow <folders>[/cyan]     Temporarily expand search to additional folders")
+    console.print("  [cyan]-u, --use-schema[/cyan]      Use existing deck cards as formatting examples")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -51,6 +52,7 @@ def main():
     parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
+    parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -151,7 +153,7 @@ def main():
     from api.obsidian import ObsidianAPI
     from ai.client import FlashcardAI
     from api.anki import AnkiAPI
-    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK, SEARCH_FOLDERS
+    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS
     from cli.handlers import approve_note, approve_flashcard
 
     # Set deck from CLI argument or config default
@@ -222,8 +224,16 @@ def main():
                 if previous_fronts:
                     console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
 
+            # Get deck examples for schema enforcement if enabled
+            deck_examples = []
+            use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+            if use_schema:
+                deck_examples = anki.get_deck_card_examples(deck_name)
+                if deck_examples:
+                    console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]\n")
+
             target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
@@ -384,14 +394,22 @@ def main():
             if previous_fronts:
                 console.print(f"  [dim]Found {len(previous_fronts)} previous flashcards for deduplication[/dim]")
 
+        # Get deck examples for schema enforcement if enabled
+        deck_examples = []
+        use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+        if use_schema:
+            deck_examples = anki.get_deck_card_examples(deck_name)
+            if deck_examples:
+                console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
+
         # Generate flashcards
         if args.query:
             # Paired query mode - extract specific info from note based on query
             console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
         else:
             # Normal mode - generate flashcards from note content
-            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
         if not flashcards:
             console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue

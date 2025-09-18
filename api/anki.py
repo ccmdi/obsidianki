@@ -203,6 +203,45 @@ class AnkiAPI:
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card fronts: {e}")
             return []
 
+    def get_deck_card_examples(self, deck_name: str = "Obsidian", sample_size: int = 5) -> List[Dict[str, str]]:
+        """Sample existing cards from deck to use as formatting/style examples"""
+        try:
+            # Find all cards in the deck
+            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+
+            if not card_ids:
+                return []
+
+            # Sample a subset of cards if there are many
+            import random
+            if len(card_ids) > sample_size:
+                card_ids = random.sample(card_ids, sample_size)
+
+            # Get card info for sampled cards
+            cards_info = self._request("cardsInfo", {"cards": card_ids})
+
+            if not cards_info:
+                return []
+
+            # Extract front and back field values
+            examples = []
+            for card in cards_info:
+                fields = card.get("fields", {})
+                front = fields.get("Front", {}).get("value", "")
+                back = fields.get("Back", {}).get("value", "")
+
+                if front and back:
+                    examples.append({
+                        "front": front,
+                        "back": back
+                    })
+
+            return examples
+
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not get deck card examples: {e}")
+            return []
+
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
         try:
