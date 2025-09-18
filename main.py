@@ -4,15 +4,12 @@ from pathlib import Path
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
-from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli_handlers import handle_config_command, handle_tag_command, handle_history_command
+
+from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from cli.handlers import handle_config_command, handle_tag_command, handle_history_command
 
 def show_main_help():
     """Display the main help screen"""
-    from rich.panel import Panel
-    from rich.text import Text
-    from config import console
-
     console.print(Panel(
         Text("ObsidianKi - Generate flashcards from Obsidian notes", style="bold blue"),
         style="blue"
@@ -25,13 +22,16 @@ def show_main_help():
     console.print()
 
     console.print("[bold blue]Main Options[/bold blue]")
-    console.print("  [cyan]--setup[/cyan]               Run interactive setup")
-    console.print("  [cyan]--cards <n>[/cyan]           Set target card limit")
-    console.print("  [cyan]--notes <patterns>[/cyan]    Process specific notes or directory patterns")
-    console.print("  [cyan]--query <text>[/cyan]        Generate cards from query, e.g. \"do X\"")
-    console.print("  [cyan]--deck <name>[/cyan]         Anki deck to add cards to")
-    console.print("  [cyan]--sample <n>[/cyan]          Sample N notes (directory patterns only)")
-    console.print("  [cyan]--bias <float>[/cyan]        Note density bias (0-1)")
+    console.print("  [cyan]-S, --setup[/cyan]            Run interactive setup")
+    console.print("  [cyan]-c, --cards <n>[/cyan]        Set target card limit")
+    console.print("  [cyan]-n, --notes <patterns>[/cyan] Process specific notes or directory patterns")
+    console.print("  [cyan]-q, --query <text>[/cyan]     Generate cards from query, e.g. \"do X\"")
+    console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
+    console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
+    console.print("  [cyan]-s, --sample <n>[/cyan]       Sample N notes (directory patterns only)")
+    console.print("  [cyan]-b, --bias <float>[/cyan]     Note density bias (0-1)")
+    console.print("  [cyan]-w, --allow <folders>[/cyan]  Temporarily expand search to additional folders")
+    console.print("  [cyan]-u, --use-schema[/cyan]       Use existing Anki deck cards as formatting examples")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -43,22 +43,22 @@ def show_main_help():
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes", add_help=False)
     parser.add_argument("-h", "--help", action="store_true", help="Show help message")
-    parser.add_argument("--setup", action="store_true", help="Run interactive setup to configure API keys")
-    parser.add_argument("--cards", type=int, help="Override max card limit")
-    parser.add_argument("--notes", nargs='+', help="Process specific notes by name or directory patterns")
+    parser.add_argument("-S", "--setup", action="store_true", help="Run interactive setup to configure API keys")
+    parser.add_argument("-c", "--cards", type=int, help="Override max card limit")
+    parser.add_argument("-n", "--notes", nargs='+', help="Process specific notes by name or directory patterns")
     parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
-    parser.add_argument("--deck", type=str, help="Anki deck to add cards to")
-    parser.add_argument("--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
-    parser.add_argument("--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
+    parser.add_argument("-a", "--agent", type=str, help="Agent mode: natural language note discovery using DQL queries (EXPERIMENTAL)")
+    parser.add_argument("-d", "--deck", type=str, help="Anki deck to add cards to")
+    parser.add_argument("-s", "--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
+    parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
+    parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
+    parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
     config_parser = subparsers.add_parser('config', help='Manage configuration', add_help=False)
     config_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     config_subparsers = config_parser.add_subparsers(dest='config_action', help='Config actions')
-
-    # config list
-    config_subparsers.add_parser('list', help='List all configuration settings')
 
     # config get <key>
     get_parser = config_subparsers.add_parser('get', help='Get a configuration value')
@@ -88,12 +88,9 @@ def main():
     history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
 
     # Tag management
-    tag_parser = subparsers.add_parser('tag', help='Manage tag weights', add_help=False)
+    tag_parser = subparsers.add_parser('tag', aliases=['tags'], help='Manage tag weights', add_help=False)
     tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
-
-    # tag list
-    tag_subparsers.add_parser('list', help='List all tag weights')
 
     # tag add <tag> <weight>
     add_parser = tag_subparsers.add_parser('add', help='Add or update a tag weight')
@@ -128,7 +125,7 @@ def main():
     elif args.command == 'history':
         handle_history_command(args)
         return
-    elif args.command == 'tag':
+    elif args.command in ['tag', 'tags']:
         handle_tag_command(args)
         return
 
@@ -140,19 +137,18 @@ def main():
 
     if args.setup or needs_setup:
         try:
-            # Lazy import setup wizard
-            from wizard import setup
+            from cli.wizard import setup
             setup(force_full_setup=args.setup)
         except KeyboardInterrupt:
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
         return
 
     # Lazy import heavy dependencies only when needed for flashcard generation
-    from obsidian import ObsidianAPI
-    from ai import FlashcardAI
-    from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK
-    from cli_handlers import approve_note, approve_flashcard
+    from api.obsidian import ObsidianAPI
+    from ai.client import FlashcardAI
+    from api.anki import AnkiAPI
+    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS
+    from cli.handlers import approve_note, approve_flashcard
 
     # Set deck from CLI argument or config default
     deck_name = args.deck if args.deck else DECK
@@ -181,13 +177,23 @@ def main():
     ai = FlashcardAI()
     anki = AnkiAPI()
 
+    # Handle --allow flag: expand SEARCH_FOLDERS for this run
+    effective_search_folders = SEARCH_FOLDERS
+    if args.allow:
+        if effective_search_folders:
+            effective_search_folders = list(effective_search_folders) + args.allow
+        else:
+            effective_search_folders = args.allow
+        console.print(f"[dim]Effective search folders:[/dim] {', '.join(effective_search_folders)}")
+        console.print()
+
     if SAMPLING_MODE == "weighted":
         config.show_current_weights()
     
     console.print()
 
     # Show warning for experimental features
-    if DEDUPLICATE_VIA_DECK:
+    if args.query and not args.notes and DEDUPLICATE_VIA_DECK:
         console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
@@ -200,7 +206,7 @@ def main():
         return
 
     # Handle query mode
-    if args.query:
+    if args.query and not args.agent:
         if not args.notes:
             # Standalone query mode - generate cards from query alone
             console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
@@ -212,8 +218,17 @@ def main():
                 if previous_fronts:
                     console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
 
+            # Get deck examples for schema enforcement if enabled
+            deck_examples = []
+            use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+            if use_schema:
+                deck_examples = anki.get_deck_card_examples(deck_name)
+                if deck_examples:
+                    console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]")
+                    # console.print(f"[dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]\n")
+
             target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
@@ -253,8 +268,34 @@ def main():
             console.print(f"\n[bold green]COMPLETE![/bold green] Added {successful_cards} flashcards from query")
             return
 
+    # Handle agent mode
+    if args.agent:
+        console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
+        console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
+
+        # Use agent to find notes
+        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample or notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
+
+        if not agent_notes:
+            console.print("[red]ERROR:[/red] Agent found no matching notes")
+            return
+
+        old_notes = agent_notes
+
+        # Update max_cards based on found notes (if --cards wasn't specified)
+        if args.cards is None:
+            max_cards = len(old_notes) * 2
+
+        if args.query:
+            console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} AI-discovered note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+        else:
+            console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} AI-discovered note(s)")
+            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+        console.print()
+
     # Get notes to process
-    if args.notes:
+    elif args.notes:
         old_notes = []
 
         for note_pattern in args.notes:
@@ -296,6 +337,10 @@ def main():
             console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
         console.print()
     else:
+        # For now, --allow only works with agent mode due to obsidian.py global dependencies
+        if args.allow:
+            console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
+
         old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
 
         if not old_notes:
@@ -345,14 +390,23 @@ def main():
             if previous_fronts:
                 console.print(f"  [dim]Found {len(previous_fronts)} previous flashcards for deduplication[/dim]")
 
+        # Get deck examples for schema enforcement if enabled
+        deck_examples = []
+        use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+        if use_schema:
+            deck_examples = anki.get_deck_card_examples(deck_name)
+            if deck_examples:
+                console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
+                console.print(f"  [dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]")
+
         # Generate flashcards
         if args.query:
             # Paired query mode - extract specific info from note based on query
             console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
         else:
             # Normal mode - generate flashcards from note content
-            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts)
+            flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
         if not flashcards:
             console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
             continue
@@ -385,7 +439,7 @@ def main():
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            # console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
+            console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking and deduplication
