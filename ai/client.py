@@ -358,15 +358,28 @@ class FlashcardAI:
         max_turns = 8  # Increased to allow more refinement
         selected_notes = []
         last_results = []  # Keep track of last query results
+        all_results = {}  # Accumulate all results by path for validation
+        has_dql_results = False  # Track if we've gotten at least one DQL result
 
         for turn in range(max_turns):
             try:
+                # Determine available tools and tool choice based on whether we have DQL results
+                if not has_dql_results:
+                    # Force DQL execution if we haven't gotten results yet
+                    available_tools = [DQL_EXECUTION_TOOL]
+                    tool_choice = {"type": "tool", "name": "execute_dql_query"}
+                else:
+                    # Allow both tools once we have results
+                    available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
+                    tool_choice = {"type": "any"}
+
                 response = self.client.messages.create(
                     model="claude-4-sonnet-20250514",
                     max_tokens=3000,
                     system=MULTI_TURN_DQL_AGENT_PROMPT,
                     messages=messages,
-                    tools=[DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
+                    tools=available_tools,
+                    tool_choice=tool_choice
                 )
 
                 # Add assistant response to conversation
@@ -419,6 +432,13 @@ class FlashcardAI:
 
                                 console.print(f"[cyan]Agent:[/cyan] Found {len(results)} notes")
                                 last_results = results  # Store for potential auto-finalization
+                                has_dql_results = True  # Mark that we now have DQL results
+
+                                # Accumulate all results by path for validation
+                                for result in results:
+                                    path = result['result'].get('path')
+                                    if path:
+                                        all_results[path] = result
 
                                 # Prepare result summary for AI
                                 if len(results) == 0:
@@ -458,13 +478,19 @@ class FlashcardAI:
                             console.print(f"[cyan]Agent:[/cyan] {reasoning}")
                             console.print(f"[cyan]Agent:[/cyan] Selected {len(selected_paths)} notes for processing")
 
-                            # Find the corresponding note objects
+                            # Find the corresponding note objects from all accumulated results
                             final_selection = []
+                            missing_paths = []
                             for path in selected_paths:
-                                for result in results:  # Use results from last query
-                                    if result['result'].get('path') == path:
-                                        final_selection.append(result)
-                                        break
+                                if path in all_results:
+                                    final_selection.append(all_results[path])
+                                else:
+                                    missing_paths.append(path)
+
+                            # Warn about any missing paths
+                            if missing_paths:
+                                console.print(f"[yellow]Warning:[/yellow] Agent selected {len(missing_paths)} paths not found in query results: {missing_paths}")
+                                console.print(f"[cyan]Agent:[/cyan] Proceeding with {len(final_selection)} valid selections")
 
                             tool_results.append({
                                 "tool_use_id": content_block.id,
@@ -495,12 +521,54 @@ class FlashcardAI:
                 return []
 
         if not selected_notes:
-            # If agent didn't finalize but we have good results from last query, use them
-            if last_results and len(last_results) <= 25:
-                console.print(f"[yellow]Agent reached turn limit, auto-selecting {len(last_results)} notes from last query[/yellow]")
-                selected_notes = last_results
-            else:
-                console.print("[yellow]Agent did not finalize a selection and no suitable results available[/yellow]")
+            # Force agent to finalize selection if it hasn't already
+            if last_results:
+                console.print(f"[cyan]Agent:[/cyan] Forcing finalization of {len(last_results)} available notes")
+
+                try:
+                    # Send final request forcing finalize_note_selection
+                    response = self.client.messages.create(
+                        model="claude-4-sonnet-20250514",
+                        max_tokens=3000,
+                        system=MULTI_TURN_DQL_AGENT_PROMPT,
+                        messages=messages + [{"role": "user", "content": "Please finalize your note selection now using the finalize_note_selection tool."}],
+                        tools=[FINALIZE_SELECTION_TOOL],
+                        tool_choice={"type": "tool", "name": "finalize_note_selection"}
+                    )
+
+                    # Process the forced finalization
+                    for content_block in response.content:
+                        if content_block.type == "tool_use" and content_block.name == "finalize_note_selection":
+                            tool_input = content_block.input
+                            selected_paths = tool_input["selected_paths"]
+                            reasoning = tool_input["reasoning"]
+
+                            console.print(f"[cyan]Agent:[/cyan] {reasoning}")
+                            console.print(f"[cyan]Agent:[/cyan] Selected {len(selected_paths)} notes for processing")
+
+                            # Find the corresponding note objects from all accumulated results
+                            final_selection = []
+                            missing_paths = []
+                            for path in selected_paths:
+                                if path in all_results:
+                                    final_selection.append(all_results[path])
+                                else:
+                                    missing_paths.append(path)
+
+                            # Warn about any missing paths
+                            if missing_paths:
+                                console.print(f"[yellow]Warning:[/yellow] Agent selected {len(missing_paths)} paths not found in query results: {missing_paths}")
+                                console.print(f"[cyan]Agent:[/cyan] Proceeding with {len(final_selection)} valid selections")
+
+                            selected_notes = final_selection
+                            break
+
+                except Exception as e:
+                    console.print(f"[red]ERROR:[/red] Failed to force finalization: {e}")
+                    return []
+
+            if not selected_notes:
+                console.print("[yellow]Agent could not finalize a selection[/yellow]")
                 return []
 
         # Apply weighted sampling to final selection if needed
