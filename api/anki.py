@@ -206,13 +206,12 @@ class AnkiAPI:
     def get_deck_card_examples(self, deck_name: str = "Obsidian", sample_size: int = 5) -> List[Dict[str, str]]:
         """Sample existing cards from deck to use as formatting/style examples"""
         try:
-            # Find all cards in the deck
-            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+            # important: ignores suspended/buried
+            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\" -is:suspended -is:buried"})
 
             if not card_ids:
                 return []
 
-            # Sample a subset of cards if there are many
             import random
             if len(card_ids) > sample_size:
                 card_ids = random.sample(card_ids, sample_size)

@@ -1,7 +1,6 @@
 import re
 
-# TODO: unused
-def strip_html_for_terminal(text: str) -> str:
+def strip_html(text: str) -> str:
     """Strip HTML tags for cleaner terminal display"""
     # Remove HTML tags but keep the content
     text = re.sub(r'<[^>]+>', '', text)

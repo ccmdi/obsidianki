@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from typing import List, Dict
 
 from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
-from cli.utils import process_code_blocks
+from cli.utils import process_code_blocks, strip_html
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -26,15 +26,15 @@ class FlashcardAI:
 
         for i, example in enumerate(deck_examples, 1):
             schema_context += f"\n\nExample {i}:"
-            schema_context += f"\nFront: {example['front']}"
-            schema_context += f"\nBack: {example['back']}"
+            schema_context += f"\nFront: {example['front']}" # for links, can be useful
+            schema_context += f"\nBack: {strip_html(example['back'])}" # codeblocks etc arent as pretty
 
         schema_context += "\n\nYour new flashcards MUST follow the same:"
         schema_context += "\n- Question/answer structure and style"
         schema_context += "\n- Level of detail and complexity"
-        schema_context += "\n- Formatting patterns (code blocks, emphasis, etc.)"
+        schema_context += "\n- Formatting patterns (HTML patterns/link patterns, code blocks, emphasis, etc.)"
         schema_context += "\n- Length and conciseness"
-        schema_context += "\nGenerate cards that would fit seamlessly with these examples."
+        schema_context += "\nGenerate cards that would fit seamlessly with these examples. If multiple schemas exist in the examples, generate cards in the one that is present most often."
 
         return schema_context
 

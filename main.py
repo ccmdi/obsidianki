@@ -230,7 +230,8 @@ def main():
             if use_schema:
                 deck_examples = anki.get_deck_card_examples(deck_name)
                 if deck_examples:
-                    console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]\n")
+                    console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]")
+                    # console.print(f"[dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]\n")
 
             target_cards = args.cards if args.cards else None
             flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
@@ -401,6 +402,7 @@ def main():
             deck_examples = anki.get_deck_card_examples(deck_name)
             if deck_examples:
                 console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
+                console.print(f"  [dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]")
 
         # Generate flashcards
         if args.query:
