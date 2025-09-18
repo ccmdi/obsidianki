@@ -20,21 +20,26 @@ class FlashcardAI:
         if not deck_examples:
             return ""
 
-        schema_context = "\n\nIMPORTANT FORMATTING REQUIREMENTS:"
-        schema_context += "\nYou MUST generate flashcards that strongly mirror the style and formatting of these existing cards from the deck:"
-        schema_context += "\n\nEXISTING CARD EXAMPLES:"
-
+        examples_text = ""
         for i, example in enumerate(deck_examples, 1):
-            schema_context += f"\n\nExample {i}:"
-            schema_context += f"\nFront: {example['front']}" # for links, can be useful
-            schema_context += f"\nBack: {strip_html(example['back'])}" # codeblocks etc arent as pretty
+            examples_text += f"Example {i}:\nFront: {example['front']}\nBack: {strip_html(example['back'])}\n\n"
 
-        schema_context += "\n\nYour new flashcards MUST follow the same:"
-        schema_context += "\n- Question/answer structure and style"
-        schema_context += "\n- Level of detail and complexity"
-        schema_context += "\n- Formatting patterns (HTML patterns/link patterns, code blocks, emphasis, etc.)"
-        schema_context += "\n- Length and conciseness"
-        schema_context += "\nGenerate cards that would fit seamlessly with these examples. If multiple schemas exist in the examples, generate cards in the one that is present most often."
+        schema_context = f"""
+
+        IMPORTANT FORMATTING REQUIREMENTS:
+        You MUST generate flashcards that strongly mirror the style and formatting of these existing cards from the deck:
+
+        EXISTING CARD EXAMPLES:
+        ```
+        {examples_text.strip()}
+        ```
+
+        Your new flashcards MUST follow the same:
+        - Question/answer structure and style
+        - Level of detail and complexity
+        - Formatting patterns (HTML patterns/link patterns, code blocks, emphasis, etc.)
+        - Length and conciseness
+        Generate cards that would fit seamlessly with these examples. If multiple schemas exist in the examples, generate cards in the one that is present most often."""
 
         return schema_context
 
