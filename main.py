@@ -88,7 +88,7 @@ def main():
     history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
 
     # Tag management
-    tag_parser = subparsers.add_parser('tag', help='Manage tag weights', add_help=False)
+    tag_parser = subparsers.add_parser('tag', aliases=['tags'], help='Manage tag weights', add_help=False)
     tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
 
@@ -125,7 +125,7 @@ def main():
     elif args.command == 'history':
         handle_history_command(args)
         return
-    elif args.command == 'tag':
+    elif args.command in ['tag', 'tags']:
         handle_tag_command(args)
         return
 
