@@ -60,9 +60,6 @@ def main():
     config_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     config_subparsers = config_parser.add_subparsers(dest='config_action', help='Config actions')
 
-    # config list
-    config_subparsers.add_parser('list', help='List all configuration settings')
-
     # config get <key>
     get_parser = config_subparsers.add_parser('get', help='Get a configuration value')
     get_parser.add_argument('key', help='Configuration key to get')
@@ -94,9 +91,6 @@ def main():
     tag_parser = subparsers.add_parser('tag', help='Manage tag weights', add_help=False)
     tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
-
-    # tag list
-    tag_subparsers.add_parser('list', help='List all tag weights')
 
     # tag add <tag> <weight>
     add_parser = tag_subparsers.add_parser('add', help='Add or update a tag weight')

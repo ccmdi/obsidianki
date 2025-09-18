@@ -66,7 +66,7 @@ def handle_config_command(args):
     # Handle help request
     if hasattr(args, 'help') and args.help:
         show_simple_help("Configuration Management", {
-            "config list": "List all configuration settings",
+            "config": "List all configuration settings",
             "config get <key>": "Get a configuration value",
             "config set <key> <value>": "Set a configuration value",
             "config reset": "Reset configuration to defaults",
@@ -75,20 +75,7 @@ def handle_config_command(args):
         return
 
     if args.config_action is None:
-        show_simple_help("Configuration Management", {
-            "config list": "List all configuration settings",
-            "config get <key>": "Get a configuration value",
-            "config set <key> <value>": "Set a configuration value",
-            "config reset": "Reset configuration to defaults",
-            "config where": "Show configuration directory path"
-        })
-        return
-
-    if args.config_action == 'where':
-        console.print(str(CONFIG_DIR))
-        return
-
-    if args.config_action == 'list':
+        # Default action: list configuration (same as old 'list' command)
         try:
             with open(CONFIG_FILE, 'r') as f:
                 user_config = json.load(f)
@@ -103,6 +90,10 @@ def handle_config_command(args):
         for key, value in sorted(user_config.items()):
             console.print(f"  [cyan]{key.lower()}:[/cyan] {value}")
         console.print()
+        return
+
+    if args.config_action == 'where':
+        console.print(str(CONFIG_DIR))
         return
 
     if args.config_action == 'get':
@@ -178,17 +169,7 @@ def handle_tag_command(args):
     # Handle help request
     if hasattr(args, 'help') and args.help:
         show_simple_help("Tag Management", {
-            "tag list": "List all tag weights and exclusions",
-            "tag add <tag> <weight>": "Add or update a tag weight",
-            "tag remove <tag>": "Remove a tag weight",
-            "tag exclude <tag>": "Add tag to exclusion list",
-            "tag include <tag>": "Remove tag from exclusion list"
-        })
-        return
-
-    if args.tag_action is None:
-        show_simple_help("Tag Management", {
-            "tag list": "List all tag weights and exclusions",
+            "tag": "List all tag weights and exclusions",
             "tag add <tag> <weight>": "Add or update a tag weight",
             "tag remove <tag>": "Remove a tag weight",
             "tag exclude <tag>": "Add tag to exclusion list",
@@ -198,7 +179,8 @@ def handle_tag_command(args):
 
     config = ConfigManager()
 
-    if args.tag_action == 'list':
+    if args.tag_action is None:
+        # Default action: list tags (same as old 'list' command)
         weights = config.get_tag_weights()
         excluded = config.get_excluded_tags()
 
