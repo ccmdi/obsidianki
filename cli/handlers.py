@@ -6,7 +6,8 @@ from pathlib import Path
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
-from config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
+
+from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
 
 def strip_html_for_terminal(text: str) -> str:
     """Strip HTML tags for cleaner terminal display"""
@@ -281,7 +282,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from config import PROCESSING_HISTORY_FILE
+        from cli.config import PROCESSING_HISTORY_FILE
         history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
 
         if not history_file.exists():
@@ -358,7 +359,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'stats':
-        from config import PROCESSING_HISTORY_FILE
+        from cli.config import PROCESSING_HISTORY_FILE
         history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
 
         if not history_file.exists():

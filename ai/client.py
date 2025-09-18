@@ -2,7 +2,8 @@ import os
 import re
 from anthropic import Anthropic
 from typing import List, Dict
-from config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
+
+from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, DQL_AGENT_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 

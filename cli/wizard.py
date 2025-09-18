@@ -2,7 +2,8 @@ import json
 from rich.text import Text
 from rich.panel import Panel
 from rich.prompt import Prompt, IntPrompt, Confirm
-from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+
+from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 
 def setup(force_full_setup=False):
     """Interactive setup to configure API keys and preferences"""
@@ -49,7 +50,7 @@ ANTHROPIC_API_KEY={anthropic_key}
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
         # Import config defaults here to avoid circular imports during build
-        from config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
+        from cli.config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
 
         max_cards = IntPrompt.ask("   How many flashcards per session?", default=MAX_CARDS)
         notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=NOTES_TO_SAMPLE)

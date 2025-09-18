@@ -4,15 +4,12 @@ from pathlib import Path
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
-from config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli_handlers import handle_config_command, handle_tag_command, handle_history_command
+
+from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from cli.handlers import handle_config_command, handle_tag_command, handle_history_command
 
 def show_main_help():
     """Display the main help screen"""
-    from rich.panel import Panel
-    from rich.text import Text
-    from config import console
-
     console.print(Panel(
         Text("ObsidianKi - Generate flashcards from Obsidian notes", style="bold blue"),
         style="blue"
@@ -144,19 +141,18 @@ def main():
 
     if args.setup or needs_setup:
         try:
-            # Lazy import setup wizard
-            from wizard import setup
+            from cli.wizard import setup
             setup(force_full_setup=args.setup)
         except KeyboardInterrupt:
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
         return
 
     # Lazy import heavy dependencies only when needed for flashcard generation
-    from obsidian import ObsidianAPI
+    from api.obsidian import ObsidianAPI
     from ai.client import FlashcardAI
-    from anki import AnkiAPI
-    from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK, SEARCH_FOLDERS
-    from cli_handlers import approve_note, approve_flashcard
+    from api.anki import AnkiAPI
+    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK, SEARCH_FOLDERS
+    from cli.handlers import approve_note, approve_flashcard
 
     # Set deck from CLI argument or config default
     deck_name = args.deck if args.deck else DECK

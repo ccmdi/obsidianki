@@ -3,7 +3,8 @@ import os
 import urllib3
 from datetime import datetime, timedelta
 from typing import List, Dict
-from config import console
+
+from cli.config import console
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -88,7 +89,7 @@ class ObsidianAPI:
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
-        from config import SEARCH_FOLDERS
+        from cli.config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
         exclude_filter = self._build_exclude_filter(config_manager)
 
@@ -111,7 +112,7 @@ class ObsidianAPI:
     def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Dict]:
         """Get notes that contain specific tags, optionally excluding recently modified ones"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        from config import SEARCH_FOLDERS
+        from cli.config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
         exclude_filter = self._build_exclude_filter(config_manager)
 
@@ -149,7 +150,7 @@ class ObsidianAPI:
         """Get a random sample of notes older than specified days, optionally weighted by tags"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        from config import SEARCH_FOLDERS
+        from cli.config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
 
         # Get notes with tags for weighted sampling
@@ -186,7 +187,7 @@ class ObsidianAPI:
     def _weighted_sample(self, notes: List[Dict], limit: int, config_manager, bias_strength: float = None) -> List[Dict]:
         """Perform weighted sampling based on note tags and processing history"""
         import random
-        from config import get_sampling_weight_for_note
+        from cli.config import get_sampling_weight_for_note
 
         # Calculate weights for each note
         weights = []
@@ -270,7 +271,7 @@ class ObsidianAPI:
 
     def find_note_by_name(self, note_name: str, config_manager=None) -> Dict:
         """Find a specific note by name (partial match)"""
-        from config import SEARCH_FOLDERS
+        from cli.config import SEARCH_FOLDERS
         folder_filter = self._build_folder_filter(SEARCH_FOLDERS)
         exclude_filter = self._build_exclude_filter(config_manager)
 
