@@ -352,14 +352,14 @@ DO NOT create flashcards that ask similar questions or cover the same concepts a
             previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
             dedup_context = f"""
 
-IMPORTANT: We have previously created the following flashcards for this deck:
-{previous_questions}
+        IMPORTANT: We have previously created the following flashcards for this deck:
+        {previous_questions}
 
-Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
+        Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
 
-        user_prompt = f"""User Query: {query}
+                user_prompt = f"""User Query: {query}
 
-Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}"""
+        Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}"""
 
         try:
             response = self.client.messages.create(
@@ -408,18 +408,18 @@ Please {card_instruction} to help someone learn about this topic. Focus on the m
             previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
             dedup_context = f"""
 
-IMPORTANT: We have previously created the following flashcards for this note:
-{previous_questions}
+            IMPORTANT: We have previously created the following flashcards for this note:
+            {previous_questions}
 
-DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
+            DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
 
-        user_prompt = f"""Note Title: {note_title}
-Query: {query}
+                    user_prompt = f"""Note Title: {note_title}
+            Query: {query}
 
-Note Content:
-{note_content}{dedup_context}
+            Note Content:
+            {note_content}{dedup_context}
 
-Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
+            Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
         try:
             response = self.client.messages.create(
@@ -463,27 +463,14 @@ Please analyze this note and extract information specifically related to the que
             try:
                 console.print(f"[cyan]Agent:[/cyan] Generating DQL query")
 
-                # Add folder context to the request
-                folder_context = ""
-                effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
-                if effective_folders:
-                    folder_context = f"\n\nIMPORTANT: Only search in these folders: {effective_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
-
-                # Add current date context for relative date calculations
-                from datetime import datetime, timedelta
+                from datetime import datetime
                 today = datetime.now()
-                two_months_ago = today - timedelta(days=60)  # Approximate 2 months
-                one_month_ago = today - timedelta(days=30)
 
-                date_context = f"""\n\nIMPORTANT: Today's date is {today.strftime('%Y-%m-%d')}. For relative dates:
-- "2 months ago" = {two_months_ago.strftime('%Y-%m-%d')}
-- "1 month ago" = {one_month_ago.strftime('%Y-%m-%d')}
-- "last week" = {(today - timedelta(days=7)).strftime('%Y-%m-%d')}
-Use these calculated dates in your DQL queries."""
+                date_context = f"""\n\nToday's date is {today.strftime('%Y-%m-%d')}."""
 
-                user_prompt = f"""Natural language request: {natural_request}{folder_context}{date_context}
+                user_prompt = f"""Natural language request: {natural_request}{date_context}
 
-Generate a DQL query that finds the requested notes."""
+                Generate a DQL query that finds the requested notes."""
 
                 response = self.client.messages.create(
                     model="claude-4-sonnet-20250514",
@@ -532,9 +519,9 @@ Generate a DQL query that finds the requested notes."""
 
         user_prompt = f"""Original request: {natural_request}
 
-Note list: {note_metadata}
+        Note list: {note_metadata}
 
-Select and rank the most relevant notes for this request. Return a JSON array of note paths."""
+        Select and rank the most relevant notes for this request. Return a JSON array of note paths."""
 
         try:
             response = self.client.messages.create(
