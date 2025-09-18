@@ -31,4 +31,4 @@ Repository = "https://github.com/ccmdi/obsidianki"
 Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
-py-modules = ["main", "obsidian", "ai", "anki", "config", "wizard", "cli_handlers"]
+py-modules = ["main", "obsidian", "anki", "config", "wizard", "cli_handlers"]

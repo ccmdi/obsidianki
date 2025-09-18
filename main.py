@@ -153,7 +153,7 @@ def main():
 
     # Lazy import heavy dependencies only when needed for flashcard generation
     from obsidian import ObsidianAPI
-    from ai import FlashcardAI
+    from ai.client import FlashcardAI
     from anki import AnkiAPI
     from config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, DECK, SEARCH_FOLDERS
     from cli_handlers import approve_note, approve_flashcard
@@ -214,7 +214,7 @@ def main():
         return
 
     # Handle query mode
-    if args.query:
+    if args.query and not args.agent:
         if not args.notes:
             # Standalone query mode - generate cards from query alone
             console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
