@@ -202,18 +202,18 @@ def handle_tag_command(args):
         return
 
     if args.tag_action == 'add':
-        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
         config.tag_weights[tag] = args.weight
         config.save_tag_schema()
         console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
-        tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
+        tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
         if tag in config.tag_weights:
             del config.tag_weights[tag]
             config.save_tag_schema()
-            console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan]")
+            console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
         return

@@ -128,7 +128,7 @@ class AnkiAPI:
             }
 
             self._request("createModel", model)
-            console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
+            # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
     def generate_obsidian_link(self, note_path: str, note_title: str) -> str:
         """Generate Obsidian URI link for a note"""

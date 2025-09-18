@@ -438,7 +438,7 @@ def main():
         successful_cards = len([r for r in result if r is not None])
 
         if successful_cards > 0:
-            # console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
+            console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
             total_cards += successful_cards
 
             # Record flashcard creation for density tracking and deduplication

@@ -121,7 +121,7 @@ class ConfigManager:
 
         with open(self.tag_schema_file, 'w') as f:
             json.dump(schema, f, indent=2)
-        console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
+        # console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
     def get_tag_weights(self) -> Dict[str, float]:
         """Get current tag weights"""
@@ -144,7 +144,7 @@ class ConfigManager:
         if tag in self.tag_weights:
             self.tag_weights[tag] = weight
             self.save_tag_schema()
-            console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
+            # console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
         else:
             console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
@@ -169,7 +169,7 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] /= total
             self.save_tag_schema()
-            console.print("[green]SUCCESS:[/green] Normalized tag weights")
+            # console.print("[green]SUCCESS:[/green] Normalized tag weights")
 
     def reset_to_uniform(self):
         """Reset all weights to uniform distribution"""
@@ -178,7 +178,7 @@ class ConfigManager:
             for tag in self.tag_weights:
                 self.tag_weights[tag] = uniform_weight
             self.save_tag_schema()
-            console.print("[green]SUCCESS:[/green] Reset to uniform weights")
+            # console.print("[green]SUCCESS:[/green] Reset to uniform weights")
 
     def load_processing_history(self):
         """Load processing history from file"""
