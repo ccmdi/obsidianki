@@ -9,14 +9,6 @@ from rich.text import Text
 
 from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
 
-def strip_html_for_terminal(text: str) -> str:
-    """Strip HTML tags for cleaner terminal display"""
-    # Remove HTML tags but keep the content
-    text = re.sub(r'<[^>]+>', '', text)
-    # Convert HTML entities
-    text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
-    return text
-
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
     console.print(Panel(

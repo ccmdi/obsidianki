@@ -32,3 +32,4 @@ Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
 py-modules = ["main"]
+packages = {find = {}}
