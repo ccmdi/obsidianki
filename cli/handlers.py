@@ -407,3 +407,72 @@ def handle_history_command(args):
         except Exception as e:
             console.print(f"[red]Error reading history: {e}[/red]")
         return
+
+
+def handle_deck_command(args):
+    """Handle deck management commands"""
+
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Deck Management", {
+            "deck": "List all Anki decks",
+            "deck -m": "List all decks with metadata (card counts)",
+            "deck rename <old_name> <new_name>": "Rename a deck"
+        })
+        return
+
+    # Import here to avoid circular imports and startup delays
+    from api.anki import AnkiAPI
+
+    anki = AnkiAPI()
+
+    # Test connection first
+    if not anki.test_connection():
+        console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
+        console.print("[dim]Make sure Anki is running with AnkiConnect add-on installed[/dim]")
+        return
+
+    if args.deck_action is None:
+        # Default action: list decks
+        deck_names = anki.get_deck_names()
+
+        if not deck_names:
+            console.print("[yellow]No decks found[/yellow]")
+            return
+
+        console.print("[bold blue]Anki Decks[/bold blue]")
+        console.print()
+
+        # Check if metadata flag is set
+        show_metadata = hasattr(args, 'metadata') and args.metadata
+
+        if show_metadata:
+            console.print(f"[dim]Found {len(deck_names)} decks with metadata:[/dim]")
+            console.print()
+            for deck_name in sorted(deck_names):
+                stats = anki.get_deck_stats(deck_name)
+                total_cards = stats.get("total_cards", 0)
+                console.print(f"  [cyan]{deck_name}[/cyan]")
+                console.print(f"    [dim]{total_cards} cards[/dim]")
+        else:
+            console.print(f"[dim]Found {len(deck_names)} decks:[/dim]")
+            console.print()
+            for deck_name in sorted(deck_names):
+                console.print(f"  [cyan]{deck_name}[/cyan]")
+
+        console.print()
+        console.print("[dim]Use 'oki deck -m' to see card counts[/dim]")
+        return
+
+    if args.deck_action == 'rename':
+        old_name = args.old_name
+        new_name = args.new_name
+
+        console.print(f"[cyan]Renaming deck:[/cyan] [bold]{old_name}[/bold] → [bold]{new_name}[/bold]")
+
+        if anki.rename_deck(old_name, new_name):
+            console.print(f"[green]✓[/green] Successfully renamed deck to '[cyan]{new_name}[/cyan]'")
+        else:
+            console.print("[red]Failed to rename deck[/red]")
+
+        return
