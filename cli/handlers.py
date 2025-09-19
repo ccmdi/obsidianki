@@ -416,7 +416,7 @@ def handle_deck_command(args):
     if hasattr(args, 'help') and args.help:
         show_simple_help("Deck Management", {
             "deck": "List all Anki decks",
-            "deck -m": "List all decks with metadata (card counts)",
+            "deck -m": "List all Anki decks with card counts",
             "deck rename <old_name> <new_name>": "Rename a deck"
         })
         return
@@ -447,11 +447,12 @@ def handle_deck_command(args):
         show_metadata = hasattr(args, 'metadata') and args.metadata
 
         if show_metadata:
-            console.print(f"[dim]Found {len(deck_names)} decks with metadata:[/dim]")
+            console.print(f"[dim]Found {len(deck_names)} decks:[/dim]")
             console.print()
             for deck_name in sorted(deck_names):
                 stats = anki.get_deck_stats(deck_name)
                 total_cards = stats.get("total_cards", 0)
+
                 console.print(f"  [cyan]{deck_name}[/cyan]")
                 console.print(f"    [dim]{total_cards} cards[/dim]")
         else:
@@ -461,7 +462,6 @@ def handle_deck_command(args):
                 console.print(f"  [cyan]{deck_name}[/cyan]")
 
         console.print()
-        console.print("[dim]Use 'oki deck -m' to see card counts[/dim]")
         return
 
     if args.deck_action == 'rename':

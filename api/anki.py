@@ -253,22 +253,8 @@ class AnkiAPI:
     def get_deck_stats(self, deck_name: str) -> Dict[str, int]:
         """Get statistics for a specific deck"""
         try:
-            # Get deck info
-            deck_stats = self._request("getDeckStats", {"deck": deck_name})
-            if deck_stats:
-                return {
-                    "total_cards": deck_stats.get("total_cards", 0),
-                    "new_cards": deck_stats.get("new_cards", 0),
-                    "learning_cards": deck_stats.get("learning_cards", 0),
-                    "review_cards": deck_stats.get("review_cards", 0)
-                }
-        except Exception:
-            pass
-
-        # Fallback method using findCards
-        try:
-            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
-            return {"total_cards": len(card_ids) if card_ids else 0}
+            total_cards = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+            return {"total_cards": len(total_cards) if total_cards else 0}
         except Exception as e:
             console.print(f"[yellow]WARNING:[/yellow] Could not get stats for deck '{deck_name}': {e}")
             return {"total_cards": 0}
