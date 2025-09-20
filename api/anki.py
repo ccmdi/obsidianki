@@ -241,6 +241,60 @@ class AnkiAPI:
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card examples: {e}")
             return []
 
+    def get_deck_names(self) -> List[str]:
+        """Get list of all deck names"""
+        try:
+            deck_names = self._request("deckNames")
+            return deck_names if deck_names else []
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not get deck names: {e}")
+            return []
+
+    def get_deck_stats(self, deck_name: str) -> Dict[str, int]:
+        """Get statistics for a specific deck"""
+        try:
+            total_cards = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+            return {"total_cards": len(total_cards) if total_cards else 0}
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not get stats for deck '{deck_name}': {e}")
+            return {"total_cards": 0}
+
+    def rename_deck(self, old_name: str, new_name: str) -> bool:
+        """Rename a deck"""
+        try:
+            # Check if old deck exists
+            deck_names = self.get_deck_names()
+            if old_name not in deck_names:
+                console.print(f"[red]ERROR:[/red] Deck '{old_name}' not found")
+                return False
+
+            # Check if new name already exists
+            if new_name in deck_names:
+                console.print(f"[red]ERROR:[/red] Deck '{new_name}' already exists")
+                return False
+
+            # Get all cards in the old deck
+            card_ids = self._request("findCards", {"query": f"deck:\"{old_name}\""})
+
+            if not card_ids:
+                console.print(f"[yellow]WARNING:[/yellow] Deck '{old_name}' is empty")
+
+            # Create new deck (changeDeck creates it if it doesn't exist)
+            if card_ids:
+                self._request("changeDeck", {"cards": card_ids, "deck": new_name})
+            else:
+                # Create empty deck by creating and deleting a temp card
+                self.ensure_deck_exists(new_name)
+
+            # Delete old deck (this only works if it's empty)
+            self._request("deleteDecks", {"decks": [old_name], "cardsToo": False})
+
+            return True
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to rename deck: {e}")
+            return False
+
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
         try:

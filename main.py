@@ -6,7 +6,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 
 from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli.handlers import handle_config_command, handle_tag_command, handle_history_command
+from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -38,6 +38,7 @@ def show_main_help():
     console.print("  [cyan]config[/cyan]                Manage configuration")
     console.print("  [cyan]tag[/cyan]                   Manage tag weights")
     console.print("  [cyan]history[/cyan]               Manage processing history")
+    console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
     console.print()
 
 def main():
@@ -108,6 +109,18 @@ def main():
     # tag include <tag>
     include_parser = tag_subparsers.add_parser('include', help='Remove a tag from exclusion list')
     include_parser.add_argument('tag', help='Tag name to include')
+
+    # Deck management
+    deck_parser = subparsers.add_parser('deck', help='Manage Anki decks', add_help=False)
+    deck_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    deck_parser.add_argument("-m", "--metadata", action="store_true", help="Show metadata (card counts)")
+    deck_subparsers = deck_parser.add_subparsers(dest='deck_action', help='Deck actions')
+
+    # deck rename <old_name> <new_name>
+    rename_parser = deck_subparsers.add_parser('rename', help='Rename a deck')
+    rename_parser.add_argument('old_name', help='Current deck name')
+    rename_parser.add_argument('new_name', help='New deck name')
+
     args = parser.parse_args()
 
     # Handle help requests
@@ -127,6 +140,9 @@ def main():
         return
     elif args.command in ['tag', 'tags']:
         handle_tag_command(args)
+        return
+    elif args.command == 'deck':
+        handle_deck_command(args)
         return
 
     needs_setup = False
