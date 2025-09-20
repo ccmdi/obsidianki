@@ -8,9 +8,13 @@ Automated flashcard generation to Anki from your Obsidian vault.
 
 ```bash
 # uv
+uv tool install obsidianki
+# uv (source)
 uv tool install https://github.com/ccmdi/obsidianki.git
 
 # pip
+pip install obsidianki
+# pip (source)
 pip install https://github.com/ccmdi/obsidianki.git
 ```
 

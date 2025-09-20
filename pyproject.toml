@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obsidianki"
-version = "0.5.1"
+version = "0.5.2"
 description = "Generate flashcards from Obsidian notes using AI and sync them to Anki"
 authors = [{name = "ccmdi", email = "ccmdi.dev@gmail.com"}]
 license = {text = "MIT"}
