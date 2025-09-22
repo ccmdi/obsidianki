@@ -1,7 +1,10 @@
 import os
 import re
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from anthropic import Anthropic
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 
 from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
 from cli.utils import process_code_blocks, strip_html
@@ -464,3 +467,63 @@ class FlashcardAI:
 
         console.print()
         return sampled_notes
+
+    def generate_batch(self, note_batch: List[Tuple[str, str]], target_cards_per_note: int = None,
+                      previous_fronts_batch: List[List[str]] = None,
+                      deck_examples: List[Dict[str, str]] = None,
+                      query: str = None) -> List[List[Dict[str, str]]]:
+        """Generate flashcards for multiple notes in parallel"""
+
+        def generate_single_note(args):
+            """Helper function for parallel processing"""
+            note_content, note_title, previous_fronts, index = args
+
+            try:
+                if query:
+                    return self.generate_from_note_query(
+                        note_content, note_title, query,
+                        target_cards=target_cards_per_note,
+                        previous_fronts=previous_fronts,
+                        deck_examples=deck_examples
+                    )
+                else:
+                    return self.generate_flashcards(
+                        note_content, note_title,
+                        target_cards=target_cards_per_note,
+                        previous_fronts=previous_fronts,
+                        deck_examples=deck_examples
+                    )
+            except Exception as e:
+                console.print(f"[yellow]WARNING:[/yellow] Failed to generate cards for note {index + 1}: {e}")
+                return []
+
+        # Prepare arguments for parallel processing
+        previous_fronts_batch = previous_fronts_batch or [[] for _ in note_batch]
+        args_list = [
+            (content, title, previous_fronts, i)
+            for i, ((content, title), previous_fronts) in enumerate(zip(note_batch, previous_fronts_batch))
+        ]
+
+        console.print(f"[cyan]BATCH MODE:[/cyan] Processing {len(note_batch)} notes in parallel...")
+
+        # Use ThreadPoolExecutor for parallel API calls
+        results = []
+        with ThreadPoolExecutor(max_workers=min(5, len(note_batch))) as executor:
+            # Submit all tasks
+            future_to_index = {executor.submit(generate_single_note, args): i for i, args in enumerate(args_list)}
+
+            # Collect results as they complete
+            completed_results = [None] * len(note_batch)
+
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                try:
+                    result = future.result()
+                    completed_results[index] = result
+                    console.print(f"[green]✓[/green] Completed note {index + 1}/{len(note_batch)}")
+                except Exception as e:
+                    console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
+                    completed_results[index] = []
+
+        console.print(f"[green]BATCH COMPLETE:[/green] Processed {len(note_batch)} notes")
+        return completed_results

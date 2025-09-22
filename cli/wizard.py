@@ -50,7 +50,7 @@ ANTHROPIC_API_KEY={anthropic_key}
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
         # Import config defaults here to avoid circular imports during build
-        from cli.config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
+        from cli.config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, UPFRONT_BATCHING
 
         max_cards = IntPrompt.ask("   How many flashcards per session?", default=MAX_CARDS)
         notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=NOTES_TO_SAMPLE)
@@ -89,6 +89,16 @@ ANTHROPIC_API_KEY={anthropic_key}
             default=True
         )
 
+        console.print("\n   [cyan]Performance Settings[/cyan]")
+        upfront_batching = Confirm.ask(
+            "   Enable upfront batching (process all notes in parallel for speed)?",
+            default=UPFRONT_BATCHING
+        )
+
+        if upfront_batching:
+            console.print("   [dim]Note: Batching is faster but incompatible with approval modes[/dim]")
+            console.print("   [dim]Cost protection limits: 20 notes max, 100 cards max[/dim]")
+
         # Create config.json with user preferences and defaults
         user_config = {
             "MAX_CARDS": max_cards,
@@ -105,7 +115,10 @@ ANTHROPIC_API_KEY={anthropic_key}
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
             "DEDUPLICATE_VIA_DECK": False,
             "DECK": "Obsidian",
-            "SYNTAX_HIGHLIGHTING": syntax_highlighting
+            "SYNTAX_HIGHLIGHTING": syntax_highlighting,
+            "UPFRONT_BATCHING": upfront_batching,
+            "BATCH_SIZE_LIMIT": 20,
+            "BATCH_CARD_LIMIT": 100
         }
 
         try:
