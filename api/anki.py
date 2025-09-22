@@ -3,16 +3,17 @@ import json
 from typing import List, Dict
 import urllib.parse
 from rich.console import Console
+from api.base import BaseAPI
 
 console = Console()
 
 ANKI_CUSTOM_MODEL_NAME = "ObsidianKi"
-
 ANKI_DEFAULT_SAMPLE_SIZE = 5
 
-class AnkiAPI:
+class AnkiAPI(BaseAPI):
     def __init__(self, url: str = "http://127.0.0.1:8765"):
-        self.url = url
+        super().__init__(url)
+        self.url = url  # Keep for backward compatibility
 
     def _request(self, action: str, params: dict = None) -> dict:
         """Make a request to AnkiConnect"""
@@ -37,7 +38,7 @@ class AnkiAPI:
 
         return result.get("result")
 
-    def ensure_deck_exists(self, deck_name: str = "Obsidian") -> None:
+    def ensure_deck(self, deck_name: str = "Obsidian") -> None:
         """Check if deck exists, create it if it doesn't"""
         deck_names = self._request("deckNames")
 
@@ -63,7 +64,7 @@ class AnkiAPI:
                 # Delete the temporary note
                 self._request("deleteNotes", {"notes": [note_id]})
 
-    def ensure_custom_model_exists(self) -> None:
+    def ensure_model(self) -> None:
         """Create custom card model if it doesn't exist"""
         model_names = self._request("modelNames")
 
@@ -132,7 +133,7 @@ class AnkiAPI:
             self._request("createModel", model)
             # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
-    def generate_obsidian_link(self, note_path: str, note_title: str) -> str:
+    def obsidian_link(self, note_path: str, note_title: str) -> str:
         """Generate Obsidian URI link for a note"""
         encoded_path = urllib.parse.quote(note_path, safe='')
         obsidian_link = f"obsidian://open?file={encoded_path}"
@@ -141,15 +142,15 @@ class AnkiAPI:
     def add_flashcards(self, flashcards: List[Dict[str, str]], deck_name: str = "Obsidian",
                       card_type: str = "basic", note_path: str = "", note_title: str = "") -> List[int]:
         """Add multiple flashcards to the specified deck"""
-        self.ensure_deck_exists(deck_name)
+        self.ensure_deck(deck_name)
 
         if card_type == "custom":
-            self.ensure_custom_model_exists()
+            self.ensure_model()
 
         notes = []
         for card in flashcards:
             if card_type == "custom":
-                origin_link = self.generate_obsidian_link(note_path, note_title)
+                origin_link = self.obsidian_link(note_path, note_title)
                 note = {
                     "deckName": deck_name,
                     "modelName": ANKI_CUSTOM_MODEL_NAME,
@@ -175,7 +176,7 @@ class AnkiAPI:
         result = self._request("addNotes", {"notes": notes})
         return result if result is not None else []
 
-    def get_deck_card_fronts(self, deck_name: str = "Obsidian") -> List[str]:
+    def get_card_fronts(self, deck_name: str = "Obsidian") -> List[str]:
         """Get all card fronts from a specific deck for deduplication"""
         try:
             # Find all cards in the deck
@@ -204,7 +205,7 @@ class AnkiAPI:
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card fronts: {e}")
             return []
 
-    def get_deck_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE) -> List[Dict[str, str]]:
+    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE) -> List[Dict[str, str]]:
         """Sample existing cards from deck to use as formatting/style examples"""
         try:
             # important: ignores suspended/buried
@@ -242,7 +243,7 @@ class AnkiAPI:
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card examples: {e}")
             return []
 
-    def get_deck_names(self) -> List[str]:
+    def get_decks(self) -> List[str]:
         """Get list of all deck names"""
         try:
             deck_names = self._request("deckNames")
@@ -251,7 +252,7 @@ class AnkiAPI:
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck names: {e}")
             return []
 
-    def get_deck_stats(self, deck_name: str) -> Dict[str, int]:
+    def get_stats(self, deck_name: str) -> Dict[str, int]:
         """Get statistics for a specific deck"""
         try:
             total_cards = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
@@ -264,7 +265,7 @@ class AnkiAPI:
         """Rename a deck"""
         try:
             # Check if old deck exists
-            deck_names = self.get_deck_names()
+            deck_names = self.get_decks()
             if old_name not in deck_names:
                 console.print(f"[red]ERROR:[/red] Deck '{old_name}' not found")
                 return False
@@ -285,7 +286,7 @@ class AnkiAPI:
                 self._request("changeDeck", {"cards": card_ids, "deck": new_name})
             else:
                 # Create empty deck by creating and deleting a temp card
-                self.ensure_deck_exists(new_name)
+                self.ensure_deck(new_name)
 
             # Delete old deck (this only works if it's empty)
             self._request("deleteDecks", {"decks": [old_name], "cardsToo": False})

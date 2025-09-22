@@ -104,7 +104,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_flashcards_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
         """Generate flashcards based on a user query without source material"""
 
         cards_to_create = target_cards if target_cards else 3
@@ -163,7 +163,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_flashcards_from_note_and_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_note_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
         cards_to_create = target_cards if target_cards else 2
@@ -226,7 +226,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_notes_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
+    def find_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()

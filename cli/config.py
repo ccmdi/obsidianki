@@ -148,16 +148,46 @@ class ConfigManager:
         else:
             console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
-    def show_current_weights(self):
+    def show_weights(self):
         """Display current tag weights"""
-        # Only show if there are tags besides _default
         non_default_tags = {k: v for k, v in self.tag_weights.items() if k != "_default"}
+        if non_default_tags:
+            for tag, weight in sorted(self.tag_weights.items()):
+                console.print(f"  [green]{tag}:[/green] {weight}")
 
-        if not non_default_tags:
-            return
+    def add_tag_weight(self, tag: str, weight: float) -> bool:
+        """Add or update a tag weight"""
+        if weight <= 0:
+            console.print(f"[red]ERROR:[/red] Weight must be positive")
+            return False
 
-        for tag, weight in sorted(self.tag_weights.items()):
-            console.print(f"  [green]{tag}:[/green] {weight}")
+        self.tag_weights[tag] = weight
+        self.save_tag_schema()
+        return True
+
+    def remove_tag_weight(self, tag: str) -> bool:
+        """Remove a tag weight"""
+        if tag in self.tag_weights:
+            del self.tag_weights[tag]
+            self.save_tag_schema()
+            return True
+        return False
+
+    def add_excluded_tag(self, tag: str) -> bool:
+        """Add tag to exclusion list"""
+        if tag not in self.excluded_tags:
+            self.excluded_tags.append(tag)
+            self.save_tag_schema()
+            return True
+        return False
+
+    def remove_excluded_tag(self, tag: str) -> bool:
+        """Remove tag from exclusion list"""
+        if tag in self.excluded_tags:
+            self.excluded_tags.remove(tag)
+            self.save_tag_schema()
+            return True
+        return False
 
     def load_processing_history(self):
         """Load processing history from file"""

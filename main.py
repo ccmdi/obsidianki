@@ -204,7 +204,7 @@ def main():
         console.print()
 
     if SAMPLING_MODE == "weighted":
-        config.show_current_weights()
+        config.show_weights()
     
     console.print()
 
@@ -230,7 +230,7 @@ def main():
             # Get previous flashcard fronts for deduplication if enabled
             previous_fronts = []
             if DEDUPLICATE_VIA_DECK:
-                previous_fronts = anki.get_deck_card_fronts(deck_name)
+                previous_fronts = anki.get_card_fronts(deck_name)
                 if previous_fronts:
                     console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
 
@@ -238,13 +238,13 @@ def main():
             deck_examples = []
             use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
             if use_schema:
-                deck_examples = anki.get_deck_card_examples(deck_name)
+                deck_examples = anki.get_card_examples(deck_name)
                 if deck_examples:
                     console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]")
                     # console.print(f"[dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]\n")
 
             target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_flashcards_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
+            flashcards = ai.generate_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
             if not flashcards:
                 console.print("[red]ERROR:[/red] No flashcards generated from query")
                 return
@@ -290,7 +290,7 @@ def main():
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
 
         # Use agent to find notes
-        agent_notes = ai.find_notes_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample or notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
+        agent_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample or notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
 
         if not agent_notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
@@ -318,7 +318,7 @@ def main():
             # Check if this looks like a directory pattern
             if '*' in note_pattern or '/' in note_pattern:
                 # Use pattern matching with optional sampling
-                pattern_notes = obsidian.find_notes_by_pattern(note_pattern, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
+                pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
 
                 if pattern_notes:
                     old_notes.extend(pattern_notes)
@@ -330,7 +330,7 @@ def main():
                     console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
             else:
                 # Use existing single note lookup
-                specific_note = obsidian.find_note_by_name(note_pattern, config_manager=config)
+                specific_note = obsidian.find_by_name(note_pattern, config_manager=config)
 
                 if specific_note:
                     old_notes.append(specific_note)
@@ -357,7 +357,7 @@ def main():
         if args.allow:
             console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
 
-        old_notes = obsidian.get_random_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
+        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
 
         if not old_notes:
             console.print("[red]ERROR:[/red] No old notes found")
@@ -410,7 +410,7 @@ def main():
         deck_examples = []
         use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
         if use_schema:
-            deck_examples = anki.get_deck_card_examples(deck_name)
+            deck_examples = anki.get_card_examples(deck_name)
             if deck_examples:
                 console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
                 console.print(f"  [dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]")
@@ -419,7 +419,7 @@ def main():
         if args.query:
             # Paired query mode - extract specific info from note based on query
             console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-            flashcards = ai.generate_flashcards_from_note_and_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
+            flashcards = ai.generate_from_note_query(note_content, note_title, args.query, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)
         else:
             # Normal mode - generate flashcards from note content
             flashcards = ai.generate_flashcards(note_content, note_title, target_cards=target_cards_per_note, previous_fronts=previous_fronts, deck_examples=deck_examples)

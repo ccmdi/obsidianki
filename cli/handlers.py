@@ -203,16 +203,13 @@ def handle_tag_command(args):
 
     if args.tag_action == 'add':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        config.tag_weights[tag] = args.weight
-        config.save_tag_schema()
-        console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
+        if config.add_tag_weight(tag, args.weight):
+            console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if tag in config.tag_weights:
-            del config.tag_weights[tag]
-            config.save_tag_schema()
+        if config.remove_tag_weight(tag):
             console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
@@ -220,9 +217,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'exclude':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if tag not in config.excluded_tags:
-            config.excluded_tags.append(tag)
-            config.save_tag_schema()
+        if config.add_excluded_tag(tag):
             console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
@@ -230,9 +225,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'include':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if tag in config.excluded_tags:
-            config.excluded_tags.remove(tag)
-            config.save_tag_schema()
+        if config.remove_excluded_tag(tag):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
@@ -434,7 +427,7 @@ def handle_deck_command(args):
 
     if args.deck_action is None:
         # Default action: list decks
-        deck_names = anki.get_deck_names()
+        deck_names = anki.get_decks()
 
         if not deck_names:
             console.print("[yellow]No decks found[/yellow]")
@@ -450,7 +443,7 @@ def handle_deck_command(args):
             console.print(f"[dim]Found {len(deck_names)} decks:[/dim]")
             console.print()
             for deck_name in sorted(deck_names):
-                stats = anki.get_deck_stats(deck_name)
+                stats = anki.get_stats(deck_name)
                 total_cards = stats.get("total_cards", 0)
 
                 console.print(f"  [cyan]{deck_name}[/cyan]")
