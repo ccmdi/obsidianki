@@ -8,6 +8,8 @@ from cli.utils import process_code_blocks, strip_html
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
+AI_RESULT_SET_SIZE = 20
+
 class FlashcardAI:
     def __init__(self):
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -60,7 +62,6 @@ class FlashcardAI:
 
         DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
 
-        # Add schema context if deck examples provided
         schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
 
         user_prompt = f"""Note Title: {note_title}
@@ -86,16 +87,14 @@ class FlashcardAI:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
                         flashcards = tool_input.get("flashcards", [])
-                        # Post-process code blocks
-                        syntax_highlighting = SYNTAX_HIGHLIGHTING
 
                         for card in flashcards:
                             if 'front' in card:
                                 card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
+                                card['front'] = process_code_blocks(card['front'], SYNTAX_HIGHLIGHTING)
                             if 'back' in card:
                                 card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
+                                card['back'] = process_code_blocks(card['back'], SYNTAX_HIGHLIGHTING)
                         return flashcards
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
@@ -227,116 +226,6 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def generate_dql_query(self, natural_request: str, search_folders=None, max_attempts: int = 3) -> str:
-        """Generate DQL query from natural language with error correction"""
-
-        for attempt in range(max_attempts):
-            try:
-                console.print(f"[cyan]Agent:[/cyan] Generating DQL query")
-
-                from datetime import datetime
-                today = datetime.now()
-
-                date_context = f"""\n\nToday's date is {today.strftime('%Y-%m-%d')}."""
-
-                user_prompt = f"""Natural language request: {natural_request}{date_context}
-
-                Generate a DQL query that finds the requested notes."""
-
-                response = self.client.messages.create(
-                    model="claude-4-sonnet-20250514",
-                    max_tokens=2000,
-                    system=DQL_AGENT_PROMPT,
-                    messages=[{"role": "user", "content": user_prompt}]
-                )
-
-                if response.content and len(response.content) > 0:
-                    dql_query = response.content[0].text.strip()
-
-                    # Clean up the query (remove markdown code blocks if present)
-                    if "```" in dql_query:
-                        dql_query = re.sub(r'```[a-zA-Z]*\n?', '', dql_query)
-                        dql_query = dql_query.replace("```", "").strip()
-
-                    console.print(f"[dim]Generated query:[/dim] {dql_query}")
-                    return dql_query
-
-            except Exception as e:
-                console.print(f"[red]ERROR:[/red] Failed to generate DQL query (attempt {attempt + 1}): {e}")
-
-        console.print(f"[red]ERROR:[/red] Failed to generate DQL query after {max_attempts} attempts")
-        return None
-
-    def rank_notes_by_relevance(self, natural_request: str, notes: List[Dict], target_count: int = None) -> List[str]:
-        """Use AI to rank notes by relevance and return the most relevant note paths"""
-
-        if not notes:
-            return []
-
-        # Prepare note metadata for AI ranking
-        note_metadata = []
-        for note in notes:
-            result = note.get('result', {})
-            metadata = {
-                "path": result.get('path', ''),
-                "filename": result.get('filename', ''),
-                "tags": result.get('tags', []) or [],
-                "mtime": result.get('mtime', ''),
-                "size": result.get('size', 0)
-            }
-            note_metadata.append(metadata)
-
-        # console.print(f"[cyan]Agent:[/cyan] Ranking {len(notes)} notes by relevance...")
-
-        user_prompt = f"""Original request: {natural_request}
-
-        Note list: {note_metadata}
-
-        Select and rank the most relevant notes for this request. Return a JSON array of note paths."""
-
-        try:
-            response = self.client.messages.create(
-                model="claude-4-sonnet-20250514",
-                max_tokens=2000,
-                system=NOTE_RANKING_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}]
-            )
-
-            if response.content and len(response.content) > 0:
-                ranking_text = response.content[0].text.strip()
-
-                # Extract JSON array from response
-                try:
-                    import json
-                    # Try to parse as JSON directly
-                    if ranking_text.startswith('['):
-                        ranked_paths = json.loads(ranking_text)
-                    else:
-                        # Extract JSON from response if it's wrapped in text
-                        import re
-                        json_match = re.search(r'\[.*?\]', ranking_text, re.DOTALL)
-                        if json_match:
-                            ranked_paths = json.loads(json_match.group(0))
-                        else:
-                            raise ValueError("No JSON array found in response")
-
-                    # Apply target count if specified
-                    if target_count and len(ranked_paths) > target_count:
-                        ranked_paths = ranked_paths[:target_count]
-
-                    console.print(f"[green]Agent:[/green] Selected {len(ranked_paths)} most relevant notes")
-                    return ranked_paths
-
-                except json.JSONDecodeError as e:
-                    console.print(f"[yellow]Warning:[/yellow] Failed to parse AI ranking: {e}")
-                    # Fallback: return all note paths
-                    return [note['result'].get('path', '') for note in notes[:target_count] if note['result'].get('path')]
-
-        except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Error ranking notes: {e}")
-            # Fallback: return all note paths
-            return [note['result'].get('path', '') for note in notes[:target_count] if note['result'].get('path')]
-
     def find_notes_with_agent(self, natural_request: str, obsidian_api, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
@@ -355,7 +244,7 @@ class FlashcardAI:
 
         # Multi-turn conversation with tool calling
         messages = [{"role": "user", "content": user_prompt}]
-        max_turns = 8  # Increased to allow more refinement
+        max_turns = 8
         selected_notes = []
         last_results = []  # Keep track of last query results
         all_results = {}  # Accumulate all results by path for validation
@@ -363,13 +252,10 @@ class FlashcardAI:
 
         for turn in range(max_turns):
             try:
-                # Determine available tools and tool choice based on whether we have DQL results
                 if not has_dql_results:
-                    # Force DQL execution if we haven't gotten results yet
                     available_tools = [DQL_EXECUTION_TOOL]
                     tool_choice = {"type": "tool", "name": "execute_dql_query"}
                 else:
-                    # Allow both tools once we have results
                     available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
                     tool_choice = {"type": "any"}
 
@@ -382,10 +268,8 @@ class FlashcardAI:
                     tool_choice=tool_choice
                 )
 
-                # Add assistant response to conversation
                 messages.append({"role": "assistant", "content": response.content})
 
-                # Process tool calls
                 tool_results = []
                 final_selection = None
 
@@ -443,10 +327,10 @@ class FlashcardAI:
                                 # Prepare result summary for AI
                                 if len(results) == 0:
                                     result_summary = "No notes found matching this query."
-                                elif len(results) <= 20:
+                                elif len(results) <= AI_RESULT_SET_SIZE:
                                     # Show detailed results for small result sets
                                     result_list = []
-                                    for i, result in enumerate(results[:20]):
+                                    for i, result in enumerate(results[:AI_RESULT_SET_SIZE]):
                                         note = result['result']
                                         path = note.get('path', 'Unknown')
                                         name = note.get('name', 'Unknown')

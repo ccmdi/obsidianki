@@ -8,6 +8,8 @@ from cli.config import console
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+OBSIDIAN_TIMEOUT_LENGTH = 30
+
 class ObsidianAPI:
     def __init__(self):
         self.base_url = "https://127.0.0.1:27124"
@@ -55,7 +57,7 @@ class ObsidianAPI:
             headers=self.headers,
             json=data,
             verify=False,
-            timeout=30
+            timeout=OBSIDIAN_TIMEOUT_LENGTH
         )
         response.raise_for_status()
         try:
@@ -76,7 +78,7 @@ class ObsidianAPI:
                 headers=headers,
                 data=query,
                 verify=False,
-                timeout=30
+                timeout=OBSIDIAN_TIMEOUT_LENGTH
             )
             response.raise_for_status()
             return response.json()
