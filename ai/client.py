@@ -504,10 +504,7 @@ class FlashcardAI:
             for i, ((content, title), previous_fronts) in enumerate(zip(note_batch, previous_fronts_batch))
         ]
 
-        console.print(f"[cyan]BATCH MODE:[/cyan] Processing {len(note_batch)} notes in parallel...")
-
         # Use ThreadPoolExecutor for parallel API calls
-        results = []
         with ThreadPoolExecutor(max_workers=min(5, len(note_batch))) as executor:
             # Submit all tasks
             future_to_index = {executor.submit(generate_single_note, args): i for i, args in enumerate(args_list)}
@@ -523,6 +520,5 @@ class FlashcardAI:
                 except Exception as e:
                     console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
                     completed_results[index] = []
-
-        console.print(f"[green]BATCH COMPLETE:[/green] Processed {len(note_batch)} notes")
+                    
         return completed_results

@@ -93,54 +93,16 @@ def process_single_note(note, ai, anki, obsidian, config, args, deck_name, targe
         console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
         return 0
 
-    console.print(f"  [green]Generated {len(flashcards)} flashcards[/green]")
+    # Use shared logic for approval and Anki addition
+    return process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
 
-    # Flashcard approval
-    cards_to_add = flashcards
-    if APPROVE_CARDS:
-        approved_flashcards = []
-        try:
-            for flashcard in flashcards:
-                if approve_flashcard(flashcard, note_title):
-                    approved_flashcards.append(flashcard)
-        except KeyboardInterrupt:
-            raise
-
-        if not approved_flashcards:
-            console.print("  [yellow]WARNING:[/yellow] No flashcards approved, skipping")
-            return 0
-
-        console.print(f"  [cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
-        cards_to_add = approved_flashcards
-
-    # Add to Anki
-    result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                               note_path=note_path, note_title=note_title)
-    successful_cards = len([r for r in result if r is not None])
-
-    if successful_cards > 0:
-        console.print(f"  [green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
-
-        # Record flashcard creation
-        note_size = len(note_content)
-        flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
-        config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
-        return successful_cards
-    else:
-        console.print("  [red]ERROR:[/red] Failed to add cards to Anki")
-        return 0
-
-def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, target_cards_per_note):
-    """Process multiple notes in parallel"""
-    from cli.config import APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, USE_DECK_SCHEMA, CARD_TYPE
-
-    console.print(f"[cyan]Preparing batch of {len(notes)} notes...[/cyan]")
-
-    # Prepare batch data
+def prepare_batch_data(notes, obsidian, config, args):
+    """Prepare note data for batch processing, handling approvals and content loading"""
+    from cli.config import APPROVE_NOTES, DEDUPLICATE_VIA_HISTORY
+    
     note_batch = []
     previous_fronts_batch = []
-    note_paths = []
-    note_titles = []
+    note_metadata = []  # Store (note_path, note_title, note_content) for later use
 
     for note in notes:
         note_path = note['result']['path']
@@ -160,8 +122,7 @@ def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, targ
             continue
 
         note_batch.append((note_content, note_title))
-        note_paths.append(note_path)
-        note_titles.append(note_title)
+        note_metadata.append((note_path, note_title, note_content))
 
         # Get previous flashcard fronts
         previous_fronts = []
@@ -169,13 +130,28 @@ def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, targ
             previous_fronts = config.get_flashcard_fronts_for_note(note_path)
         previous_fronts_batch.append(previous_fronts)
 
-    # Get deck examples
+    return note_batch, previous_fronts_batch, note_metadata
+
+def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, target_cards_per_note):
+    """Process multiple notes in parallel using AI batch processing, then apply sequential logic"""
+    from cli.config import USE_DECK_SCHEMA
+    
+    console.print(f"[cyan]Preparing batch of {len(notes)} notes...[/cyan]")
+
+    # Prepare batch data (handles note approval, content loading, deduplication prep)
+    note_batch, previous_fronts_batch, note_metadata = prepare_batch_data(notes, obsidian, config, args)
+    
+    if not note_batch:
+        console.print("[yellow]WARNING:[/yellow] No notes to process after filtering")
+        return 0
+
+    # Get deck examples for schema enforcement
     deck_examples = []
     use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
     if use_schema:
         deck_examples = anki.get_card_examples(deck_name)
 
-    # Process batch in parallel
+    # Process batch in parallel (AI generation only)
     if args.query:
         batch_results = ai.generate_batch(note_batch, target_cards_per_note,
                                         previous_fronts_batch, deck_examples, args.query)
@@ -183,49 +159,73 @@ def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, targ
         batch_results = ai.generate_batch(note_batch, target_cards_per_note,
                                         previous_fronts_batch, deck_examples)
 
-    # Add cards to Anki
+    # Now use the sequential logic for approval and Anki addition
     total_cards = 0
-    console.print(f"[cyan]Adding cards to Anki...[/cyan]")
 
-    for i, (flashcards, note_path, note_title) in enumerate(zip(batch_results, note_paths, note_titles)):
+    for flashcards, (note_path, note_title, note_content) in zip(batch_results, note_metadata):
         if not flashcards:
+            console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note_title}")
             continue
 
-        # Flashcard approval
-        cards_to_add = flashcards
-        if APPROVE_CARDS:
-            approved_flashcards = []
-            try:
-                console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note_title}[/bold]")
-                for flashcard in flashcards:
-                    if approve_flashcard(flashcard, note_title):
-                        approved_flashcards.append(flashcard)
-            except KeyboardInterrupt:
-                raise
+        # Create a mock note object for the sequential processor
+        mock_note = {
+            'result': {
+                'path': note_path,
+                'filename': note_title
+            }
+        }
 
-            if not approved_flashcards:
-                console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note_title}, skipping")
-                continue
-
-            console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards for {note_title}[/cyan]")
-            cards_to_add = approved_flashcards
-
-        # Add to Anki
-        result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                                   note_path=note_path, note_title=note_title)
-        successful_cards = len([r for r in result if r is not None])
-
-        if successful_cards > 0:
-            total_cards += successful_cards
-            note_content = note_batch[i][0]
-            note_size = len(note_content)
-            flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
-            config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
-            console.print(f"[green]✓[/green] {note_title}: {successful_cards} cards")
-        else:
-            console.print(f"[red]✗[/red] {note_title}: Failed to add cards")
+        # Reuse sequential logic for approval and Anki operations
+        # But skip the AI generation part since we already have flashcards
+        cards_added = process_generated_flashcards(mock_note, flashcards, anki, config, args, deck_name, note_content)
+        total_cards += cards_added
 
     return total_cards
+
+def process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content):
+    """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
+    from cli.config import APPROVE_CARDS, CARD_TYPE
+    
+    note_path = note['result']['path']
+    note_title = note['result']['filename']
+    
+    console.print(f"[green]Generated {len(flashcards)} flashcards for {note_title}[/green]")
+
+    # Flashcard approval
+    cards_to_add = flashcards
+    if APPROVE_CARDS:
+        approved_flashcards = []
+        try:
+            console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note_title}[/bold]")
+            for flashcard in flashcards:
+                if approve_flashcard(flashcard, note_title):
+                    approved_flashcards.append(flashcard)
+        except KeyboardInterrupt:
+            raise
+
+        if not approved_flashcards:
+            console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note_title}, skipping")
+            return 0
+
+        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+        cards_to_add = approved_flashcards
+
+    # Add to Anki
+    result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
+                               note_path=note_path, note_title=note_title)
+    successful_cards = len([r for r in result if r is not None])
+
+    if successful_cards > 0:
+        console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki for {note_title}")
+
+        # Record flashcard creation
+        note_size = len(note_content)
+        flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
+        config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
+        return successful_cards
+    else:
+        console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note_title}")
+        return 0
 
 def main():
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes", add_help=False)
@@ -516,7 +516,6 @@ def main():
                 console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} sampled note(s)")
                 console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
             else:
-                console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} sampled note(s)")
                 console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
             console.print()
         else:
@@ -586,7 +585,6 @@ def main():
     # Check if we should use batch processing
     use_batch_mode = UPFRONT_BATCHING and len(old_notes) > 1
 
-    # Cost protection safeguards
     if use_batch_mode:
         if len(old_notes) > BATCH_SIZE_LIMIT:
             console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(old_notes)} > {BATCH_SIZE_LIMIT})")
@@ -597,7 +595,6 @@ def main():
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
         elif use_batch_mode:
-            console.print(f"[cyan]BATCH MODE:[/cyan] Processing {len(old_notes)} notes in parallel")
             console.print()
 
     total_cards = 0

@@ -46,7 +46,6 @@ def approve_note(note_title: str, note_path: str) -> bool:
 
 def approve_flashcard(flashcard: dict, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
-    console.print(f"   [magenta]Review flashcard from:[/magenta] [bold]{note_title}[/bold]")
     front_clean = flashcard.get('front_original', flashcard.get('front', 'N/A'))
     back_clean = flashcard.get('back_original', flashcard.get('back', 'N/A'))
     console.print(f"   [cyan]Front:[/cyan] {front_clean}")
@@ -55,7 +54,7 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
 
     try:
         result = Confirm.ask("   Add this card to Anki?", default=True)
-        console.print()  # Add newline after approval
+        console.print()
         return result
     except KeyboardInterrupt:
         raise
