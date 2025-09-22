@@ -520,7 +520,6 @@ class FlashcardAI:
                 try:
                     result = future.result()
                     completed_results[index] = result
-                    console.print(f"[green]✓[/green] Completed note {index + 1}/{len(note_batch)}")
                 except Exception as e:
                     console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
                     completed_results[index] = []
