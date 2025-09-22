@@ -34,20 +34,11 @@ def show_main_help():
     console.print("  [cyan]-u, --use-schema[/cyan]       Match existing deck card formatting")
     console.print()
 
-    console.print("[bold blue]Examples[/bold blue]")
-    console.print("  [cyan]oki --notes 5[/cyan]                    Sample 5 random notes")
-    console.print("  [cyan]oki --notes \"React\" --cards 6[/cyan]      Process React note, max 6 cards")
-    console.print("  [cyan]oki --notes \"docs/*:3\"[/cyan]             Sample 3 notes from docs folder")
-    console.print("  [cyan]oki -q \"CSS flexbox\"[/cyan]               Generate cards from query")
-    console.print()
-
     console.print("[bold blue]Commands[/bold blue]")
     console.print("  [cyan]config[/cyan]                Manage configuration")
     console.print("  [cyan]tag[/cyan]                   Manage tag weights")
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
-    console.print()
-    console.print("[dim]Tip: Enable parallel processing with [cyan]oki config set upfront_batching true[/cyan] for 5-10x speed[/dim]")
     console.print()
 
 

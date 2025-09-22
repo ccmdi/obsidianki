@@ -3,50 +3,30 @@ Note processing functions for ObsidianKi.
 Handles both sequential and batch processing of notes.
 """
 
+import concurrent.futures
 from cli.config import console
 from cli.handlers import approve_note, approve_flashcard
 
 
-def process_single_note(note, ai, anki, obsidian, config, args, deck_name, target_cards_per_note, total_cards, max_cards):
-    """Process a single note and return cards added count"""
+def generate_flashcards_for_note(note, ai, obsidian, config, args, deck_examples, target_cards_per_note):
+    """Extract just the AI generation step - this is what we parallelize in batch mode"""
+    from cli.config import DEDUPLICATE_VIA_HISTORY
+    
     note_path = note['result']['path']
     note_title = note['result']['filename']
-
-    console.print(f"\n[blue]PROCESSING:[/blue] {note_title}")
-
-    # Note approval
-    from cli.config import APPROVE_NOTES, DEDUPLICATE_VIA_HISTORY, USE_DECK_SCHEMA
-    if APPROVE_NOTES:
-        try:
-            if not approve_note(note_title, note_path):
-                return 0
-        except KeyboardInterrupt:
-            raise
 
     # Get note content
     note_content = obsidian.get_note_content(note_path)
     if not note_content:
-        console.print("  [yellow]WARNING:[/yellow] Empty or inaccessible note, skipping")
-        return 0
+        return None, None, note_path
 
     # Get previous flashcard fronts for deduplication
     previous_fronts = []
     if DEDUPLICATE_VIA_HISTORY:
         previous_fronts = config.get_flashcard_fronts_for_note(note_path)
-        if previous_fronts:
-            console.print(f"  [dim]Found {len(previous_fronts)} previous flashcards for deduplication[/dim]")
-
-    # Get deck examples for schema enforcement
-    deck_examples = []
-    use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
-    if use_schema:
-        deck_examples = anki.get_card_examples(deck_name)
-        if deck_examples:
-            console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     # Generate flashcards
     if args.query:
-        console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
         flashcards = ai.generate_from_note_query(note_content, note_title, args.query,
                                                 target_cards=target_cards_per_note,
                                                 previous_fronts=previous_fronts,
@@ -56,7 +36,42 @@ def process_single_note(note, ai, anki, obsidian, config, args, deck_name, targe
                                            target_cards=target_cards_per_note,
                                            previous_fronts=previous_fronts,
                                            deck_examples=deck_examples)
-    if not flashcards:
+    
+    return flashcards, note_content, note_path
+
+
+def process_single_note(note, ai, anki, obsidian, config, args, deck_name, target_cards_per_note, total_cards, max_cards):
+    """Process a single note and return cards added count"""
+    from cli.config import APPROVE_NOTES, USE_DECK_SCHEMA
+    
+    note_path = note['result']['path']
+    note_title = note['result']['filename']
+
+    console.print(f"\n[blue]PROCESSING:[/blue] {note_title}")
+
+    # Note approval
+    if APPROVE_NOTES:
+        try:
+            if not approve_note(note_title, note_path):
+                return 0
+        except KeyboardInterrupt:
+            raise
+
+    # Get deck examples for schema enforcement (needed for AI generation)
+    deck_examples = []
+    use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+    if use_schema:
+        deck_examples = anki.get_card_examples(deck_name)
+        if deck_examples:
+            console.print(f"  [dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
+
+    # Generate flashcards using the extracted function
+    if args.query:
+        console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
+    
+    flashcards, note_content, _ = generate_flashcards_for_note(note, ai, obsidian, config, args, deck_examples, target_cards_per_note)
+    
+    if not flashcards or not note_content:
         console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
         return 0
 
@@ -64,91 +79,70 @@ def process_single_note(note, ai, anki, obsidian, config, args, deck_name, targe
     return process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
 
 
-def prepare_batch_data(notes, obsidian, config, args):
-    """Prepare note data for batch processing, handling approvals and content loading"""
-    from cli.config import APPROVE_NOTES, DEDUPLICATE_VIA_HISTORY
+
+
+def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, target_cards_per_note):
+    """Process multiple notes by parallelizing AI generation with futures, then using sequential pipeline"""
+    from cli.config import APPROVE_NOTES, USE_DECK_SCHEMA
     
-    note_batch = []
-    previous_fronts_batch = []
-    note_metadata = []  # Store (note_path, note_title, note_content) for later use
+    console.print(f"[cyan]Batch processing {len(notes)} notes...[/cyan]")
 
+    # Filter notes with approval upfront
+    valid_notes = []
     for note in notes:
-        note_path = note['result']['path']
         note_title = note['result']['filename']
-
-        # Note approval
+        note_path = note['result']['path']
+        
         if APPROVE_NOTES:
             try:
                 if not approve_note(note_title, note_path):
                     continue
             except KeyboardInterrupt:
                 raise
-
-        note_content = obsidian.get_note_content(note_path)
-        if not note_content:
-            console.print(f"[yellow]WARNING:[/yellow] Skipping empty note: {note_title}")
-            continue
-
-        note_batch.append((note_content, note_title))
-        note_metadata.append((note_path, note_title, note_content))
-
-        # Get previous flashcard fronts
-        previous_fronts = []
-        if DEDUPLICATE_VIA_HISTORY:
-            previous_fronts = config.get_flashcard_fronts_for_note(note_path)
-        previous_fronts_batch.append(previous_fronts)
-
-    return note_batch, previous_fronts_batch, note_metadata
-
-
-def process_notes_batch(notes, ai, anki, obsidian, config, args, deck_name, target_cards_per_note):
-    """Process multiple notes in parallel using AI batch processing, then apply sequential logic"""
-    from cli.config import USE_DECK_SCHEMA
+        valid_notes.append(note)
     
-    console.print(f"[cyan]Preparing batch of {len(notes)} notes...[/cyan]")
-
-    # Prepare batch data (handles note approval, content loading, deduplication prep)
-    note_batch, previous_fronts_batch, note_metadata = prepare_batch_data(notes, obsidian, config, args)
-    
-    if not note_batch:
-        console.print("[yellow]WARNING:[/yellow] No notes to process after filtering")
+    if not valid_notes:
+        console.print("[yellow]WARNING:[/yellow] No notes to process after approval")
         return 0
 
-    # Get deck examples for schema enforcement
+    console.print(f"[cyan]Parallelizing AI generation for {len(valid_notes)} notes...[/cyan]")
+
+    # Get deck examples once (shared across all notes)
     deck_examples = []
     use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
     if use_schema:
         deck_examples = anki.get_card_examples(deck_name)
+        if deck_examples:
+            console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
-    # Process batch in parallel (AI generation only)
-    if args.query:
-        batch_results = ai.generate_batch(note_batch, target_cards_per_note,
-                                        previous_fronts_batch, deck_examples, args.query)
-    else:
-        batch_results = ai.generate_batch(note_batch, target_cards_per_note,
-                                        previous_fronts_batch, deck_examples)
-
-    # Now use the sequential logic for approval and Anki addition
-    total_cards = 0
-    console.print(f"[cyan]Adding cards to Anki...[/cyan]")
-
-    for flashcards, (note_path, note_title, note_content) in zip(batch_results, note_metadata):
-        if not flashcards:
-            console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note_title}")
-            continue
-
-        # Create a mock note object for the sequential processor
-        mock_note = {
-            'result': {
-                'path': note_path,
-                'filename': note_title
-            }
+    # Parallelize ONLY the AI generation step using futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # Submit all AI generation tasks
+        future_to_note = {
+            executor.submit(generate_flashcards_for_note, note, ai, obsidian, config, args, deck_examples, target_cards_per_note): note
+            for note in valid_notes
         }
-
-        # Reuse sequential logic for approval and Anki operations
-        # But skip the AI generation part since we already have flashcards
-        cards_added = process_generated_flashcards(mock_note, flashcards, anki, config, args, deck_name, note_content)
-        total_cards += cards_added
+        
+        # Process results as they complete
+        total_cards = 0
+        for future in concurrent.futures.as_completed(future_to_note):
+            note = future_to_note[future]
+            note_title = note['result']['filename']
+            
+            try:
+                flashcards, note_content, note_path = future.result()
+                
+                if not flashcards or not note_content:
+                    console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note_title}")
+                    continue
+                
+                # Now use the EXACT same sequential logic for approval and Anki
+                cards_added = process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
+                total_cards += cards_added
+                
+            except Exception as e:
+                console.print(f"[red]ERROR:[/red] Failed to process {note_title}: {e}")
+                continue
 
     return total_cards
 
