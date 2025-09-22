@@ -46,11 +46,10 @@ def main():
     parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     parser.add_argument("-S", "--setup", action="store_true", help="Run interactive setup to configure API keys")
     parser.add_argument("-c", "--cards", type=int, help="Override max card limit")
-    parser.add_argument("-n", "--notes", nargs='+', help="Process specific notes by name or directory patterns")
+    parser.add_argument("-n", "--notes", nargs='+', help="Process specific notes by name/pattern, or specify count (e.g. --notes 5 or --notes \"React\" \"JS\"). For patterns, use format: --notes \"pattern:5\" to sample 5 from pattern")"
     parser.add_argument("-q", "--query", type=str, help="Generate cards from standalone query or extract specific info from notes")
     parser.add_argument("-a", "--agent", type=str, help="Agent mode: natural language note discovery using DQL queries (EXPERIMENTAL)")
     parser.add_argument("-d", "--deck", type=str, help="Anki deck to add cards to")
-    parser.add_argument("-s", "--sample", type=int, help="When using directory patterns, randomly sample this many notes from matching directories")
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
@@ -290,7 +289,7 @@ def main():
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
 
         # Use agent to find notes
-        agent_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=args.sample or notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
+        agent_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
 
         if not agent_notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
@@ -312,46 +311,79 @@ def main():
 
     # Get notes to process
     elif args.notes:
-        old_notes = []
+        # Check if the first argument is a number (count of notes to sample)
+        if len(args.notes) == 1 and args.notes[0].isdigit():
+            # User specified a count: --notes 5
+            note_count = int(args.notes[0])
+            console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
 
-        for note_pattern in args.notes:
-            # Check if this looks like a directory pattern
-            if '*' in note_pattern or '/' in note_pattern:
-                # Use pattern matching with optional sampling
-                pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=args.sample, bias_strength=args.bias)
+            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, config_manager=config, bias_strength=args.bias)
 
-                if pattern_notes:
-                    old_notes.extend(pattern_notes)
-                    if args.sample and len(pattern_notes) == args.sample:
-                        console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                    else:
-                        console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                else:
-                    console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
+            if not old_notes:
+                console.print("[red]ERROR:[/red] No old notes found")
+                return
+
+            # Update max_cards based on sampled notes (if --cards wasn't specified)
+            if args.cards is None:
+                max_cards = len(old_notes) * 2
+
+            if args.query:
+                console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} sampled note(s)")
+                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
             else:
-                # Use existing single note lookup
-                specific_note = obsidian.find_by_name(note_pattern, config_manager=config)
-
-                if specific_note:
-                    old_notes.append(specific_note)
-                else:
-                    console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
-
-        if not old_notes:
-            console.print("[red]ERROR:[/red] No notes found")
-            return
-
-        # Update max_cards based on actually found notes (if --cards wasn't specified)
-        if args.cards is None:
-            max_cards = len(old_notes) * 2
-
-        if args.query:
-            console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+                console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} sampled note(s)")
+                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+            console.print()
         else:
-            console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-        console.print()
+            # User specified note names/patterns: --notes "React" "JS"
+            old_notes = []
+
+            for note_pattern in args.notes:
+                # Check if this looks like a directory pattern
+                if '*' in note_pattern or '/' in note_pattern:
+                    # Use pattern matching with optional sampling
+                    # Check for sampling syntax: "pattern:5"
+                    sample_size = None
+                    if ':' in note_pattern and not note_pattern.endswith('/'):
+                        parts = note_pattern.rsplit(':', 1)
+                        if parts[1].isdigit():
+                            note_pattern = parts[0]
+                            sample_size = int(parts[1])
+
+                    pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=sample_size, bias_strength=args.bias)
+
+                    if pattern_notes:
+                        old_notes.extend(pattern_notes)
+                        if sample_size and len(pattern_notes) == sample_size:
+                            console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                        else:
+                            console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
+                    else:
+                        console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
+                else:
+                    # Use existing single note lookup
+                    specific_note = obsidian.find_by_name(note_pattern, config_manager=config)
+
+                    if specific_note:
+                        old_notes.append(specific_note)
+                    else:
+                        console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
+
+            if not old_notes:
+                console.print("[red]ERROR:[/red] No notes found")
+                return
+
+            # Update max_cards based on actually found notes (if --cards wasn't specified)
+            if args.cards is None:
+                max_cards = len(old_notes) * 2
+
+            if args.query:
+                console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} note(s)")
+                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+            else:
+                console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
+                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+            console.print()
     else:
         # For now, --allow only works with agent mode due to obsidian.py global dependencies
         if args.allow:
