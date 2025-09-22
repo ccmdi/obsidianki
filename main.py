@@ -178,12 +178,15 @@ def main():
     deck_name = args.deck if args.deck else DECK
 
     # Determine max_cards and notes_to_sample based on arguments
+    notes_to_sample = NOTES_TO_SAMPLE  # Default value
+    
     if args.notes:
         # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
         if args.cards is not None:
             max_cards = args.cards
         else:
             max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
+        # notes_to_sample not used when specific notes are provided
     elif args.cards is not None:
         # When --cards is provided, scale notes to 1/2 of cards
         max_cards = args.cards
