@@ -65,7 +65,7 @@ class ObsidianAPI:
         except ValueError:
             return response.text
 
-    def search_with_dql(self, query: str) -> List[Dict]:
+    def dql(self, query: str) -> List[Dict]:
         """Search notes using Dataview DQL query"""
         headers = {
             **self.headers,
@@ -109,7 +109,7 @@ class ObsidianAPI:
         if limit:
             dql_query += f"\nLIMIT {limit}"
 
-        return self.search_with_dql(dql_query)
+        return self.dql(dql_query)
 
     def get_notes_by_tags(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Dict]:
         """Get notes that contain specific tags, optionally excluding recently modified ones"""
@@ -139,7 +139,7 @@ class ObsidianAPI:
 
         dql_query += "\nSORT file.mtime ASC"
 
-        return self.search_with_dql(dql_query)
+        return self.dql(dql_query)
 
     def get_note_content(self, note_path: str) -> str:
         """Get the content of a specific note"""
@@ -171,7 +171,7 @@ class ObsidianAPI:
             {exclude_filter}
             SORT file.mtime ASC"""
 
-        all_old_notes = self.search_with_dql(dql_query)
+        all_old_notes = self.dql(dql_query)
 
         if not all_old_notes:
             return []
@@ -208,7 +208,6 @@ class ObsidianAPI:
         """Find notes by directory pattern"""
         exclude_filter = self._build_exclude_filter(config_manager)
 
-        # Handle directory patterns ending with /*
         if pattern.endswith('/*'):
             directory_path = pattern[:-2]  # Remove /*
             dql_query = f"""TABLE
@@ -256,7 +255,7 @@ class ObsidianAPI:
                 {exclude_filter}
                 SORT file.mtime ASC"""
 
-        results = self.search_with_dql(dql_query)
+        results = self.dql(dql_query)
 
         if not results:
             return []
@@ -289,7 +288,7 @@ class ObsidianAPI:
             {exclude_filter}
             SORT file.name ASC"""
 
-        results = self.search_with_dql(dql_query)
+        results = self.dql(dql_query)
 
         if not results:
             return None

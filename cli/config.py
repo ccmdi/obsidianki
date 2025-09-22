@@ -159,27 +159,6 @@ class ConfigManager:
         for tag, weight in sorted(self.tag_weights.items()):
             console.print(f"  [green]{tag}:[/green] {weight}")
 
-    def normalize_weights(self):
-        """Normalize all weights so they sum to 1.0"""
-        if not self.tag_weights:
-            return
-
-        total = sum(self.tag_weights.values())
-        if total > 0:
-            for tag in self.tag_weights:
-                self.tag_weights[tag] /= total
-            self.save_tag_schema()
-            # console.print("[green]SUCCESS:[/green] Normalized tag weights")
-
-    def reset_to_uniform(self):
-        """Reset all weights to uniform distribution"""
-        if self.tag_weights:
-            uniform_weight = 1.0 / len(self.tag_weights)
-            for tag in self.tag_weights:
-                self.tag_weights[tag] = uniform_weight
-            self.save_tag_schema()
-            # console.print("[green]SUCCESS:[/green] Reset to uniform weights")
-
     def load_processing_history(self):
         """Load processing history from file"""
         if self.processing_history_file.exists():
