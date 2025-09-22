@@ -367,7 +367,7 @@ def main():
         console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
 
     # Check if we should use batch processing
-    use_batch_mode = UPFRONT_BATCHING and len(old_notes) > 1 and not APPROVE_NOTES and not APPROVE_CARDS
+    use_batch_mode = UPFRONT_BATCHING and len(old_notes) > 1
 
     # Cost protection safeguards
     if use_batch_mode:
@@ -407,6 +407,16 @@ def main():
         for note in old_notes:
             note_path = note['result']['path']
             note_title = note['result']['filename']
+
+            # Note approval (before AI processing)
+            if APPROVE_NOTES:
+                try:
+                    if not approve_note(note_title, note_path):
+                        continue
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                    return
+
             note_content = obsidian.get_note_content(note_path)
 
             if not note_content:
@@ -441,11 +451,31 @@ def main():
                 previous_fronts_batch, deck_examples
             )
 
-        # Add all cards to Anki in batches
+        # Add all cards to Anki (with approval if enabled)
         console.print(f"[cyan]Adding cards to Anki...[/cyan]")
         for i, (flashcards, note_path, note_title) in enumerate(zip(batch_results, note_paths, note_titles)):
             if flashcards:
-                result = anki.add_flashcards(flashcards, deck_name=deck_name, card_type=CARD_TYPE,
+                # Flashcard approval (before adding to Anki)
+                cards_to_add = flashcards
+                if APPROVE_CARDS:
+                    approved_flashcards = []
+                    try:
+                        console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note_title}[/bold]")
+                        for flashcard in flashcards:
+                            if approve_flashcard(flashcard, note_title):
+                                approved_flashcards.append(flashcard)
+                    except KeyboardInterrupt:
+                        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                        return
+
+                    if not approved_flashcards:
+                        console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note_title}, skipping")
+                        continue
+
+                    console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards for {note_title}[/cyan]")
+                    cards_to_add = approved_flashcards
+
+                result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
                                            note_path=note_path, note_title=note_title)
                 successful_cards = len([r for r in result if r is not None])
 
@@ -453,7 +483,7 @@ def main():
                     total_cards += successful_cards
                     note_content = note_batch[i][0]
                     note_size = len(note_content)
-                    flashcard_fronts = [card.get('front', '') for card in flashcards[:successful_cards] if card.get('front')]
+                    flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
                     config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
                     console.print(f"[green]✓[/green] {note_title}: {successful_cards} cards")
                 else:

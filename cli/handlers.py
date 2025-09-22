@@ -106,7 +106,6 @@ def handle_config_command(args):
                 console.print(f"{user_config[key_upper]}")
             else:
                 console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
-                console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
         except FileNotFoundError:
             console.print("[red]No configuration file found. Run 'oki --setup' first.[/red]")
         return

@@ -19,6 +19,7 @@ dependencies = [
     "rich>=13.0.0",
     "urllib3>=1.26.0",
     "pygments>=2.10.0",
+    "aiohttp>=3.8.0"
 ]
 
 [project.scripts]
