@@ -38,7 +38,7 @@ class FlashcardAI:
     def _build_schema_context(self, deck_examples: List[Dict[str, str]]) -> str:
         """Build schema context from existing deck cards"""
         if not deck_examples:
-            return "None"
+            return ""
 
         examples_text = ""
         for i, example in enumerate(deck_examples, 1):
