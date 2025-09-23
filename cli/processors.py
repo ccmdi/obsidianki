@@ -4,21 +4,18 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 from typing import List
-from cli.config import console, DEDUPLICATE_VIA_HISTORY, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
+from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 from cli.services import OBSIDIAN, AI, ANKI
 
 
-def generate_flashcards_for_note(note: Note, args, deck_examples, target_cards_per_note) -> tuple[List[Flashcard], str, str]:
+def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> tuple[List[Flashcard], str, str]:
     note.ensure_content()
-
-    previous_fronts = []
-    if DEDUPLICATE_VIA_HISTORY:
-        previous_fronts = note.get_previous_flashcard_fronts()
 
     # Generate flashcards
     if args.query:
+        console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
         flashcards = AI.generate_from_note_query(note, args.query,
                                                 target_cards=target_cards_per_note,
                                                 previous_fronts=previous_fronts,
@@ -32,7 +29,7 @@ def generate_flashcards_for_note(note: Note, args, deck_examples, target_cards_p
     return flashcards, note.content, note.path
 
 
-def process_generated_flashcards(note: Note, flashcards: List[Flashcard], deck_name):
+def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
     """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
@@ -72,7 +69,7 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], deck_n
         return 0
 
 
-def process_flashcard_generation(args):
+def preprocess(args):
     """
     Entry point for flashcard generation.
     """
@@ -246,10 +243,6 @@ def process_flashcard_generation(args):
         if not notes:
             console.print("[red]ERROR:[/red] No notes found")
             return 0
-        
-        # Update max_cards based on actually found notes (if --cards wasn't specified)
-        if args.cards is None:
-            max_cards = len(notes) * 2
     else:
         # Default sampling
         if args.allow:
@@ -279,7 +272,6 @@ def process_flashcard_generation(args):
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
 
-    # Calculate target cards per note
     target_cards_per_note = max(1, max_cards // len(notes)) if args.cards else None
 
     if args.cards and target_cards_per_note > 5:
@@ -293,6 +285,10 @@ def process_flashcard_generation(args):
         deck_examples = ANKI.get_card_examples(deck_name)
         if deck_examples:
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
+
+    previous_fronts = []
+    if DEDUPLICATE_VIA_HISTORY:
+        previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
 
     total_cards = 0
 
@@ -319,7 +315,7 @@ def process_flashcard_generation(args):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_note = {
-                executor.submit(generate_flashcards_for_note, note, args, deck_examples, target_cards_per_note): note
+                executor.submit(process, note, args, deck_examples, target_cards_per_note): note
                 for note in valid_notes
             }
 
@@ -333,7 +329,7 @@ def process_flashcard_generation(args):
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
 
-                    cards_added = process_generated_flashcards(note, flashcards, deck_name)
+                    cards_added = postprocess(note, flashcards, deck_name)
                     total_cards += cards_added
 
                 except Exception as e:
@@ -356,20 +352,15 @@ def process_flashcard_generation(args):
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return total_cards
-
-            # Generate flashcards
-            if args.query:
-                console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
             
             try:
-                flashcards, note_content, _ = generate_flashcards_for_note(note, args, deck_examples, target_cards_per_note)
+                flashcards, note_content, _ = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
 
                 if not flashcards or not note_content:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
-                # Use shared logic for approval and Anki addition
-                cards_added = process_generated_flashcards(note, flashcards, deck_name)
+                cards_added = postprocess(note, flashcards, deck_name)
                 total_cards += cards_added
                 
             except KeyboardInterrupt:
