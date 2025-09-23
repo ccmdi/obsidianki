@@ -4,13 +4,13 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 from typing import List
-from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 from cli.services import OBSIDIAN, AI, ANKI
 
 
 def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> tuple[List[Flashcard], str, str]:
+    from cli.config import console
     note.ensure_content()
 
     # Generate flashcards
@@ -31,6 +31,7 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
     """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
+    from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
@@ -71,10 +72,10 @@ def preprocess(args):
     Entry point for flashcard generation.
     """
     from cli.config import (
-        MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, 
-        APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, 
+        console, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE,
+        APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK,
         USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT,
-        DENSITY_BIAS_STRENGTH
+        DENSITY_BIAS_STRENGTH, CONFIG_MANAGER
     )
     from rich.panel import Panel
 

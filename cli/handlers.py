@@ -1,8 +1,6 @@
 """Command-line configuration and tag management"""
 
 import json
-import re
-from pathlib import Path
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
@@ -38,7 +36,7 @@ def approve_note(note_title: str, note_path: str) -> bool:
 
     try:
         result = Confirm.ask("   Process this note?", default=True)
-        console.print()  # Add newline after approval
+        console.print()
         return result
     except KeyboardInterrupt:
         raise
