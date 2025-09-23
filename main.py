@@ -162,7 +162,7 @@ def main():
 
     # entrypoint for flashcard generation or editing
     if args.edit:
-        from cli.processors import edit_mode
+        from cli.handlers import edit_mode
         try:
             return edit_mode(args)
         except KeyboardInterrupt:
