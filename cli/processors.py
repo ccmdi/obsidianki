@@ -4,7 +4,7 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 from typing import List
-from cli.config import console, DEDUPLICATE_VIA_HISTORY, APPROVE_CARDS, CARD_TYPE, get_config
+from cli.config import console, DEDUPLICATE_VIA_HISTORY, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 
@@ -70,7 +70,7 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, 
 
         # Record flashcard creation
         flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-        get_config().record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
+        CONFIG_MANAGER.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")

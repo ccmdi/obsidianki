@@ -5,7 +5,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 
-from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE, initialize_config
+from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command
 from cli.processors import process_flashcard_generation
 
@@ -43,9 +43,6 @@ def show_main_help():
 
 
 def main():
-    # Initialize global config first thing
-    initialize_config()
-
     parser = argparse.ArgumentParser(description="Generate flashcards from Obsidian notes", add_help=False)
     parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     parser.add_argument("-S", "--setup", action="store_true", help="Run interactive setup to configure API keys")

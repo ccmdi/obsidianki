@@ -310,16 +310,4 @@ def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_streng
 
 
 # Global config manager instance - accessible everywhere after class definition
-config = None
-
-def initialize_config():
-    """Initialize the global config - called from main"""
-    global config
-    config = ConfigManager()
-
-def get_config():
-    """Get the global config, initializing if needed"""
-    global config
-    if config is None:
-        initialize_config()
-    return config
+CONFIG_MANAGER = ConfigManager()

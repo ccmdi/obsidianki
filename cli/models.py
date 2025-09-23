@@ -5,7 +5,7 @@ Clean data models for ObsidianKi to replace scattered dictionaries and parameter
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
-from cli.config import get_config, get_sampling_weight_for_note_object
+from cli.config import CONFIG_MANAGER, get_sampling_weight_for_note_object
 
 
 @dataclass
@@ -34,23 +34,23 @@ class Note:
 
     def get_sampling_weight(self, bias_strength: float = None) -> float:
         """Calculate total sampling weight based on tags and processing history."""
-        return get_sampling_weight_for_note_object(self, get_config(), bias_strength)
+        return get_sampling_weight_for_note_object(self, CONFIG_MANAGER, bias_strength)
 
     def get_density_bias(self, bias_strength: float = None) -> float:
         """Get density bias factor for this note."""
-        return get_config().get_density_bias_for_note(self.path, self.size, bias_strength)
+        return CONFIG_MANAGER.get_density_bias_for_note(self.path, self.size, bias_strength)
 
     def is_excluded(self) -> bool:
         """Check if this note should be excluded based on its tags."""
-        return get_config().is_note_excluded(self.tags)
+        return CONFIG_MANAGER.is_note_excluded(self.tags)
 
     def has_processing_history(self) -> bool:
         """Check if this note has been processed before."""
-        return self.path in get_config().processing_history
+        return self.path in CONFIG_MANAGER.processing_history
 
     def get_previous_flashcard_fronts(self) -> List[str]:
         """Get all previously created flashcard fronts for deduplication."""
-        return get_config().get_flashcard_fronts_for_note(self.path)
+        return CONFIG_MANAGER.get_flashcard_fronts_for_note(self.path)
 
     @classmethod
     def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = None) -> 'Note':
