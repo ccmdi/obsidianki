@@ -267,7 +267,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, obsidian, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
+    def find_with_agent(self, natural_request: str, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
@@ -328,7 +328,8 @@ class FlashcardAI:
 
                             try:
                                 # Execute the DQL query
-                                results = obsidian.dql(dql_query)
+                                from cli.services import OBSIDIAN
+                                results = OBSIDIAN.dql(dql_query)
 
                                 if results is None:
                                     results = []

@@ -7,7 +7,6 @@ from rich.text import Text
 
 from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command
-from cli.processors import process_flashcard_generation
 
 def show_main_help():
     """Display the main help screen"""
@@ -160,9 +159,6 @@ def main():
         return 0
 
     # Lazy import heavy dependencies only when needed for flashcard generation
-    from api.obsidian import ObsidianAPI
-    from ai.client import FlashcardAI
-    from api.anki import AnkiAPI
     from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DECK
 
     # Set deck from CLI argument or config default
@@ -189,13 +185,9 @@ def main():
 
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
-    # Initialize APIs and config
-    obsidian = ObsidianAPI()
-    ai = FlashcardAI()
-    anki = AnkiAPI()
-
     # ALL processing logic is now centralized in processors.py
-    return process_flashcard_generation(args, obsidian, ai, anki, deck_name, max_cards, notes_to_sample)
+    from cli.processors import process_flashcard_generation
+    return process_flashcard_generation(args, deck_name, max_cards, notes_to_sample)
 
 
 if __name__ == "__main__":

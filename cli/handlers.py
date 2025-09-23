@@ -414,9 +414,9 @@ def handle_deck_command(args):
         return
 
     # Import here to avoid circular imports and startup delays
-    from api.anki import AnkiAPI
+    from cli.services import ANKI
 
-    anki = AnkiAPI()
+    anki = ANKI
 
     # Test connection first
     if not anki.test_connection():
