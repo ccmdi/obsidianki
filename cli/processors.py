@@ -60,12 +60,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
         console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    # Handle special Anki metadata for query mode
-    if note.path == "query":
-        result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                                   note_path="query", note_title=note.title)
-    else:
-        result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
+    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
@@ -111,10 +106,11 @@ def preprocess(args):
     # --bias
     effective_bias_strength = args.bias if args.bias is not None else DENSITY_BIAS_STRENGTH
 
-    # --allow
+    # Handle search folders - processors.py owns this state
+    search_folders = SEARCH_FOLDERS
     if args.allow:
-        SEARCH_FOLDERS = list(SEARCH_FOLDERS) + args.allow if SEARCH_FOLDERS else args.allow
-        console.print(f"[dim]Search folders:[/dim] {', '.join(SEARCH_FOLDERS)}")
+        search_folders = list(SEARCH_FOLDERS) + args.allow if SEARCH_FOLDERS else args.allow
+        console.print(f"[dim]Search folders:[/dim] {', '.join(search_folders)}")
         console.print()
 
     if SAMPLING_MODE == "weighted":
@@ -140,9 +136,10 @@ def preprocess(args):
         # STANDALONE QUERY MODE - Create synthetic note for main flow
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
         from cli.models import Note
-        query_note = Note(path="query", title=f"Query: {args.query}", content=args.query, size=len(args.query), tags=[])
+        query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[])
         notes = [query_note]
         max_cards = args.cards if args.cards else max_cards
+        APPROVE_NOTES = False # no need to approve what a user wrote
     elif args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
@@ -160,7 +157,7 @@ def preprocess(args):
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength)
+            notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength, search_folders=search_folders)
         else:
             # User specified note names/patterns: --notes "React" "JS"
             notes = []
@@ -184,7 +181,7 @@ def preprocess(args):
                     else:
                         console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
                 else:
-                    specific_note = OBSIDIAN.find_by_name(note_pattern)
+                    specific_note = OBSIDIAN.find_by_name(note_pattern, search_folders=search_folders)
                     if specific_note:
                         notes.append(specific_note)
                     else:
@@ -195,17 +192,15 @@ def preprocess(args):
             return 0
     else:
         # Default sampling
-        if args.allow:
-            console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
-        notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength)
+        notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength, search_folders=search_folders)
         if not notes:
             console.print("[red]ERROR:[/red] No old notes found")
             return 0
 
     # Show processing info
-    if args.query:
+    if args.query and args.notes:
         console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(notes)} note(s)")
-    else:
+    elif not args.query:
         console.print(f"[cyan]INFO:[/cyan] Processing {len(notes)} note(s)")
     console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
     console.print()

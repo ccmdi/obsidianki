@@ -49,8 +49,9 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
+    #TODO add debugging for this if we fallback :)
     front_clean = flashcard.front_original or flashcard.front
-    back_clean = flashcard.back_original or flashcard.back
+    back_clean = flashcard.back or flashcard.back_original
 
     console.print(f"   [cyan]Front:[/cyan] {front_clean}")
     console.print(f"   [cyan]Back:[/cyan] {back_clean}")
