@@ -38,7 +38,7 @@ class AnkiAPI(BaseAPI):
 
         return result.get("result")
 
-    def ensure_deck(self, deck_name: str = "Obsidian") -> None:
+    def ensure_deck_exists(self, deck_name: str = "Obsidian") -> None:
         """Check if deck exists, create it if it doesn't"""
         deck_names = self._request("deckNames")
 
@@ -64,7 +64,7 @@ class AnkiAPI(BaseAPI):
                 # Delete the temporary note
                 self._request("deleteNotes", {"notes": [note_id]})
 
-    def ensure_model(self) -> None:
+    def ensure_cardmodel_exists(self) -> None:
         """Create custom card model if it doesn't exist"""
         model_names = self._request("modelNames")
 
@@ -141,10 +141,10 @@ class AnkiAPI(BaseAPI):
 
     def add_flashcards(self, flashcards: List, deck_name: str = "Obsidian", card_type: str = "basic") -> List[int]:
         """Add Flashcard objects to the specified deck"""
-        self.ensure_deck(deck_name)
+        self.ensure_deck_exists(deck_name)
 
         if card_type == "custom":
-            self.ensure_model()
+            self.ensure_cardmodel_exists()
 
         notes = []
         for card in flashcards:
@@ -285,7 +285,7 @@ class AnkiAPI(BaseAPI):
                 self._request("changeDeck", {"cards": card_ids, "deck": new_name})
             else:
                 # Create empty deck by creating and deleting a temp card
-                self.ensure_deck(new_name)
+                self.ensure_deck_exists(new_name)
 
             # Delete old deck (this only works if it's empty)
             self._request("deleteDecks", {"decks": [old_name], "cardsToo": False})

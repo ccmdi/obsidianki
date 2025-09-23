@@ -122,13 +122,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Handle help requests
     if hasattr(args, 'help') and args.help:
         if not args.command:
             show_main_help()
             return 0
-        # For subcommands, pass the help flag through to their handlers
-        # The handlers will detect it and show their custom help
 
     # Handle config, history, and tag management commands
     if args.command == 'config':
@@ -158,36 +155,11 @@ def main():
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
         return 0
 
-    # Lazy import heavy dependencies only when needed for flashcard generation
-    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DECK
-
-    # Set deck from CLI argument or config default
-    deck_name = args.deck if args.deck else DECK
-
-    # Determine max_cards and notes_to_sample based on arguments
-    notes_to_sample = NOTES_TO_SAMPLE  # Default value
-    
-    if args.notes:
-        # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
-        if args.cards is not None:
-            max_cards = args.cards
-        else:
-            max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
-        # notes_to_sample not used when specific notes are provided
-    elif args.cards is not None:
-        # When --cards is provided, scale notes to 1/2 of cards
-        max_cards = args.cards
-        notes_to_sample = max(1, max_cards // 2)
-    else:
-        # Default behavior - use config values
-        max_cards = MAX_CARDS
-        notes_to_sample = NOTES_TO_SAMPLE
-
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
-    # ALL processing logic is now centralized in processors.py
+    # entrypoint for flashcard generation
     from cli.processors import process_flashcard_generation
-    return process_flashcard_generation(args, deck_name, max_cards, notes_to_sample)
+    return process_flashcard_generation(args)
 
 
 if __name__ == "__main__":

@@ -17,11 +17,28 @@ class FlashcardAI:
 
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+    
+    def _build_card_instruction(self, target_cards: int) -> str:
+        return f"create approximately {target_cards} flashcards"
+    
+    def _build_dedup_context(self, previous_fronts: List[str]) -> str:
+        if not previous_fronts:
+            return ""
+        
+        previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+        dedup_context = f"""
+
+            IMPORTANT: We have previously created the following flashcards for this note:
+            {previous_questions}
+
+            DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
+        
+        return dedup_context
 
     def _build_schema_context(self, deck_examples: List[Dict[str, str]]) -> str:
         """Build schema context from existing deck cards"""
         if not deck_examples:
-            return ""
+            return "None"
 
         examples_text = ""
         for i, example in enumerate(deck_examples, 1):
@@ -46,24 +63,12 @@ class FlashcardAI:
 
         return schema_context
 
-    def generate_flashcards(self, note: Note, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_flashcards(self, note: Note, target_cards: int = 2, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards from a Note object using Claude"""
 
-        cards_to_create = target_cards if target_cards else 2
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
-
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
-
-        IMPORTANT: We have previously created the following flashcards for this note:
-        {previous_questions}
-
-        DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
-
-        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
         user_prompt = f"""Note Title: {note.filename}
 
@@ -91,13 +96,11 @@ class FlashcardAI:
 
                         flashcard_objects = []
                         for card in flashcard_dicts:
-                            # Process the front and back content
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
                             front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
                             back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
 
-                            # Create Flashcard object
                             flashcard = Flashcard(
                                 front=front_processed,
                                 back=back_processed,
@@ -117,25 +120,12 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_from_query(self, query: str, target_cards: int = 3, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
 
-        cards_to_create = target_cards if target_cards else 3
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
-
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
-
-        IMPORTANT: We have previously created the following flashcards for this deck:
-        {previous_questions}
-
-        Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
-
-        # Add schema context if deck examples provided
-        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
         user_prompt = f"""User Query: {query}
 
@@ -197,23 +187,10 @@ class FlashcardAI:
     def generate_from_note_query(self, note: Note, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
-        cards_to_create = target_cards if target_cards else 2
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
-
-            IMPORTANT: We have previously created the following flashcards for this note:
-            {previous_questions}
-
-            DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
-
-        # Add schema context if deck examples provided
-        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
-        
         user_prompt = f"""Note Title: {note.filename}
         Query: {query}
 
@@ -498,7 +475,7 @@ class FlashcardAI:
         # Apply weighted sampling to final selection if needed
         target_count = sample_size if sample_size else len(selected_notes)
         if target_count < len(selected_notes):
-            sampled_notes = obsidian._weighted_sample(selected_notes, target_count, bias_strength)
+            sampled_notes = OBSIDIAN._weighted_sample(selected_notes, target_count, bias_strength)
         else:
             sampled_notes = selected_notes
 
@@ -534,19 +511,15 @@ class FlashcardAI:
                 console.print(f"[yellow]WARNING:[/yellow] Failed to generate cards for note {index + 1}: {e}")
                 return []
 
-        # Prepare arguments for parallel processing
         previous_fronts_batch = previous_fronts_batch or [[] for _ in note_batch]
         args_list = [
             (content, title, previous_fronts, i)
             for i, ((content, title), previous_fronts) in enumerate(zip(note_batch, previous_fronts_batch))
         ]
 
-        # Use ThreadPoolExecutor for parallel API calls
         with ThreadPoolExecutor(max_workers=min(5, len(note_batch))) as executor:
-            # Submit all tasks
             future_to_index = {executor.submit(generate_single_note, args): i for i, args in enumerate(args_list)}
 
-            # Collect results as they complete
             completed_results = [None] * len(note_batch)
 
             for future in as_completed(future_to_index):

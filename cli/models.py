@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
 from cli.config import CONFIG_MANAGER, get_sampling_weight_for_note_object
+from cli.services import OBSIDIAN
 
 
 @dataclass
@@ -51,6 +52,11 @@ class Note:
     def get_previous_flashcard_fronts(self) -> List[str]:
         """Get all previously created flashcard fronts for deduplication."""
         return CONFIG_MANAGER.get_flashcard_fronts_for_note(self.path)
+
+    def ensure_content(self):
+        """Ensure the note content is loaded."""
+        if not self.content:
+            self.content = OBSIDIAN.get_note_content(self.path)
 
     @classmethod
     def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = None) -> 'Note':
