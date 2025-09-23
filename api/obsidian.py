@@ -4,7 +4,7 @@ import urllib3
 from datetime import datetime, timedelta
 from typing import List, Dict
 
-from cli.config import console
+from cli.config import console, CONFIG_MANAGER
 from cli.models import Note
 from api.base import BaseAPI
 
@@ -25,7 +25,7 @@ class ObsidianAPI(BaseAPI):
             "Content-Type": "application/json"
         }
 
-    def _build_filters(self, search_folders=None, config_manager=None) -> str:
+    def _build_filters(self, search_folders=None) -> str:
         """Build combined DQL filter conditions"""
         filters = []
 
@@ -35,8 +35,8 @@ class ObsidianAPI(BaseAPI):
             filters.append(f"({' OR '.join(folder_conditions)})")
 
         # Excluded tags filter
-        if config_manager and hasattr(config_manager, 'excluded_tags') and config_manager.excluded_tags:
-            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in config_manager.excluded_tags]
+        if CONFIG_MANAGER and hasattr(CONFIG_MANAGER, 'excluded_tags') and CONFIG_MANAGER.excluded_tags:
+            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
             filters.append(f"({' AND '.join(exclude_conditions)})")
 
         return f"AND {' AND '.join(filters)}" if filters else ""
@@ -71,19 +71,18 @@ class ObsidianAPI(BaseAPI):
             response = super()._make_request("POST", url, headers=headers, data=query, verify=False)
             dict_results = self._parse_response(response)
 
-            # Convert dict results to Note objects at the lowest level
-            return self._convert_dict_results_to_notes(dict_results)
+            return [Note.from_obsidian_result(result) for result in dict_results]
         except Exception as e:
             self._handle_request_error(e, "DQL query execution")
             raise
 
-    def get_old_notes(self, days: int, limit: int = None, config_manager=None) -> List[Note]:
+    def get_old_notes(self, days: int, limit: int = None) -> List[Note]:
         """Get notes older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
         from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS, config_manager)
+        filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'file.mtime < date("{cutoff_str}") {filters}'
         query = self._build_base_query(condition)
@@ -93,11 +92,11 @@ class ObsidianAPI(BaseAPI):
 
         return self.dql(query)
 
-    def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Note]:
+    def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0) -> List[Note]:
         """Get notes with specific tags"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
         from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS, config_manager)
+        filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'({tag_conditions})'
 
@@ -121,8 +120,8 @@ class ObsidianAPI(BaseAPI):
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        from cli.config import SEARCH_FOLDERS, config
-        filters = self._build_filters(SEARCH_FOLDERS, config)
+        from cli.config import SEARCH_FOLDERS
+        filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
         all_notes = self.dql(self._build_base_query(condition))
@@ -135,22 +134,6 @@ class ObsidianAPI(BaseAPI):
 
         # Use weighted sampling by default (since we have global config)
         return self._weighted_sample(all_notes, limit, bias_strength)
-
-    def _convert_dict_results_to_notes(self, dict_results: List[Dict]) -> List[Note]:
-        """Convert API dict results to Note objects"""
-        notes = []
-        for result in dict_results:
-            note_info = result['result']
-            note = Note(
-                path=note_info.get('path', ''),
-                filename=note_info.get('filename', ''),
-                content='',  # Content will be loaded when needed
-                tags=note_info.get('tags', []) or []
-            )
-            # Set size from API metadata
-            note.__dict__['size'] = note_info.get('size', 0)
-            notes.append(note)
-        return notes
 
     def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = None) -> List[Note]:
         """Perform weighted sampling based on note tags and processing history"""
@@ -165,9 +148,9 @@ class ObsidianAPI(BaseAPI):
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
 
-    def find_by_pattern(self, pattern: str, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Note]:
+    def find_by_pattern(self, pattern: str, sample_size: int = None, bias_strength: float = None) -> List[Note]:
         """Find notes by pattern"""
-        filters = self._build_exclude_filter(config_manager)
+        filters = self._build_exclude_filter()
 
         # Build pattern condition
         if pattern.endswith('/*'):
@@ -194,23 +177,23 @@ class ObsidianAPI(BaseAPI):
             return results
 
         # Apply sampling
-        if config_manager:
+        if CONFIG_MANAGER: #TODO
             return self._weighted_sample(results, sample_size, bias_strength)
         else:
             import random
             return random.sample(results, sample_size)
 
-    def _build_exclude_filter(self, config_manager) -> str:
+    def _build_exclude_filter(self) -> str:
         """Legacy method for backward compatibility"""
-        if not config_manager or not hasattr(config_manager, 'excluded_tags') or not config_manager.excluded_tags:
+        if not CONFIG_MANAGER or not hasattr(CONFIG_MANAGER, 'excluded_tags') or not CONFIG_MANAGER.excluded_tags:
             return ""
-        exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in config_manager.excluded_tags]
+        exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
         return f"AND ({' AND '.join(exclude_conditions)})"
 
-    def find_by_name(self, note_name: str, config_manager=None) -> Note:
+    def find_by_name(self, note_name: str) -> Note:
         """Find note by name with partial matching"""
-        from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS, config_manager)
+        from cli.config import SEARCH_FOLDERS #TODO
+        filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'contains(file.name, "{note_name}") {filters}'
         results = self.dql(self._build_base_query(condition, sort_field="file.name"))

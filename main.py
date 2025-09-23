@@ -190,13 +190,12 @@ def main():
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
     # Initialize APIs and config
-    config = ConfigManager()
     obsidian = ObsidianAPI()
     ai = FlashcardAI()
     anki = AnkiAPI()
 
     # ALL processing logic is now centralized in processors.py
-    return process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, max_cards, notes_to_sample)
+    return process_flashcard_generation(args, obsidian, ai, anki, deck_name, max_cards, notes_to_sample)
 
 
 if __name__ == "__main__":

@@ -1,12 +1,9 @@
 import os
-import re
-import asyncio
-import aiohttp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from anthropic import Anthropic
 from typing import List, Dict, Tuple, Optional
 
-from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
+from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS, CONFIG_MANAGER
 from cli.utils import process_code_blocks, strip_html
 from cli.models import Note, Flashcard
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
@@ -270,7 +267,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
+    def find_with_agent(self, natural_request: str, obsidian, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
@@ -337,7 +334,7 @@ class FlashcardAI:
                                     results = []
 
                                 # Apply filtering (folders, excluded tags)
-                                if config_manager:
+                                if CONFIG_MANAGER: #TODO
                                     filtered_results = []
                                     for result in results:
                                         note_path = result['result'].get('path', '')
@@ -350,7 +347,7 @@ class FlashcardAI:
 
                                         # Apply excluded tags filtering
                                         note_tags = result['result'].get('tags', []) or []
-                                        excluded_tags = config_manager.get_excluded_tags()
+                                        excluded_tags = CONFIG_MANAGER.get_excluded_tags()
                                         if excluded_tags and any(tag in note_tags for tag in excluded_tags):
                                             continue
 
@@ -500,7 +497,7 @@ class FlashcardAI:
         # Apply weighted sampling to final selection if needed
         target_count = sample_size if sample_size else len(selected_notes)
         if target_count < len(selected_notes):
-            sampled_notes = obsidian._weighted_sample(selected_notes, target_count, config_manager, bias_strength)
+            sampled_notes = obsidian._weighted_sample(selected_notes, target_count, bias_strength)
         else:
             sampled_notes = selected_notes
 

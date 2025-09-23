@@ -7,6 +7,7 @@ from typing import List
 from cli.config import console, DEDUPLICATE_VIA_HISTORY, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
+from api.obsidian import ObsidianAPI
 
 
 def generate_flashcards_for_note(note: Note, ai, obsidian, args, deck_examples, target_cards_per_note) -> tuple[List[Flashcard], str, str]:
@@ -77,7 +78,7 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, 
         return 0
 
 
-def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, max_cards, notes_to_sample):
+def process_flashcard_generation(args, obsidian: ObsidianAPI, ai, anki, deck_name, max_cards, notes_to_sample):
     """
     CENTRAL AUTHORITY for ALL flashcard processing scenarios.
     All config checks happen here ONCE. No duplication of config logic anywhere.
@@ -104,7 +105,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
         console.print()
 
     if SAMPLING_MODE == "weighted":
-        config.show_weights()
+        CONFIG_MANAGER.show_weights()
     console.print()
 
     # CENTRALIZED CONFIG CHECK: Show warning for experimental features
@@ -186,7 +187,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
     if args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        old_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=notes_to_sample, bias_strength=effective_bias_strength, search_folders=effective_search_folders)
+        old_notes = ai.find_with_agent(args.agent, obsidian, sample_size=notes_to_sample, bias_strength=effective_bias_strength, search_folders=effective_search_folders)
         if not old_notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
             return 0
@@ -200,7 +201,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, config_manager=config, bias_strength=effective_bias_strength)
+            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength)
         else:
             # User specified note names/patterns: --notes "React" "JS"
             old_notes = []
@@ -214,7 +215,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                             note_pattern = parts[0]
                             sample_size = int(parts[1])
                     
-                    pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=sample_size, bias_strength=effective_bias_strength)
+                    pattern_notes = obsidian.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=effective_bias_strength)
                     if pattern_notes:
                         old_notes.extend(pattern_notes)
                         if sample_size and len(pattern_notes) == sample_size:
@@ -225,7 +226,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                         console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
                 else:
                     # Single note lookup
-                    specific_note = obsidian.find_by_name(note_pattern, config_manager=config)
+                    specific_note = obsidian.find_by_name(note_pattern)
                     if specific_note:
                         old_notes.append(specific_note)
                     else:
@@ -242,7 +243,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
         # Default sampling
         if args.allow:
             console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
-        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=effective_bias_strength)
+        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength)
         if not old_notes:
             console.print("[red]ERROR:[/red] No old notes found")
             return 0
@@ -266,9 +267,6 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
             console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({max_cards} > {BATCH_CARD_LIMIT})")
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
-        elif use_batch_mode:
-            console.print(f"[cyan]BATCH MODE:[/cyan] Processing {len(old_notes)} notes in parallel")
-            console.print()
 
     # Calculate target cards per note
     target_cards_per_note = max(1, max_cards // len(old_notes)) if args.cards else None
@@ -290,7 +288,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
 
     if use_batch_mode:
         # BATCH: Parallelize AI generation, then sequential approval/Anki
-        console.print(f"[cyan]Parallelizing AI generation for {len(old_notes)} notes...[/cyan]")
+        console.print(f"[cyan]Parallelizing generation for {len(old_notes)} notes...[/cyan]")
 
         # Filter notes with approval upfront (old_notes are already Note objects)
         valid_notes = []
@@ -332,7 +330,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                         continue
 
                     # Use sequential logic for approval and Anki
-                    cards_added = process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
+                    cards_added = process_generated_flashcards(note, flashcards, anki, args, deck_name, note_content)
                     total_cards += cards_added
 
                 except Exception as e:
