@@ -120,9 +120,6 @@ oki history clear --notes "React*"   # Clear history for specific notes
 - **Standalone**: Generates flashcards from AI knowledge alone based on your query
 - **Targeted**: Extracts specific information from selected notes based on your query
 
-### Performance Features
-**Upfront Batching**: Enable `UPFRONT_BATCHING=true` to process all notes in parallel instead of sequentially. This provides 5-10x speed improvement for multiple notes with built-in cost protection (max 20 notes, 100 cards per batch).
-
 ### Other features
 **Custom flashcard type**: Includes clickable "Origin" field that opens the source note
 

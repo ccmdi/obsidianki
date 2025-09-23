@@ -6,8 +6,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 
 from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, approve_flashcard
-from cli.processors import process_single_note, process_notes_batch
+from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -40,9 +39,6 @@ def show_main_help():
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
     console.print()
-
-
-
 
 
 def main():
@@ -126,27 +122,24 @@ def main():
 
     args = parser.parse_args()
 
-    # Handle help requests
     if hasattr(args, 'help') and args.help:
         if not args.command:
             show_main_help()
-            return
-        # For subcommands, pass the help flag through to their handlers
-        # The handlers will detect it and show their custom help
+            return 0
 
     # Handle config, history, and tag management commands
     if args.command == 'config':
         handle_config_command(args)
-        return
+        return 0
     elif args.command == 'history':
         handle_history_command(args)
-        return
+        return 0
     elif args.command in ['tag', 'tags']:
         handle_tag_command(args)
-        return
+        return 0
     elif args.command == 'deck':
         handle_deck_command(args)
-        return
+        return 0
 
     needs_setup = False
     if not ENV_FILE.exists():
@@ -160,298 +153,26 @@ def main():
             setup(force_full_setup=args.setup)
         except KeyboardInterrupt:
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
-        return
-
-    # Lazy import heavy dependencies only when needed for flashcard generation
-    from api.obsidian import ObsidianAPI
-    from ai.client import FlashcardAI
-    from api.anki import AnkiAPI
-    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT
-
-    # Set deck from CLI argument or config default
-    deck_name = args.deck if args.deck else DECK
-
-    # Determine max_cards and notes_to_sample based on arguments
-    if args.notes:
-        # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
-        if args.cards is not None:
-            max_cards = args.cards
-        else:
-            max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
-    elif args.cards is not None:
-        # When --cards is provided, scale notes to 1/2 of cards
-        max_cards = args.cards
-        notes_to_sample = max(1, max_cards // 2)
-    else:
-        # Default behavior - use config values
-        max_cards = MAX_CARDS
-        notes_to_sample = NOTES_TO_SAMPLE
+        return 0
 
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
-    # Initialize APIs and config
-    config = ConfigManager()
-    obsidian = ObsidianAPI()
-    ai = FlashcardAI()
-    anki = AnkiAPI()
-
-    # Handle --allow flag: expand SEARCH_FOLDERS for this run
-    effective_search_folders = SEARCH_FOLDERS
-    if args.allow:
-        if effective_search_folders:
-            effective_search_folders = list(effective_search_folders) + args.allow
-        else:
-            effective_search_folders = args.allow
-        console.print(f"[dim]Effective search folders:[/dim] {', '.join(effective_search_folders)}")
-        console.print()
-
-    if SAMPLING_MODE == "weighted":
-        config.show_weights()
-    
-    console.print()
-
-    # Show warning for experimental features
-    if args.query and not args.notes and DEDUPLICATE_VIA_DECK:
-        console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
-
-    # Test connections
-    if not obsidian.test_connection():
-        console.print("[red]ERROR:[/red] Cannot connect to Obsidian REST API")
-        return
-
-    if not anki.test_connection():
-        console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
-        return
-
-    # Handle query mode
-    if args.query and not args.agent:
-        if not args.notes:
-            # Standalone query mode - generate cards from query alone
-            console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
-
-            # Get previous flashcard fronts for deduplication if enabled
-            previous_fronts = []
-            if DEDUPLICATE_VIA_DECK:
-                previous_fronts = anki.get_card_fronts(deck_name)
-                if previous_fronts:
-                    console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
-
-            # Get deck examples for schema enforcement if enabled
-            deck_examples = []
-            use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
-            if use_schema:
-                deck_examples = anki.get_card_examples(deck_name)
-                if deck_examples:
-                    console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]")
-                    # console.print(f"[dim]Example fronts: {[ex['front'][:50] + '...' if len(ex['front']) > 50 else ex['front'] for ex in deck_examples]}[/dim]\n")
-
-            target_cards = args.cards if args.cards else None
-            flashcards = ai.generate_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
-            if not flashcards:
-                console.print("[red]ERROR:[/red] No flashcards generated from query")
-                return
-
-            console.print(f"[green]Generated {len(flashcards)} flashcards[/green]")
-
-            # Flashcard approval (before adding to Anki)
-            approved_flashcards = []
-            if APPROVE_CARDS:
-                try:
-                    for flashcard in flashcards:
-                        if approve_flashcard(flashcard, f"Query: {args.query}"):
-                            approved_flashcards.append(flashcard)
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                    return
-
-                if not approved_flashcards:
-                    console.print("[yellow]WARNING:[/yellow] No flashcards approved")
-                    return
-
-                console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
-                cards_to_add = approved_flashcards
-            else:
-                cards_to_add = flashcards
-
-            # Add to Anki
-            result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                                       note_path="query", note_title=f"Query: {args.query}")
-            successful_cards = len([r for r in result if r is not None])
-
-            if successful_cards > 0:
-                console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
-            else:
-                console.print("[red]ERROR:[/red] Failed to add cards to Anki")
-
-            console.print(f"\n[bold green]COMPLETE![/bold green] Added {successful_cards} flashcards from query")
-            return
-
-    # Handle agent mode
-    if args.agent:
-        console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
-        console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-
-        # Use agent to find notes
-        agent_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
-
-        if not agent_notes:
-            console.print("[red]ERROR:[/red] Agent found no matching notes")
-            return
-
-        old_notes = agent_notes
-
-        # Update max_cards based on found notes (if --cards wasn't specified)
-        if args.cards is None:
-            max_cards = len(old_notes) * 2
-
-        if args.query:
-            console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} AI-discovered note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-        else:
-            console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} AI-discovered note(s)")
-            console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-        console.print()
-
-    # Get notes to process
-    elif args.notes:
-        # Check if the first argument is a number (count of notes to sample)
-        if len(args.notes) == 1 and args.notes[0].isdigit():
-            # User specified a count: --notes 5
-            note_count = int(args.notes[0])
-            console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-
-            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, config_manager=config, bias_strength=args.bias)
-
-            if not old_notes:
-                console.print("[red]ERROR:[/red] No old notes found")
-                return
-
-            # Update max_cards based on sampled notes (if --cards wasn't specified)
-            if args.cards is None:
-                max_cards = len(old_notes) * 2
-
-            if args.query:
-                console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} sampled note(s)")
-                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-            else:
-                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-            console.print()
-        else:
-            # User specified note names/patterns: --notes "React" "JS"
-            old_notes = []
-
-            for note_pattern in args.notes:
-                # Check if this looks like a directory pattern
-                if '*' in note_pattern or '/' in note_pattern:
-                    # Use pattern matching with optional sampling
-                    # Check for sampling syntax: "pattern:5"
-                    sample_size = None
-                    if ':' in note_pattern and not note_pattern.endswith('/'):
-                        parts = note_pattern.rsplit(':', 1)
-                        if parts[1].isdigit():
-                            note_pattern = parts[0]
-                            sample_size = int(parts[1])
-
-                    pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=sample_size, bias_strength=args.bias)
-
-                    if pattern_notes:
-                        old_notes.extend(pattern_notes)
-                        if sample_size and len(pattern_notes) == sample_size:
-                            console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                        else:
-                            console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                    else:
-                        console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
-                else:
-                    # Use existing single note lookup
-                    specific_note = obsidian.find_by_name(note_pattern, config_manager=config)
-
-                    if specific_note:
-                        old_notes.append(specific_note)
-                    else:
-                        console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
-
-            if not old_notes:
-                console.print("[red]ERROR:[/red] No notes found")
-                return
-
-            # Update max_cards based on actually found notes (if --cards wasn't specified)
-            if args.cards is None:
-                max_cards = len(old_notes) * 2
-
-            if args.query:
-                console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(old_notes)} note(s)")
-                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-            else:
-                console.print(f"[cyan]INFO:[/cyan] Processing {len(old_notes)} note(s)")
-                console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-            console.print()
-    else:
-        # For now, --allow only works with agent mode due to obsidian.py global dependencies
-        if args.allow:
-            console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
-
-        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
-
-        if not old_notes:
-            console.print("[red]ERROR:[/red] No old notes found")
-            return
-
-        console.print(f"[green]SUCCESS:[/green] Found {len(old_notes)} notes")
-        console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
-
-    # Check if we should use batch processing
-    use_batch_mode = UPFRONT_BATCHING and len(old_notes) > 1
-
-    if use_batch_mode:
-        if len(old_notes) > BATCH_SIZE_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(old_notes)} > {BATCH_SIZE_LIMIT})")
-            console.print(f"[yellow]This could result in expensive API costs. Use fewer notes or disable UPFRONT_BATCHING.[/yellow]")
-            use_batch_mode = False
-        elif max_cards > BATCH_CARD_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({max_cards} > {BATCH_CARD_LIMIT})")
-            console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
-            use_batch_mode = False
-        elif use_batch_mode:
-            console.print()
-
-    total_cards = 0
-
-    # Calculate target cards per note
-    target_cards_per_note = max(1, max_cards // len(old_notes)) if args.cards else None
-
-    if args.cards and target_cards_per_note > 5:
-        console.print(f"[yellow]WARNING:[/yellow] Requesting more than 5 cards per note can decrease quality")
-        console.print(f"[yellow]Consider using fewer total cards or more notes for better results[/yellow]\n")
-
-    # Process notes (batch or sequential)
-    if use_batch_mode:
-        try:
-            total_cards = process_notes_batch(old_notes, ai, anki, obsidian, config, args, deck_name, target_cards_per_note)
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Operation cancelled by user[/yellow]")
-            return
-    else:
-        # Sequential processing
-        for i, note in enumerate(old_notes, 1):
-            if total_cards >= max_cards:
-                break
-            try:
-                cards_added = process_single_note(note, ai, anki, obsidian, config, args, deck_name, target_cards_per_note, total_cards, max_cards)
-                total_cards += cards_added
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                return
-
-    console.print("")
-    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
+    # entrypoint for flashcard generation
+    from cli.processors import preprocess
+    try:
+        return preprocess(args)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        return 1
 
 
 if __name__ == "__main__":
     try:
-        main()
+        result = main()
+        exit(result if result is not None else 0)
     except KeyboardInterrupt:
         console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        exit(1)
     except Exception as e:
         console.print(f"\n[red]ERROR:[/red] {e}")
         raise

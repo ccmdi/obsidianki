@@ -1,13 +1,11 @@
 import os
-import re
-import asyncio
-import aiohttp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from anthropic import Anthropic
 from typing import List, Dict, Tuple, Optional
 
-from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
+from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS, CONFIG_MANAGER
 from cli.utils import process_code_blocks, strip_html
+from cli.models import Note, Flashcard
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -19,6 +17,23 @@ class FlashcardAI:
 
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+    
+    def _build_card_instruction(self, target_cards: int) -> str:
+        return f"create approximately {target_cards} flashcards"
+    
+    def _build_dedup_context(self, previous_fronts: List[str]) -> str:
+        if not previous_fronts:
+            return ""
+        
+        previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
+        dedup_context = f"""
+
+            IMPORTANT: We have previously created the following flashcards for this note:
+            {previous_questions}
+
+            DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
+        
+        return dedup_context
 
     def _build_schema_context(self, deck_examples: List[Dict[str, str]]) -> str:
         """Build schema context from existing deck cards"""
@@ -48,29 +63,17 @@ class FlashcardAI:
 
         return schema_context
 
-    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
-        """Generate flashcards from note content using Claude"""
+    def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+        """Generate flashcards from a Note object using Claude"""
 
-        cards_to_create = target_cards if target_cards else 2
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
-
-        IMPORTANT: We have previously created the following flashcards for this note:
-        {previous_questions}
-
-        DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
-
-        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
-
-        user_prompt = f"""Note Title: {note_title}
+        user_prompt = f"""Note Title: {note.filename}
 
         Note Content:
-        {note_content}{dedup_context}{schema_context}
+        {note.content}{dedup_context}{schema_context}
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
@@ -84,21 +87,31 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], SYNTAX_HIGHLIGHTING)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], SYNTAX_HIGHLIGHTING)
-                        return flashcards
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=note,
+                                tags=card.get('tags', note.tags.copy()),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -107,25 +120,12 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_query(self, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
 
-        cards_to_create = target_cards if target_cards else 3
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
-
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
-
-        IMPORTANT: We have previously created the following flashcards for this deck:
-        {previous_questions}
-
-        Please ensure your new flashcards cover different aspects and don't duplicate these existing questions."""
-
-        # Add schema context if deck examples provided
-        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
         user_prompt = f"""User Query: {query}
 
@@ -141,23 +141,41 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
-                        # Post-process code blocks
-                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
-                        return flashcards
+                        # Create virtual Note object for query-based flashcards
+                        virtual_note = Note(
+                            path="query",
+                            filename=f"Query: {query}",
+                            content=query,
+                            tags=["query-generated"]
+                        )
+
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            # Process the front and back content
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            # Create Flashcard object
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=virtual_note,
+                                tags=card.get('tags', ["query-generated"]),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -166,33 +184,20 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_from_note_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
-        cards_to_create = target_cards if target_cards else 2
-        card_instruction = f"Create approximately {cards_to_create} flashcards"
+        card_instruction = self._build_card_instruction(target_cards)
+        dedup_context = self._build_dedup_context(previous_fronts)
+        schema_context = self._build_schema_context(deck_examples)
 
-        # Add deduplication context if previous fronts exist
-        dedup_context = ""
-        if previous_fronts:
-            previous_questions = "\n".join([f"- {front}" for front in previous_fronts])
-            dedup_context = f"""
+        user_prompt = f"""Note Title: {note.filename}
+        Query: {query}
 
-            IMPORTANT: We have previously created the following flashcards for this note:
-            {previous_questions}
+        Note Content:
+        {note.content}{dedup_context}{schema_context}
 
-            DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
-
-            # Add schema context if deck examples provided
-            schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
-
-            user_prompt = f"""Note Title: {note_title}
-            Query: {query}
-
-            Note Content:
-            {note_content}{dedup_context}{schema_context}
-
-            Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
+        Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
         try:
             response = self.client.messages.create(
@@ -204,23 +209,33 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
-                        # Post-process code blocks
-                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
-                        return flashcards
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            # Process the front and back content
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            # Create Flashcard object
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=note,
+                                tags=card.get('tags', note.tags.copy()),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -229,7 +244,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
+    def find_with_agent(self, natural_request: str, sample_size: int = None, bias_strength: float = None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
@@ -237,9 +252,8 @@ class FlashcardAI:
 
         # Add folder context
         folder_context = ""
-        effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
-        if effective_folders:
-            folder_context = f"\n\nIMPORTANT: Only search in these folders: {effective_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+        if SEARCH_FOLDERS:
+            folder_context = f"\n\nIMPORTANT: Only search in these folders: {SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
         user_prompt = f"""Natural language request: {natural_request}{date_context}{folder_context}
 
@@ -290,32 +304,32 @@ class FlashcardAI:
 
                             try:
                                 # Execute the DQL query
-                                results = obsidian.dql(dql_query)
+                                from cli.services import OBSIDIAN
+                                results = OBSIDIAN.dql(dql_query)
 
                                 if results is None:
                                     results = []
 
                                 # Apply filtering (folders, excluded tags)
-                                if config_manager:
-                                    filtered_results = []
-                                    for result in results:
-                                        note_path = result['result'].get('path', '')
+                                filtered_results = []
+                                for result in results:
+                                    note_path = result['result'].get('path', '')
 
-                                        # Apply SEARCH_FOLDERS filtering
-                                        if effective_folders:
-                                            path_matches = any(note_path.startswith(f"{folder}/") for folder in effective_folders)
-                                            if not path_matches:
-                                                continue
-
-                                        # Apply excluded tags filtering
-                                        note_tags = result['result'].get('tags', []) or []
-                                        excluded_tags = config_manager.get_excluded_tags()
-                                        if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                                    # Apply SEARCH_FOLDERS filtering
+                                    if SEARCH_FOLDERS:
+                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in SEARCH_FOLDERS)
+                                        if not path_matches:
                                             continue
 
-                                        filtered_results.append(result)
+                                    # Apply excluded tags filtering
+                                    note_tags = result['result'].get('tags', []) or []
+                                    excluded_tags = CONFIG_MANAGER.get_excluded_tags()
+                                    if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                                        continue
 
-                                    results = filtered_results
+                                    filtered_results.append(result)
+
+                                results = filtered_results
 
                                 console.print(f"[cyan]Agent:[/cyan] Found {len(results)} notes")
                                 last_results = results  # Store for potential auto-finalization
@@ -365,7 +379,6 @@ class FlashcardAI:
                             console.print(f"[cyan]Agent:[/cyan] {reasoning}")
                             console.print(f"[cyan]Agent:[/cyan] Selected {len(selected_paths)} notes for processing")
 
-                            # Find the corresponding note objects from all accumulated results
                             final_selection = []
                             missing_paths = []
                             for path in selected_paths:
@@ -374,7 +387,6 @@ class FlashcardAI:
                                 else:
                                     missing_paths.append(path)
 
-                            # Warn about any missing paths
                             if missing_paths:
                                 console.print(f"[yellow]Warning:[/yellow] Agent selected {len(missing_paths)} paths not found in query results: {missing_paths}")
                                 console.print(f"[cyan]Agent:[/cyan] Proceeding with {len(final_selection)} valid selections")
@@ -461,7 +473,7 @@ class FlashcardAI:
         # Apply weighted sampling to final selection if needed
         target_count = sample_size if sample_size else len(selected_notes)
         if target_count < len(selected_notes):
-            sampled_notes = obsidian._weighted_sample(selected_notes, target_count, config_manager, bias_strength)
+            sampled_notes = OBSIDIAN._weighted_sample(selected_notes, target_count, bias_strength)
         else:
             sampled_notes = selected_notes
 
@@ -497,19 +509,15 @@ class FlashcardAI:
                 console.print(f"[yellow]WARNING:[/yellow] Failed to generate cards for note {index + 1}: {e}")
                 return []
 
-        # Prepare arguments for parallel processing
         previous_fronts_batch = previous_fronts_batch or [[] for _ in note_batch]
         args_list = [
             (content, title, previous_fronts, i)
             for i, ((content, title), previous_fronts) in enumerate(zip(note_batch, previous_fronts_batch))
         ]
 
-        # Use ThreadPoolExecutor for parallel API calls
         with ThreadPoolExecutor(max_workers=min(5, len(note_batch))) as executor:
-            # Submit all tasks
             future_to_index = {executor.submit(generate_single_note, args): i for i, args in enumerate(args_list)}
 
-            # Collect results as they complete
             completed_results = [None] * len(note_batch)
 
             for future in as_completed(future_to_index):

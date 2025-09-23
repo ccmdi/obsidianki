@@ -163,7 +163,7 @@ class ConfigManager:
 
     def add_tag_weight(self, tag: str, weight: float) -> bool:
         """Add or update a tag weight"""
-        if weight <= 0:
+        if weight < 0:
             console.print(f"[red]ERROR:[/red] Weight must be positive")
             return False
 
@@ -252,40 +252,40 @@ class ConfigManager:
         total_flashcards = history["total_flashcards"]
 
         if note_size == 0:
-            note_size = 1  # Prevent division by zero
+            note_size = 1
 
-        # Calculate flashcard density (flashcards per character)
         density = total_flashcards / note_size
 
         # Apply bias - higher density = lower weight
-        # Bias strength controls how aggressively we avoid over-processed notes
+        # bias_strength = 1: guaranteed zero probability for any processed notes
+        # bias_strength = 0: no penalty for processed notes
         effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
-        bias_factor = max(0.0, 1.0 - (density * 1000 * effective_bias))
+        bias_factor = (1.0 - effective_bias) ** (density * 1000)
 
         return bias_factor
 
-def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager, bias_strength: float = None) -> float:
-    """Calculate total sampling weight for a note based on tags and processing history"""
 
-    # Base weight from tags
+def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_strength: float = None) -> float:
+    """Calculate total sampling weight for a Note object - cleaner version"""
+    from cli.models import Note
+
+    if not isinstance(note, Note):
+        raise TypeError("Expected Note object")
+
     tag_weight = 1.0
     if SAMPLING_MODE == "weighted" and config.tag_weights:
-        # Find tags that match our configured weights (excluding _default)
-        relevant_tags = [tag for tag in note_tags if tag in config.tag_weights and tag != "_default"]
+        relevant_tags = [tag for tag in note.tags if tag in config.tag_weights and tag != "_default"]
 
         if not relevant_tags:
-            # Use _default weight for notes without relevant tags
             tag_weight = config.tag_weights.get("_default", 1.0)
         else:
-            # Use maximum weight among relevant tags
             tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
 
-    # Density bias (lower for over-processed notes)
-    density_bias = config.get_density_bias_for_note(note_path, note_size, bias_strength)
-
-    # Combine weights
+    density_bias = note.get_density_bias(bias_strength)
     final_weight = tag_weight * density_bias
 
     return final_weight
 
 
+# Global config manager instance - accessible everywhere after class definition
+CONFIG_MANAGER = ConfigManager()

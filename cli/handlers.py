@@ -1,11 +1,10 @@
 """Command-line configuration and tag management"""
 
 import json
-import re
-from pathlib import Path
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
+from cli.models import Note, Flashcard
 
 from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
 
@@ -32,22 +31,30 @@ def show_simple_help(title: str, commands: dict):
         console.print(f"  [cyan]oki {cmd}[/cyan] - {desc}")
     console.print()
 
-def approve_note(note_title: str, note_path: str) -> bool:
+def approve_note(note: Note) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [magenta]Review note:[/magenta] [bold]{note_title}[/bold]")
-    console.print(f"   [dim]Path: {note_path}[/dim]")
+    console.print(f"   [dim]Path: {note.path}[/dim]")
+
+    if note is not None:
+        weight = note.get_sampling_weight()
+        if weight == 0:
+            console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
 
     try:
         result = Confirm.ask("   Process this note?", default=True)
-        console.print()  # Add newline after approval
+        console.print()
         return result
     except KeyboardInterrupt:
         raise
+    except Exception as e:
+        raise
 
-def approve_flashcard(flashcard: dict, note_title: str) -> bool:
-    """Ask user to approve flashcard before adding to Anki"""
-    front_clean = flashcard.get('front_original', flashcard.get('front', 'N/A'))
-    back_clean = flashcard.get('back_original', flashcard.get('back', 'N/A'))
+def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
+    """Ask user to approve Flashcard object before adding to Anki"""
+    #TODO add debugging for this
+    front_clean = flashcard.front_original or flashcard.front
+    back_clean = flashcard.back or flashcard.back_original
+
     console.print(f"   [cyan]Front:[/cyan] {front_clean}")
     console.print(f"   [cyan]Back:[/cyan] {back_clean}")
     console.print()
@@ -57,6 +64,8 @@ def approve_flashcard(flashcard: dict, note_title: str) -> bool:
         console.print()
         return result
     except KeyboardInterrupt:
+        raise
+    except Exception as e:
         raise
 
 def handle_config_command(args):
@@ -413,9 +422,9 @@ def handle_deck_command(args):
         return
 
     # Import here to avoid circular imports and startup delays
-    from api.anki import AnkiAPI
+    from cli.services import ANKI
 
-    anki = AnkiAPI()
+    anki = ANKI
 
     # Test connection first
     if not anki.test_connection():
