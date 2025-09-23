@@ -120,7 +120,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_query(self, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
 
         cards_to_create = target_cards if target_cards else 3
@@ -154,23 +154,41 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
-                        # Post-process code blocks
-                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
-                        return flashcards
+                        # Create virtual Note object for query-based flashcards
+                        virtual_note = Note(
+                            path="query",
+                            filename=f"Query: {query}",
+                            content=query,
+                            tags=["query-generated"]
+                        )
+
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            # Process the front and back content
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            # Create Flashcard object
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=virtual_note,
+                                tags=card.get('tags', ["query-generated"]),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -252,7 +270,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Dict]:
+    def find_with_agent(self, natural_request: str, obsidian, config_manager=None, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
