@@ -116,12 +116,12 @@ class ObsidianAPI(BaseAPI):
         response = self._make_obsidian_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def sample_old_notes(self, days: int, limit: int = None, bias_strength: float = None) -> List[Note]:
+    def sample_old_notes(self, days: int, limit: int = None, bias_strength: float = None, search_folders: List[str] = None) -> List[Note]:
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS)
+        folders_to_use = search_folders if search_folders is not None else SEARCH_FOLDERS
+        filters = self._build_filters(folders_to_use)
 
         condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
         all_notes = self.dql(self._build_base_query(condition))
@@ -190,10 +190,11 @@ class ObsidianAPI(BaseAPI):
         exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
         return f"AND ({' AND '.join(exclude_conditions)})"
 
-    def find_by_name(self, note_name: str) -> Note:
+    def find_by_name(self, note_name: str, search_folders: List[str] = None) -> Note:
         """Find note by name with partial matching"""
-        from cli.config import SEARCH_FOLDERS #TODO
-        filters = self._build_filters(SEARCH_FOLDERS)
+        from cli.config import SEARCH_FOLDERS
+        folders_to_use = search_folders if search_folders is not None else SEARCH_FOLDERS
+        filters = self._build_filters(folders_to_use)
 
         condition = f'contains(file.name, "{note_name}") {filters}'
         results = self.dql(self._build_base_query(condition, sort_field="file.name"))
