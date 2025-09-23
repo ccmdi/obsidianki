@@ -184,7 +184,7 @@ def handle_tag_command(args):
         })
         return
 
-    config = ConfigManager()
+    config = ConfigManager() #TODO
 
     if args.tag_action is None:
         # Default action: list tags (same as old 'list' command)

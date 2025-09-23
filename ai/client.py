@@ -548,13 +548,14 @@ Here are the existing cards:
 
 INSTRUCTION: {query}
 
-Please apply the requested changes to the cards. For each card, provide the updated front and back content.
+Please apply the requested changes to ALL cards and return them using the create_flashcards tool. You must provide exactly {len(cards)} flashcards - one for each original card.
 
 IMPORTANT:
-- Only make changes that align with the instruction
-- Preserve the general structure and intent of the cards unless explicitly asked to change it
-- If a card doesn't need changes based on the instruction, keep it as is
-- Maintain clear, concise flashcard format"""
+- Apply the instruction to each card as requested
+- If the instruction says to change something, make that change
+- If a card doesn't need changes based on the instruction, keep it exactly as is
+- Return ALL {len(cards)} cards, whether changed or unchanged
+- Use the create_flashcards tool to return the results"""
 
         try:
             response = self.client.messages.create(
@@ -573,14 +574,16 @@ IMPORTANT:
             edited_cards = []
 
             for content_block in response.content:
-                if content_block.type == "tool_use" and content_block.name == "create_flashcard":
+                if content_block.type == "tool_use" and content_block.name == "create_flashcards":
                     tool_input = content_block.input
-                    if "front" in tool_input and "back" in tool_input:
-                        edited_cards.append({
-                            "front": tool_input["front"],
-                            "back": tool_input["back"],
-                            "origin": tool_input.get("origin", "")
-                        })
+                    if "flashcards" in tool_input:
+                        for flashcard_data in tool_input["flashcards"]:
+                            if "front" in flashcard_data and "back" in flashcard_data:
+                                edited_cards.append({
+                                    "front": flashcard_data["front"],
+                                    "back": flashcard_data["back"],
+                                    "origin": flashcard_data.get("origin", "")
+                                })
 
             # If we didn't get the expected number of cards, fall back to original
             if len(edited_cards) != len(cards):
