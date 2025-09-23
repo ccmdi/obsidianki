@@ -30,7 +30,7 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
 
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
-    """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
+    """Handle flashcard approval and Anki addition"""
     from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
@@ -42,7 +42,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
-                if approve_flashcard(flashcard, note.filename):
+                if approve_flashcard(flashcard, note):
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
             raise
@@ -54,7 +54,6 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
         console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    # Add to Anki directly with Flashcard objects
     result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
     successful_cards = len([r for r in result if r is not None])
 
@@ -296,7 +295,7 @@ def preprocess(args):
 
             if APPROVE_NOTES:
                 try:
-                    if not approve_note(note.filename, note.path):
+                    if not approve_note(note):
                         continue
                 except KeyboardInterrupt:
                     raise
@@ -340,7 +339,7 @@ def preprocess(args):
 
             if APPROVE_NOTES:
                 try:
-                    if not approve_note(note.filename, note.path):
+                    if not approve_note(note):
                         continue
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")

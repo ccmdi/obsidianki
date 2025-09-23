@@ -264,28 +264,6 @@ class ConfigManager:
 
         return bias_factor
 
-def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager, bias_strength: float = None) -> float:
-    """Calculate total sampling weight for a note based on tags and processing history
-
-    DEPRECATED: Use Note.get_sampling_weight() instead for cleaner code.
-    This function is kept for backward compatibility during refactoring.
-    """
-
-    tag_weight = 1.0
-    if SAMPLING_MODE == "weighted" and config.tag_weights:
-        relevant_tags = [tag for tag in note_tags if tag in config.tag_weights and tag != "_default"]
-
-        if not relevant_tags:
-            tag_weight = config.tag_weights.get("_default", 1.0)
-        else:
-            tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
-
-    density_bias = config.get_density_bias_for_note(note_path, note_size, bias_strength)
-
-    final_weight = tag_weight * density_bias
-
-    return final_weight
-
 
 def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_strength: float = None) -> float:
     """Calculate total sampling weight for a Note object - cleaner version"""

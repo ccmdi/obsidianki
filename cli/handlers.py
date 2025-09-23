@@ -4,6 +4,7 @@ import json
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
+from cli.models import Note, Flashcard
 
 from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
 
@@ -30,9 +31,14 @@ def show_simple_help(title: str, commands: dict):
         console.print(f"  [cyan]oki {cmd}[/cyan] - {desc}")
     console.print()
 
-def approve_note(note_title: str, note_path: str) -> bool:
+def approve_note(note: Note) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [dim]Path: {note_path}[/dim]")
+    console.print(f"   [dim]Path: {note.path}[/dim]")
+
+    if note is not None:
+        weight = note.get_sampling_weight()
+        if weight == 0:
+            console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
 
     try:
         result = Confirm.ask("   Process this note?", default=True)
@@ -41,7 +47,7 @@ def approve_note(note_title: str, note_path: str) -> bool:
     except KeyboardInterrupt:
         raise
 
-def approve_flashcard(flashcard, note_title: str) -> bool:
+def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
