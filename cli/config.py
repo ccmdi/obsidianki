@@ -303,9 +303,23 @@ def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_streng
         else:
             tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
 
-    density_bias = note.get_density_bias(config, bias_strength)
+    density_bias = note.get_density_bias(bias_strength)
     final_weight = tag_weight * density_bias
 
     return final_weight
 
 
+# Global config manager instance - accessible everywhere after class definition
+config = None
+
+def initialize_config():
+    """Initialize the global config - called from main"""
+    global config
+    config = ConfigManager()
+
+def get_config():
+    """Get the global config, initializing if needed"""
+    global config
+    if config is None:
+        initialize_config()
+    return config

@@ -5,6 +5,7 @@ Clean data models for ObsidianKi to replace scattered dictionaries and parameter
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
+from cli.config import get_config, get_sampling_weight_for_note_object
 
 
 @dataclass
@@ -31,26 +32,25 @@ class Note:
         """Clean title without file extension."""
         return Path(self.filename).stem
 
-    def get_sampling_weight(self, config, bias_strength: float = None) -> float:
+    def get_sampling_weight(self, bias_strength: float = None) -> float:
         """Calculate total sampling weight based on tags and processing history."""
-        from cli.config import get_sampling_weight_for_note_object
-        return get_sampling_weight_for_note_object(self, config, bias_strength)
+        return get_sampling_weight_for_note_object(self, get_config(), bias_strength)
 
-    def get_density_bias(self, config, bias_strength: float = None) -> float:
+    def get_density_bias(self, bias_strength: float = None) -> float:
         """Get density bias factor for this note."""
-        return config.get_density_bias_for_note(self.path, self.size, bias_strength)
+        return get_config().get_density_bias_for_note(self.path, self.size, bias_strength)
 
-    def is_excluded(self, config) -> bool:
+    def is_excluded(self) -> bool:
         """Check if this note should be excluded based on its tags."""
-        return config.is_note_excluded(self.tags)
+        return get_config().is_note_excluded(self.tags)
 
-    def has_processing_history(self, config) -> bool:
+    def has_processing_history(self) -> bool:
         """Check if this note has been processed before."""
-        return self.path in config.processing_history
+        return self.path in get_config().processing_history
 
-    def get_previous_flashcard_fronts(self, config) -> List[str]:
+    def get_previous_flashcard_fronts(self) -> List[str]:
         """Get all previously created flashcard fronts for deduplication."""
-        return config.get_flashcard_fronts_for_note(self.path)
+        return get_config().get_flashcard_fronts_for_note(self.path)
 
     @classmethod
     def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = None) -> 'Note':
@@ -79,12 +79,6 @@ class Flashcard:
         if self.tags is None:
             self.tags = self.note.tags.copy()
 
-        # If originals aren't set, use the processed versions
-        if self.front_original is None:
-            self.front_original = self.front
-        if self.back_original is None:
-            self.back_original = self.back
-
     @property
     def source_path(self) -> str:
         """Path to the source note."""
@@ -94,14 +88,6 @@ class Flashcard:
     def source_title(self) -> str:
         """Title of the source note."""
         return self.note.title
-
-    def to_anki_format(self) -> Dict[str, Any]:
-        """Convert to format expected by AnkiConnect."""
-        return {
-            'front': self.front,
-            'back': self.back,
-            'tags': self.tags
-        }
 
     @classmethod
     def from_ai_response(cls, ai_flashcard: Dict[str, Any], note: Note) -> 'Flashcard':

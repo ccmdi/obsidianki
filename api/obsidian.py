@@ -117,12 +117,12 @@ class ObsidianAPI(BaseAPI):
         response = self._make_obsidian_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def sample_old_notes(self, days: int, limit: int = None, config_manager=None, bias_strength: float = None) -> List[Note]:
+    def sample_old_notes(self, days: int, limit: int = None, bias_strength: float = None) -> List[Note]:
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS, config_manager)
+        from cli.config import SEARCH_FOLDERS, config
+        filters = self._build_filters(SEARCH_FOLDERS, config)
 
         condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
         all_notes = self.dql(self._build_base_query(condition))
@@ -133,12 +133,8 @@ class ObsidianAPI(BaseAPI):
         if not limit or len(all_notes) <= limit:
             return all_notes
 
-        # Weighted sampling if config_manager provided
-        if config_manager:
-            return self._weighted_sample(all_notes, limit, config_manager, bias_strength)
-
-        import random
-        return random.sample(all_notes, limit)
+        # Use weighted sampling by default (since we have global config)
+        return self._weighted_sample(all_notes, limit, bias_strength)
 
     def _convert_dict_results_to_notes(self, dict_results: List[Dict]) -> List[Note]:
         """Convert API dict results to Note objects"""
@@ -156,14 +152,14 @@ class ObsidianAPI(BaseAPI):
             notes.append(note)
         return notes
 
-    def _weighted_sample(self, notes: List[Note], limit: int, config_manager, bias_strength: float = None) -> List[Note]:
+    def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = None) -> List[Note]:
         """Perform weighted sampling based on note tags and processing history"""
         import random
 
         # Calculate weights for each note
         weights = []
         for note in notes:
-            weight = note.get_sampling_weight(config_manager, bias_strength)
+            weight = note.get_sampling_weight(bias_strength)
             weights.append(weight)
 
         # Weighted random selection
@@ -199,7 +195,7 @@ class ObsidianAPI(BaseAPI):
 
         # Apply sampling
         if config_manager:
-            return self._weighted_sample(results, sample_size, config_manager, bias_strength)
+            return self._weighted_sample(results, sample_size, bias_strength)
         else:
             import random
             return random.sample(results, sample_size)

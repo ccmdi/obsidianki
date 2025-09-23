@@ -4,13 +4,12 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 from typing import List
-from cli.config import console
+from cli.config import console, DEDUPLICATE_VIA_HISTORY, APPROVE_CARDS, CARD_TYPE, get_config
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 
 
-def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_examples, target_cards_per_note) -> tuple[List[Flashcard], str, str]:
-    from cli.config import DEDUPLICATE_VIA_HISTORY
+def generate_flashcards_for_note(note: Note, ai, obsidian, args, deck_examples, target_cards_per_note) -> tuple[List[Flashcard], str, str]:
 
     # Ensure note has content loaded
     if not note.content:
@@ -21,7 +20,7 @@ def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_ex
     # Get previous flashcard fronts for deduplication
     previous_fronts = []
     if DEDUPLICATE_VIA_HISTORY:
-        previous_fronts = note.get_previous_flashcard_fronts(config)
+        previous_fronts = note.get_previous_flashcard_fronts()
 
     # Generate flashcards (now returns Flashcard objects directly)
     if args.query:
@@ -38,9 +37,8 @@ def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_ex
     return flashcards, note.content, note.path
 
 
-def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, config, args, deck_name, note_content):
+def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, args, deck_name, note_content):
     """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
-    from cli.config import APPROVE_CARDS, CARD_TYPE
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
@@ -72,7 +70,7 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, 
 
         # Record flashcard creation
         flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-        config.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
+        get_config().record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
@@ -318,7 +316,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
         # Parallelize ONLY the AI generation step using futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_note = {
-                executor.submit(generate_flashcards_for_note, note, ai, obsidian, config, args, deck_examples, target_cards_per_note): note
+                executor.submit(generate_flashcards_for_note, note, ai, obsidian, args, deck_examples, target_cards_per_note): note
                 for note in valid_notes
             }
 
@@ -368,14 +366,14 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                 console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
             
             try:
-                flashcards, note_content, _ = generate_flashcards_for_note(note, ai, obsidian, config, args, deck_examples, target_cards_per_note)
+                flashcards, note_content, _ = generate_flashcards_for_note(note, ai, obsidian, args, deck_examples, target_cards_per_note)
                 
                 if not flashcards or not note_content:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
                 # Use shared logic for approval and Anki addition
-                cards_added = process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
+                cards_added = process_generated_flashcards(note, flashcards, anki, args, deck_name, note_content)
                 total_cards += cards_added
                 
             except KeyboardInterrupt:
