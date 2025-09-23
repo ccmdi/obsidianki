@@ -5,83 +5,82 @@ Note processing functions for ObsidianKi.
 import concurrent.futures
 from cli.config import console
 from cli.handlers import approve_note, approve_flashcard
+from cli.models import Note, Flashcard
 
 
-def generate_flashcards_for_note(note, ai, obsidian, config, args, deck_examples, target_cards_per_note):
+def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_examples, target_cards_per_note):
     """Extract just the AI generation step - this is what we parallelize in batch mode"""
     from cli.config import DEDUPLICATE_VIA_HISTORY
-    
-    note_path = note['result']['path']
-    note_title = note['result']['filename']
 
-    # Get note content
-    note_content = obsidian.get_note_content(note_path)
-    if not note_content:
-        return None, None, note_path
+    # Ensure note has content loaded
+    if not note.content:
+        note.content = obsidian.get_note_content(note.path)
+        if not note.content:
+            return None, None, note.path
 
     # Get previous flashcard fronts for deduplication
     previous_fronts = []
     if DEDUPLICATE_VIA_HISTORY:
-        previous_fronts = config.get_flashcard_fronts_for_note(note_path)
+        previous_fronts = note.get_previous_flashcard_fronts(config)
 
     # Generate flashcards
     if args.query:
-        flashcards = ai.generate_from_note_query(note_content, note_title, args.query,
+        flashcards = ai.generate_from_note_query(note.content, note.filename, args.query,
                                                 target_cards=target_cards_per_note,
                                                 previous_fronts=previous_fronts,
                                                 deck_examples=deck_examples)
     else:
-        flashcards = ai.generate_flashcards(note_content, note_title,
+        flashcards = ai.generate_flashcards(note.content, note.filename,
                                            target_cards=target_cards_per_note,
                                            previous_fronts=previous_fronts,
                                            deck_examples=deck_examples)
-    
-    return flashcards, note_content, note_path
+
+    return flashcards, note.content, note.path
 
 
-def process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content):
+def process_generated_flashcards(note: Note, flashcards, anki, config, args, deck_name, note_content):
     """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
     from cli.config import APPROVE_CARDS, CARD_TYPE
-    
-    note_path = note['result']['path']
-    note_title = note['result']['filename']
-    
-    console.print(f"[green]Generated {len(flashcards)} flashcards for {note_title}[/green]")
+
+    console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
+
+    # Convert AI response dicts to Flashcard objects
+    flashcard_objects = [Flashcard.from_ai_response(fc_data, note) for fc_data in flashcards]
 
     # Flashcard approval
-    cards_to_add = flashcards
+    cards_to_add = flashcard_objects
     if APPROVE_CARDS:
         approved_flashcards = []
         try:
-            console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note_title}[/bold]")
-            for flashcard in flashcards:
-                if approve_flashcard(flashcard, note_title):
+            console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
+            for flashcard in flashcard_objects:
+                # Convert to dict only for approval function (which needs legacy format)
+                fc_dict = flashcard.to_anki_format()
+                if approve_flashcard(fc_dict, note.filename):
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
             raise
 
         if not approved_flashcards:
-            console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note_title}, skipping")
+            console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcard_objects)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    # Add to Anki
-    result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                               note_path=note_path, note_title=note_title)
+    # Add to Anki directly with Flashcard objects
+    result = anki.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
-        console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki for {note_title}")
+        console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki for {note.filename}")
 
         # Record flashcard creation
-        note_size = len(note_content)
-        flashcard_fronts = [card.get('front', '') for card in cards_to_add[:successful_cards] if card.get('front')]
-        config.record_flashcards_created(note_path, note_size, successful_cards, flashcard_fronts)
+        flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
+        config.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
         return successful_cards
     else:
-        console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note_title}")
+        console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
         return 0
 
 
@@ -299,15 +298,19 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
     if use_batch_mode:
         # BATCH: Parallelize AI generation, then sequential approval/Anki
         console.print(f"[cyan]Parallelizing AI generation for {len(old_notes)} notes...[/cyan]")
-        
-        # Filter notes with approval upfront
+
+        # Filter notes with approval upfront (old_notes are already Note objects)
         valid_notes = []
         for note in old_notes:
-            note_title = note['result']['filename']
-            note_path = note['result']['path']
+            # Ensure note has content loaded
+            if not note.content:
+                note.content = obsidian.get_note_content(note.path)
+                if not note.content:
+                    continue
+
             if APPROVE_NOTES:
                 try:
-                    if not approve_note(note_title, note_path):
+                    if not approve_note(note.filename, note.path):
                         continue
                 except KeyboardInterrupt:
                     raise
@@ -323,41 +326,43 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                 executor.submit(generate_flashcards_for_note, note, ai, obsidian, config, args, deck_examples, target_cards_per_note): note
                 for note in valid_notes
             }
-            
+
             # Process results as they complete
             for future in concurrent.futures.as_completed(future_to_note):
                 note = future_to_note[future]
-                note_title = note['result']['filename']
-                
+
                 try:
                     flashcards, note_content, note_path = future.result()
-                    
+
                     if not flashcards or not note_content:
-                        console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note_title}")
+                        console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
-                    
+
                     # Use sequential logic for approval and Anki
                     cards_added = process_generated_flashcards(note, flashcards, anki, config, args, deck_name, note_content)
                     total_cards += cards_added
-                    
+
                 except Exception as e:
-                    console.print(f"[red]ERROR:[/red] Failed to process {note_title}: {e}")
+                    console.print(f"[red]ERROR:[/red] Failed to process {note.filename}: {e}")
                     continue
     else:
-        # SEQUENTIAL: Process each note one by one
+        # SEQUENTIAL: Process each note one by one (old_notes are already Note objects)
         for i, note in enumerate(old_notes, 1):
             if total_cards >= max_cards:
                 break
-                
-            note_path = note['result']['path']
-            note_title = note['result']['filename']
 
-            console.print(f"\n[blue]PROCESSING:[/blue] {note_title}")
+            # Ensure note has content loaded
+            if not note.content:
+                note.content = obsidian.get_note_content(note.path)
+                if not note.content:
+                    continue
+
+            console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
             # Note approval
             if APPROVE_NOTES:
                 try:
-                    if not approve_note(note_title, note_path):
+                    if not approve_note(note.filename, note.path):
                         continue
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")

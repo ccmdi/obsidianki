@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 
 from cli.config import console
+from cli.models import Note
 from api.base import BaseAPI
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -113,7 +114,7 @@ class ObsidianAPI(BaseAPI):
         response = self._make_obsidian_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def sample_old_notes(self, days: int, limit: int = None, config_manager=None, bias_strength: float = None) -> List[Dict]:
+    def sample_old_notes(self, days: int, limit: int = None, config_manager=None, bias_strength: float = None) -> List[Note]:
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
@@ -123,35 +124,52 @@ class ObsidianAPI(BaseAPI):
         condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
         all_notes = self.dql(self._build_base_query(condition))
 
-        if not all_notes or not limit or len(all_notes) <= limit:
-            return all_notes
+        if not all_notes:
+            return []
+
+        # Convert dict results to Note objects first
+        note_objects = self._convert_dict_results_to_notes(all_notes)
+
+        if not limit or len(note_objects) <= limit:
+            return note_objects
 
         # Weighted sampling if config_manager provided
         if config_manager:
-            return self._weighted_sample(all_notes, limit, config_manager, bias_strength)
+            return self._weighted_sample(note_objects, limit, config_manager, bias_strength)
 
         import random
-        return random.sample(all_notes, limit)
+        return random.sample(note_objects, limit)
 
-    def _weighted_sample(self, notes: List[Dict], limit: int, config_manager, bias_strength: float = None) -> List[Dict]:
+    def _convert_dict_results_to_notes(self, dict_results: List[Dict]) -> List[Note]:
+        """Convert API dict results to Note objects"""
+        notes = []
+        for result in dict_results:
+            note_info = result['result']
+            note = Note(
+                path=note_info.get('path', ''),
+                filename=note_info.get('filename', ''),
+                content='',  # Content will be loaded when needed
+                tags=note_info.get('tags', []) or []
+            )
+            # Set size from API metadata
+            note.__dict__['size'] = note_info.get('size', 0)
+            notes.append(note)
+        return notes
+
+    def _weighted_sample(self, notes: List[Note], limit: int, config_manager, bias_strength: float = None) -> List[Note]:
         """Perform weighted sampling based on note tags and processing history"""
         import random
-        from cli.config import get_sampling_weight_for_note
 
         # Calculate weights for each note
         weights = []
         for note in notes:
-            note_tags = note['result'].get('tags', []) or []
-            note_path = note['result'].get('path', '')
-            note_size = note['result'].get('size', 0)
-
-            weight = get_sampling_weight_for_note(note_tags, note_path, note_size, config_manager, bias_strength)
+            weight = note.get_sampling_weight(config_manager, bias_strength)
             weights.append(weight)
 
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
 
-    def find_by_pattern(self, pattern: str, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Dict]:
+    def find_by_pattern(self, pattern: str, config_manager=None, sample_size: int = None, bias_strength: float = None) -> List[Note]:
         """Find notes by pattern"""
         filters = self._build_exclude_filter(config_manager)
 
@@ -173,15 +191,21 @@ class ObsidianAPI(BaseAPI):
         full_condition = f'{condition} AND file.size > 100 {filters}'
         results = self.dql(self._build_base_query(full_condition))
 
-        if not results or not sample_size or len(results) <= sample_size:
-            return results
+        if not results:
+            return []
+
+        # Convert to Note objects
+        note_objects = self._convert_dict_results_to_notes(results)
+
+        if not sample_size or len(note_objects) <= sample_size:
+            return note_objects
 
         # Apply sampling
         if config_manager:
-            return self._weighted_sample(results, sample_size, config_manager, bias_strength)
+            return self._weighted_sample(note_objects, sample_size, config_manager, bias_strength)
         else:
             import random
-            return random.sample(results, sample_size)
+            return random.sample(note_objects, sample_size)
 
     def _build_exclude_filter(self, config_manager) -> str:
         """Legacy method for backward compatibility"""
@@ -190,7 +214,7 @@ class ObsidianAPI(BaseAPI):
         exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in config_manager.excluded_tags]
         return f"AND ({' AND '.join(exclude_conditions)})"
 
-    def find_by_name(self, note_name: str, config_manager=None) -> Dict:
+    def find_by_name(self, note_name: str, config_manager=None) -> Note:
         """Find note by name with partial matching"""
         from cli.config import SEARCH_FOLDERS
         filters = self._build_filters(SEARCH_FOLDERS, config_manager)
@@ -200,15 +224,19 @@ class ObsidianAPI(BaseAPI):
 
         if not results:
             return None
-        elif len(results) == 1:
-            return results[0]
+
+        # Convert to Note objects
+        note_objects = self._convert_dict_results_to_notes(results)
+
+        if len(note_objects) == 1:
+            return note_objects[0]
         else:
             # Find exact match first, otherwise return first partial match
-            for note in results:
-                filename = note['result']['filename'].lower()
+            for note in note_objects:
+                filename = note.filename.lower()
                 if filename == note_name.lower() or filename == f"{note_name.lower()}.md":
                     return note
-            return results[0]
+            return note_objects[0]
 
     def test_connection(self) -> bool:
         """Test if the connection to Obsidian API is working"""

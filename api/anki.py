@@ -133,15 +133,14 @@ class AnkiAPI(BaseAPI):
             self._request("createModel", model)
             # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
-    def obsidian_link(self, note_path: str, note_title: str) -> str:
-        """Generate Obsidian URI link for a note"""
-        encoded_path = urllib.parse.quote(note_path, safe='')
+    def obsidian_link(self, note) -> str:
+        """Generate Obsidian URI link for a Note object"""
+        encoded_path = urllib.parse.quote(note.path, safe='')
         obsidian_link = f"obsidian://open?file={encoded_path}"
-        return f"<a href='{obsidian_link}'>{note_title}</a>"
+        return f"<a href='{obsidian_link}'>{note.title}</a>"
 
-    def add_flashcards(self, flashcards: List[Dict[str, str]], deck_name: str = "Obsidian",
-                      card_type: str = "basic", note_path: str = "", note_title: str = "") -> List[int]:
-        """Add multiple flashcards to the specified deck"""
+    def add_flashcards(self, flashcards: List, deck_name: str = "Obsidian", card_type: str = "basic") -> List[int]:
+        """Add Flashcard objects to the specified deck"""
         self.ensure_deck(deck_name)
 
         if card_type == "custom":
@@ -150,26 +149,26 @@ class AnkiAPI(BaseAPI):
         notes = []
         for card in flashcards:
             if card_type == "custom":
-                origin_link = self.obsidian_link(note_path, note_title)
+                origin_link = self.obsidian_link(card.note)
                 note = {
                     "deckName": deck_name,
                     "modelName": ANKI_CUSTOM_MODEL_NAME,
                     "fields": {
-                        "Front": card["front"],
-                        "Back": card["back"],
+                        "Front": card.front,
+                        "Back": card.back,
                         "Origin": origin_link
                     },
-                    "tags": ["obsidian-generated"]
+                    "tags": card.tags or ["obsidian-generated"]
                 }
             else:  # basic
                 note = {
                     "deckName": deck_name,
                     "modelName": "Basic",
                     "fields": {
-                        "Front": card["front"],
-                        "Back": card["back"]
+                        "Front": card.front,
+                        "Back": card.back
                     },
-                    "tags": ["obsidian-generated"]
+                    "tags": card.tags or ["obsidian-generated"]
                 }
             notes.append(note)
 
