@@ -9,28 +9,28 @@ from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 
 
-def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_examples, target_cards_per_note):
+def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_examples, target_cards_per_note) -> tuple[List[Flashcard], str, str]:
     from cli.config import DEDUPLICATE_VIA_HISTORY
 
     # Ensure note has content loaded
     if not note.content:
         note.content = obsidian.get_note_content(note.path)
         if not note.content:
-            return None, None, note.path
+            return [], note.content, note.path
 
     # Get previous flashcard fronts for deduplication
     previous_fronts = []
     if DEDUPLICATE_VIA_HISTORY:
         previous_fronts = note.get_previous_flashcard_fronts(config)
 
-    # Generate flashcards
+    # Generate flashcards (now returns Flashcard objects directly)
     if args.query:
-        flashcards = ai.generate_from_note_query(note.content, note.filename, args.query,
+        flashcards = ai.generate_from_note_query(note, args.query,
                                                 target_cards=target_cards_per_note,
                                                 previous_fronts=previous_fronts,
                                                 deck_examples=deck_examples)
     else:
-        flashcards = ai.generate_flashcards(note.content, note.filename,
+        flashcards = ai.generate_flashcards(note,
                                            target_cards=target_cards_per_note,
                                            previous_fronts=previous_fronts,
                                            deck_examples=deck_examples)
@@ -44,16 +44,13 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, 
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
-    # Convert AI response dicts to Flashcard objects
-    flashcard_objects = [Flashcard.from_ai_response(fc_data, note) for fc_data in flashcards]
-
-    # Flashcard approval
-    cards_to_add = flashcard_objects
+    # Flashcard approval (flashcards are already Flashcard objects)
+    cards_to_add = flashcards
     if APPROVE_CARDS:
         approved_flashcards = []
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
-            for flashcard in flashcard_objects:
+            for flashcard in flashcards:
                 if approve_flashcard(flashcard, note.filename):
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
@@ -63,7 +60,7 @@ def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, 
             console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcard_objects)} flashcards[/cyan]")
+        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
     # Add to Anki directly with Flashcard objects

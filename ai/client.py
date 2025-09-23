@@ -8,6 +8,7 @@ from typing import List, Dict, Tuple, Optional
 
 from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS
 from cli.utils import process_code_blocks, strip_html
+from cli.models import Note, Flashcard
 from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -48,8 +49,8 @@ class FlashcardAI:
 
         return schema_context
 
-    def generate_flashcards(self, note_content: str, note_title: str = "", target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
-        """Generate flashcards from note content using Claude"""
+    def generate_flashcards(self, note: Note, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+        """Generate flashcards from a Note object using Claude"""
 
         cards_to_create = target_cards if target_cards else 2
         card_instruction = f"Create approximately {cards_to_create} flashcards"
@@ -67,10 +68,10 @@ class FlashcardAI:
 
         schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
 
-        user_prompt = f"""Note Title: {note_title}
+        user_prompt = f"""Note Title: {note.filename}
 
         Note Content:
-        {note_content}{dedup_context}{schema_context}
+        {note.content}{dedup_context}{schema_context}
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
@@ -84,21 +85,33 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], SYNTAX_HIGHLIGHTING)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], SYNTAX_HIGHLIGHTING)
-                        return flashcards
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            # Process the front and back content
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            # Create Flashcard object
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=note,
+                                tags=card.get('tags', note.tags.copy()),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []
@@ -166,7 +179,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_from_note_query(self, note_content: str, note_title: str, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Dict[str, str]]:
+    def generate_from_note_query(self, note: Note, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
         cards_to_create = target_cards if target_cards else 2
@@ -186,11 +199,11 @@ class FlashcardAI:
         # Add schema context if deck examples provided
         schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
         
-        user_prompt = f"""Note Title: {note_title}
+        user_prompt = f"""Note Title: {note.filename}
         Query: {query}
 
         Note Content:
-        {note_content}{dedup_context}{schema_context}
+        {note.content}{dedup_context}{schema_context}
 
         Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
@@ -204,23 +217,33 @@ class FlashcardAI:
                 tool_choice={"type": "tool", "name": "create_flashcards"}
             )
 
-            # Extract flashcards from tool call
+            # Extract flashcards from tool call and convert to Flashcard objects
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcards = tool_input.get("flashcards", [])
-                        # Post-process code blocks
-                        syntax_highlighting = SYNTAX_HIGHLIGHTING
+                        flashcard_dicts = tool_input.get("flashcards", [])
 
-                        for card in flashcards:
-                            if 'front' in card:
-                                card['front_original'] = card['front']  # Save original for terminal display
-                                card['front'] = process_code_blocks(card['front'], syntax_highlighting)
-                            if 'back' in card:
-                                card['back_original'] = card['back']  # Save original for terminal display
-                                card['back'] = process_code_blocks(card['back'], syntax_highlighting)
-                        return flashcards
+                        flashcard_objects = []
+                        for card in flashcard_dicts:
+                            # Process the front and back content
+                            front_original = card.get('front', '')
+                            back_original = card.get('back', '')
+                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                            # Create Flashcard object
+                            flashcard = Flashcard(
+                                front=front_processed,
+                                back=back_processed,
+                                note=note,
+                                tags=card.get('tags', note.tags.copy()),
+                                front_original=front_original,
+                                back_original=back_original
+                            )
+                            flashcard_objects.append(flashcard)
+
+                        return flashcard_objects
 
             console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
             return []

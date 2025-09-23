@@ -59,8 +59,8 @@ class ObsidianAPI(BaseAPI):
         response = super()._make_request(method, url, json=data, verify=False)
         return self._parse_response(response)
 
-    def dql(self, query: str) -> List[Dict]:
-        """Search notes using Dataview DQL query"""
+    def dql(self, query: str) -> List[Note]:
+        """Search notes using Dataview DQL query - returns Note objects"""
         headers = {
             **self.headers,
             "Content-Type": "application/vnd.olrapi.dataview.dql+txt"
@@ -69,12 +69,15 @@ class ObsidianAPI(BaseAPI):
         try:
             url = f"{self.base_url}/search/"
             response = super()._make_request("POST", url, headers=headers, data=query, verify=False)
-            return self._parse_response(response)
+            dict_results = self._parse_response(response)
+
+            # Convert dict results to Note objects at the lowest level
+            return self._convert_dict_results_to_notes(dict_results)
         except Exception as e:
             self._handle_request_error(e, "DQL query execution")
             raise
 
-    def get_old_notes(self, days: int, limit: int = None, config_manager=None) -> List[Dict]:
+    def get_old_notes(self, days: int, limit: int = None, config_manager=None) -> List[Note]:
         """Get notes older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
@@ -90,7 +93,7 @@ class ObsidianAPI(BaseAPI):
 
         return self.dql(query)
 
-    def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Dict]:
+    def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0, config_manager=None) -> List[Note]:
         """Get notes with specific tags"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
         from cli.config import SEARCH_FOLDERS
@@ -127,18 +130,15 @@ class ObsidianAPI(BaseAPI):
         if not all_notes:
             return []
 
-        # Convert dict results to Note objects first
-        note_objects = self._convert_dict_results_to_notes(all_notes)
-
-        if not limit or len(note_objects) <= limit:
-            return note_objects
+        if not limit or len(all_notes) <= limit:
+            return all_notes
 
         # Weighted sampling if config_manager provided
         if config_manager:
-            return self._weighted_sample(note_objects, limit, config_manager, bias_strength)
+            return self._weighted_sample(all_notes, limit, config_manager, bias_strength)
 
         import random
-        return random.sample(note_objects, limit)
+        return random.sample(all_notes, limit)
 
     def _convert_dict_results_to_notes(self, dict_results: List[Dict]) -> List[Note]:
         """Convert API dict results to Note objects"""
@@ -194,18 +194,15 @@ class ObsidianAPI(BaseAPI):
         if not results:
             return []
 
-        # Convert to Note objects
-        note_objects = self._convert_dict_results_to_notes(results)
-
-        if not sample_size or len(note_objects) <= sample_size:
-            return note_objects
+        if not sample_size or len(results) <= sample_size:
+            return results
 
         # Apply sampling
         if config_manager:
-            return self._weighted_sample(note_objects, sample_size, config_manager, bias_strength)
+            return self._weighted_sample(results, sample_size, config_manager, bias_strength)
         else:
             import random
-            return random.sample(note_objects, sample_size)
+            return random.sample(results, sample_size)
 
     def _build_exclude_filter(self, config_manager) -> str:
         """Legacy method for backward compatibility"""
@@ -225,18 +222,15 @@ class ObsidianAPI(BaseAPI):
         if not results:
             return None
 
-        # Convert to Note objects
-        note_objects = self._convert_dict_results_to_notes(results)
-
-        if len(note_objects) == 1:
-            return note_objects[0]
+        if len(results) == 1:
+            return results[0]
         else:
             # Find exact match first, otherwise return first partial match
-            for note in note_objects:
+            for note in results:
                 filename = note.filename.lower()
                 if filename == note_name.lower() or filename == f"{note_name.lower()}.md":
                     return note
-            return note_objects[0]
+            return results[0]
 
     def test_connection(self) -> bool:
         """Test if the connection to Obsidian API is working"""
