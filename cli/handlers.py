@@ -46,6 +46,8 @@ def approve_note(note: Note) -> bool:
         return result
     except KeyboardInterrupt:
         raise
+    except Exception as e:
+        raise
 
 def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
@@ -62,6 +64,8 @@ def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
         console.print()
         return result
     except KeyboardInterrupt:
+        raise
+    except Exception as e:
         raise
 
 def handle_config_command(args):

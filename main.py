@@ -159,7 +159,11 @@ def main():
 
     # entrypoint for flashcard generation
     from cli.processors import preprocess
-    return preprocess(args)
+    try:
+        return preprocess(args)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        return 1
 
 
 if __name__ == "__main__":
