@@ -14,7 +14,13 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
     note.ensure_content()
 
     # Generate flashcards
-    if args.query:
+    if args.query and note.path == "query":
+        # Standalone query mode - use direct query generation
+        flashcards = AI.generate_from_query(args.query,
+                                           target_cards=target_cards_per_note,
+                                           previous_fronts=previous_fronts,
+                                           deck_examples=deck_examples)
+    elif args.query:
         console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
         flashcards = AI.generate_from_note_query(note, args.query,
                                                 target_cards=target_cards_per_note,
@@ -54,7 +60,12 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
         console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
+    # Handle special Anki metadata for query mode
+    if note.path == "query":
+        result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
+                                   note_path="query", note_title=note.title)
+    else:
+        result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
@@ -122,70 +133,17 @@ def preprocess(args):
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         return 0
 
-    # === STANDALONE QUERY MODE ===
-    if args.query and not args.agent and not args.notes:
-        console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
-
-        # Get previous flashcard fronts for deduplication if enabled
-        previous_fronts = []
-        if DEDUPLICATE_VIA_DECK:
-            previous_fronts = ANKI.get_card_fronts(deck_name)
-            if previous_fronts:
-                console.print(f"[dim]Found {len(previous_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]\n")
-
-        # Get deck examples for schema enforcement if enabled
-        deck_examples = []
-        use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
-        if use_schema:
-            deck_examples = ANKI.get_card_examples(deck_name)
-            if deck_examples:
-                console.print(f"[dim]Found {len(deck_examples)} example cards from deck '{deck_name}' for schema enforcement[/dim]")
-
-        target_cards = args.cards if args.cards else None
-        flashcards = AI.generate_from_query(args.query, target_cards=target_cards, previous_fronts=previous_fronts, deck_examples=deck_examples)
-        if not flashcards:
-            console.print("[red]ERROR:[/red] No flashcards generated from query")
-            return 0
-
-        console.print(f"[green]Generated {len(flashcards)} flashcards[/green]")
-
-        # Flashcard approval
-        if APPROVE_CARDS:
-            approved_flashcards = []
-            try:
-                for flashcard in flashcards:
-                    if approve_flashcard(flashcard, f"Query: {args.query}"):
-                        approved_flashcards.append(flashcard)
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                return 0
-
-            if not approved_flashcards:
-                console.print("[yellow]WARNING:[/yellow] No flashcards approved")
-                return 0
-
-            console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
-            cards_to_add = approved_flashcards
-        else:
-            cards_to_add = flashcards
-
-        # Add to Anki
-        result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE,
-                                   note_path="query", note_title=f"Query: {args.query}")
-        successful_cards = len([r for r in result if r is not None])
-
-        if successful_cards > 0:
-            console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki")
-        else:
-            console.print("[red]ERROR:[/red] Failed to add cards to Anki")
-
-        console.print(f"\n[bold green]COMPLETE![/bold green] Added {successful_cards} flashcards from query")
-        return successful_cards
-
     # === GET NOTES TO PROCESS ===
     notes = None
-    
-    if args.agent:
+
+    if args.query and not args.agent and not args.notes:
+        # STANDALONE QUERY MODE - Create synthetic note for main flow
+        console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
+        from cli.models import Note
+        query_note = Note(path="query", title=f"Query: {args.query}", content=args.query, size=len(args.query), tags=[])
+        notes = [query_note]
+        max_cards = args.cards if args.cards else max_cards
+    elif args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
         notes = AI.find_with_agent(args.agent, sample_size=notes_to_sample, bias_strength=effective_bias_strength)
@@ -281,6 +239,12 @@ def preprocess(args):
     previous_fronts = []
     if DEDUPLICATE_VIA_HISTORY:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
+    elif args.query and not args.notes and DEDUPLICATE_VIA_DECK:
+        # For standalone query mode, use deck-based deduplication
+        deck_fronts = ANKI.get_card_fronts(deck_name)
+        if deck_fronts:
+            console.print(f"[dim]Found {len(deck_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]")
+        previous_fronts = [deck_fronts] * len(notes)  # Same fronts for all notes (just the query note)
 
     total_cards = 0
 
