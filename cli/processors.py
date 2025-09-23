@@ -324,3 +324,92 @@ def preprocess(args):
     console.print("")
     console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
     return total_cards
+
+
+def edit_mode(args):
+    """
+    Entry point for editing existing flashcards.
+    """
+    from cli.config import console, DECK, APPROVE_CARDS
+    from cli.handlers import approve_flashcard
+    from cli.models import Note, Flashcard
+    from rich.panel import Panel
+
+    deck_name = args.deck if args.deck else DECK
+    query = args.query
+    max_cards = args.cards if args.cards else 10  # Default limit for editing
+
+    console.print(f"[cyan]EDIT MODE:[/cyan] [bold]{query}[/bold]")
+    console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
+    console.print()
+
+    # Test connections
+    if not ANKI.test_connection():
+        console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
+        return 0
+
+    # Get cards to edit
+    console.print(f"[cyan]INFO:[/cyan] Retrieving cards from deck '{deck_name}'...")
+    cards_to_edit = ANKI.get_cards_for_editing(deck_name, limit=max_cards)
+
+    if not cards_to_edit:
+        console.print(f"[red]ERROR:[/red] No cards found in deck '{deck_name}' for editing")
+        return 0
+
+    console.print(f"[cyan]INFO:[/cyan] Found {len(cards_to_edit)} cards to potentially edit")
+    console.print()
+
+    # Edit cards using AI
+    console.print(f"[cyan]INFO:[/cyan] Applying edits based on query...")
+    edited_cards = AI.edit_cards(cards_to_edit, query)
+
+    if not edited_cards:
+        console.print("[red]ERROR:[/red] Failed to edit cards")
+        return 0
+
+    # Process each edited card
+    total_updated = 0
+    for i, (original_card, edited_card) in enumerate(zip(cards_to_edit, edited_cards)):
+        console.print(f"\n[blue]CARD {i+1}:[/blue]")
+
+        # Check if card was actually changed
+        if (original_card['front'] == edited_card['front'] and
+            original_card['back'] == edited_card['back']):
+            console.print("  [dim]No changes needed for this card[/dim]")
+            continue
+
+        # Show changes
+        console.print(f"  [cyan]Original Front:[/cyan] {original_card['front']}")
+        console.print(f"  [cyan]Updated Front:[/cyan] {edited_card['front']}")
+        console.print(f"  [cyan]Original Back:[/cyan] {original_card['back']}")
+        console.print(f"  [cyan]Updated Back:[/cyan] {edited_card['back']}")
+        console.print()
+
+        # Convert to Flashcard object for approval if needed
+        if APPROVE_CARDS:
+            dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[])
+            flashcard = Flashcard(
+                front=edited_card['front'],
+                back=edited_card['back'],
+                origin=edited_card.get('origin', original_card.get('origin', ''))
+            )
+
+            if not approve_flashcard(flashcard, dummy_note):
+                console.print("  [yellow]Skipping this card[/yellow]")
+                continue
+
+        # Update the card in Anki
+        if ANKI.update_note(
+            original_card['noteId'],
+            edited_card['front'],
+            edited_card['back'],
+            edited_card.get('origin', original_card.get('origin', ''))
+        ):
+            console.print("  [green]✓ Card updated successfully[/green]")
+            total_updated += 1
+        else:
+            console.print("  [red]✗ Failed to update card[/red]")
+
+    console.print("")
+    console.print(Panel(f"[bold green]COMPLETE![/bold green] Updated {total_updated} cards in deck '{deck_name}'", style="green"))
+    return total_updated
