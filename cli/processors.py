@@ -64,8 +64,9 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
-        flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-        CONFIG_MANAGER.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
+        if note.path != "query": #TODO
+            flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
+            CONFIG_MANAGER.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
