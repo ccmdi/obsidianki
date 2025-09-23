@@ -34,20 +34,11 @@ def show_main_help():
     console.print("  [cyan]-u, --use-schema[/cyan]       Match existing deck card formatting")
     console.print()
 
-    console.print("[bold blue]Examples[/bold blue]")
-    console.print("  [cyan]oki --notes 5[/cyan]                    Sample 5 random notes")
-    console.print("  [cyan]oki --notes \"React\" --cards 6[/cyan]      Process React note, max 6 cards")
-    console.print("  [cyan]oki --notes \"docs/*:3\"[/cyan]             Sample 3 notes from docs folder")
-    console.print("  [cyan]oki -q \"CSS flexbox\"[/cyan]               Generate cards from query")
-    console.print()
-
     console.print("[bold blue]Commands[/bold blue]")
     console.print("  [cyan]config[/cyan]                Manage configuration")
     console.print("  [cyan]tag[/cyan]                   Manage tag weights")
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
-    console.print()
-    console.print("[dim]Tip: Enable parallel processing with [cyan]oki config set upfront_batching true[/cyan] for 5-10x speed[/dim]")
     console.print()
 
 
@@ -172,7 +163,7 @@ def main():
     from api.obsidian import ObsidianAPI
     from ai.client import FlashcardAI
     from api.anki import AnkiAPI
-    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT
+    from cli.config import ConfigManager, MAX_CARDS, NOTES_TO_SAMPLE, DECK
 
     # Set deck from CLI argument or config default
     deck_name = args.deck if args.deck else DECK

@@ -1,6 +1,5 @@
 """
 Note processing functions for ObsidianKi.
-Central authority for ALL flashcard processing logic.
 """
 
 import concurrent.futures
@@ -94,9 +93,13 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
     from cli.config import (
         MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, 
         APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK, 
-        USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT
+        USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT,
+        DENSITY_BIAS_STRENGTH
     )
     from rich.panel import Panel
+
+    # CENTRALIZED: Get effective bias strength (CLI override or config default)
+    effective_bias_strength = args.bias if args.bias is not None else DENSITY_BIAS_STRENGTH
 
     # Handle --allow flag: expand SEARCH_FOLDERS for this run
     effective_search_folders = SEARCH_FOLDERS
@@ -191,7 +194,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
     if args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        old_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=notes_to_sample, bias_strength=args.bias, search_folders=effective_search_folders)
+        old_notes = ai.find_with_agent(args.agent, obsidian, config_manager=config, sample_size=notes_to_sample, bias_strength=effective_bias_strength, search_folders=effective_search_folders)
         if not old_notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
             return 0
@@ -205,7 +208,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, config_manager=config, bias_strength=args.bias)
+            old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=note_count, config_manager=config, bias_strength=effective_bias_strength)
         else:
             # User specified note names/patterns: --notes "React" "JS"
             old_notes = []
@@ -219,7 +222,7 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
                             note_pattern = parts[0]
                             sample_size = int(parts[1])
                     
-                    pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=sample_size, bias_strength=args.bias)
+                    pattern_notes = obsidian.find_by_pattern(note_pattern, config_manager=config, sample_size=sample_size, bias_strength=effective_bias_strength)
                     if pattern_notes:
                         old_notes.extend(pattern_notes)
                         if sample_size and len(pattern_notes) == sample_size:
@@ -247,11 +250,10 @@ def process_flashcard_generation(args, config, obsidian, ai, anki, deck_name, ma
         # Default sampling
         if args.allow:
             console.print("[yellow]Note:[/yellow] --allow flag only works with --agent mode currently")
-        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=args.bias)
+        old_notes = obsidian.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, config_manager=config, bias_strength=effective_bias_strength)
         if not old_notes:
             console.print("[red]ERROR:[/red] No old notes found")
             return 0
-        console.print(f"[green]SUCCESS:[/green] Found {len(old_notes)} notes")
 
     # Show processing info
     if args.query:

@@ -183,16 +183,16 @@ class FlashcardAI:
 
             DO NOT create flashcards that ask similar questions or cover the same concepts as the ones listed above. Focus on different aspects of the content."""
 
-            # Add schema context if deck examples provided
-            schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+        # Add schema context if deck examples provided
+        schema_context = self._build_schema_context(deck_examples) if deck_examples else ""
+        
+        user_prompt = f"""Note Title: {note_title}
+        Query: {query}
 
-            user_prompt = f"""Note Title: {note_title}
-            Query: {query}
+        Note Content:
+        {note_content}{dedup_context}{schema_context}
 
-            Note Content:
-            {note_content}{dedup_context}{schema_context}
-
-            Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
+        Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
         try:
             response = self.client.messages.create(
@@ -365,7 +365,6 @@ class FlashcardAI:
                             console.print(f"[cyan]Agent:[/cyan] {reasoning}")
                             console.print(f"[cyan]Agent:[/cyan] Selected {len(selected_paths)} notes for processing")
 
-                            # Find the corresponding note objects from all accumulated results
                             final_selection = []
                             missing_paths = []
                             for path in selected_paths:
@@ -374,7 +373,6 @@ class FlashcardAI:
                                 else:
                                     missing_paths.append(path)
 
-                            # Warn about any missing paths
                             if missing_paths:
                                 console.print(f"[yellow]Warning:[/yellow] Agent selected {len(missing_paths)} paths not found in query results: {missing_paths}")
                                 console.print(f"[cyan]Agent:[/cyan] Proceeding with {len(final_selection)} valid selections")
