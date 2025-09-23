@@ -120,8 +120,7 @@ class ObsidianAPI(BaseAPI):
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        folders_to_use = search_folders if search_folders is not None else SEARCH_FOLDERS
-        filters = self._build_filters(folders_to_use)
+        filters = self._build_filters(search_folders)
 
         condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
         all_notes = self.dql(self._build_base_query(condition))
@@ -148,9 +147,9 @@ class ObsidianAPI(BaseAPI):
         # Weighted random selection
         return random.choices(notes, weights=weights, k=limit)
 
-    def find_by_pattern(self, pattern: str, sample_size: int = None, bias_strength: float = None) -> List[Note]:
+    def find_by_pattern(self, pattern: str, sample_size: int = None, bias_strength: float = None, search_folders: List[str] = None) -> List[Note]:
         """Find notes by pattern"""
-        filters = self._build_exclude_filter()
+        filters = self._build_filters(search_folders)
 
         # Build pattern condition
         if pattern.endswith('/*'):
@@ -183,18 +182,9 @@ class ObsidianAPI(BaseAPI):
             import random
             return random.sample(results, sample_size)
 
-    def _build_exclude_filter(self) -> str:
-        """Legacy method for backward compatibility"""
-        if not CONFIG_MANAGER or not hasattr(CONFIG_MANAGER, 'excluded_tags') or not CONFIG_MANAGER.excluded_tags:
-            return ""
-        exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
-        return f"AND ({' AND '.join(exclude_conditions)})"
-
-    def find_by_name(self, note_name: str, search_folders: List[str] = None) -> Note:
+    def find_by_name(self, note_name: str, search_folders: List[str]) -> Note:
         """Find note by name with partial matching"""
-        from cli.config import SEARCH_FOLDERS
-        folders_to_use = search_folders if search_folders is not None else SEARCH_FOLDERS
-        filters = self._build_filters(folders_to_use)
+        filters = self._build_filters(search_folders)
 
         condition = f'contains(file.name, "{note_name}") {filters}'
         results = self.dql(self._build_base_query(condition, sort_field="file.name"))

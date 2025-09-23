@@ -172,7 +172,7 @@ def preprocess(args):
                             note_pattern = parts[0]
                             sample_size = int(parts[1])
                     
-                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=effective_bias_strength)
+                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=effective_bias_strength, search_folders=search_folders)
                     if pattern_notes:
                         notes.extend(pattern_notes)
                         if sample_size and len(pattern_notes) == sample_size:
