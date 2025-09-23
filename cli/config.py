@@ -163,7 +163,7 @@ class ConfigManager:
 
     def add_tag_weight(self, tag: str, weight: float) -> bool:
         """Add or update a tag weight"""
-        if weight <= 0:
+        if weight < 0:
             console.print(f"[red]ERROR:[/red] Weight must be positive")
             return False
 

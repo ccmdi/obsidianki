@@ -63,7 +63,7 @@ class FlashcardAI:
 
         return schema_context
 
-    def generate_flashcards(self, note: Note, target_cards: int = 2, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards from a Note object using Claude"""
 
         card_instruction = self._build_card_instruction(target_cards)
@@ -120,7 +120,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_from_query(self, query: str, target_cards: int = 3, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_from_query(self, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
 
         card_instruction = self._build_card_instruction(target_cards)
@@ -184,7 +184,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_from_note_query(self, note: Note, query: str, target_cards: int = None, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
 
         card_instruction = self._build_card_instruction(target_cards)

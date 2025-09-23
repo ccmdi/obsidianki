@@ -217,7 +217,7 @@ def preprocess(args):
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
 
-    target_cards_per_note = max(1, max_cards // len(notes)) if args.cards else None
+    target_cards_per_note = max(1, max_cards // len(notes))
 
     if args.cards and target_cards_per_note > 5:
         console.print(f"[yellow]WARNING:[/yellow] Requesting more than 5 cards per note can decrease quality")
@@ -245,12 +245,14 @@ def preprocess(args):
 
     if use_batch_mode:
         # PARALLEL MODE
-        console.print(f"[cyan]Parallelizing generation for {len(notes)} notes...[/cyan]")
+        console.print(f"[cyan]INFO[/cyan]: Batch mode")
+        console.print()
 
         # Filter notes with approval upfront
         valid_notes = []
         for note in notes:
             note.ensure_content()
+            console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
             if APPROVE_NOTES:
                 try:
@@ -266,7 +268,7 @@ def preprocess(args):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_note = {
-                executor.submit(process, note, args, deck_examples, target_cards_per_note): note
+                executor.submit(process, note, args, deck_examples, target_cards_per_note, previous_fronts): note
                 for note in valid_notes
             }
 
