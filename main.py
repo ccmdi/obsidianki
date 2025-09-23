@@ -26,7 +26,7 @@ def show_main_help():
     console.print("  [cyan]-c, --cards <n>[/cyan]        Maximum cards to generate")
     console.print("  [cyan]-n, --notes <args>[/cyan]     Notes to process: count (5), names (\"React\"), or patterns (\"docs/*:3\")")
     console.print("  [cyan]-q, --query <text>[/cyan]     Generate cards from query or extract from notes")
-    console.print("  [cyan]-e, --edit[/cyan]             Edit existing cards based on query (use with -q)")
+    console.print("  [cyan]-e, --edit[/cyan]             Interactive editing mode for existing cards")
     console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
     console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
     console.print("  [cyan]-b, --bias <float>[/cyan]     Bias against over-processed notes (0-1)")
@@ -54,7 +54,7 @@ def main():
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
-    parser.add_argument("-e", "--edit", action="store_true", help="Edit existing cards based on query (requires -q)")
+    parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -159,10 +159,6 @@ def main():
 
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
-    # Check for editing mode validation
-    if args.edit and not args.query:
-        console.print("[red]ERROR:[/red] Editing mode requires a query. Use --edit with -q <query>")
-        return 1
 
     # entrypoint for flashcard generation or editing
     if args.edit:

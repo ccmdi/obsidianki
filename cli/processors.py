@@ -326,20 +326,292 @@ def preprocess(args):
     return total_cards
 
 
+def _create_card_selector(all_cards):
+    """Create a cross-platform interactive card selector"""
+    import sys
+    import os
+    from rich.live import Live
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich.console import Group
+    from cli.config import console
+
+    def get_key():
+        """Cross-platform key reading with Windows optimization"""
+        if os.name == 'nt':  # Windows
+            import msvcrt
+            import time
+
+            # Non-blocking check with small sleep to reduce CPU usage
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                if key == b'\xe0':  # Arrow key prefix
+                    key = msvcrt.getch()
+                    if key == b'H':  # Up arrow
+                        return 'up'
+                    elif key == b'P':  # Down arrow
+                        return 'down'
+                elif key == b' ':  # Space
+                    return 'space'
+                elif key == b'\r':  # Enter
+                    return 'enter'
+                elif key == b'\x1b':  # Escape
+                    return 'escape'
+
+            # Small sleep to prevent 100% CPU usage
+            time.sleep(0.01)
+            return None
+        else:  # Unix/Linux/Mac
+            import tty, termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(sys.stdin.fileno())
+                key = sys.stdin.read(1)
+                if key == '\x1b':  # Escape sequence
+                    key += sys.stdin.read(2)
+                    if key == '\x1b[A':  # Up arrow
+                        return 'up'
+                    elif key == '\x1b[B':  # Down arrow
+                        return 'down'
+                    else:
+                        return 'escape'
+                elif key == ' ':
+                    return 'space'
+                elif key == '\r' or key == '\n':
+                    return 'enter'
+                elif key == '\x1b':
+                    return 'escape'
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return None
+
+    selected_indices = set()
+    current_index = 0
+    page_size = 15
+    current_page = 0
+
+    def create_display():
+        start_idx = current_page * page_size
+        end_idx = min(start_idx + page_size, len(all_cards))
+
+        table = Table(title=f"Select Cards to Edit (Page {current_page + 1})")
+        table.add_column("", width=3)
+        table.add_column("ID", style="cyan", width=4)
+        table.add_column("Front", style="white", width=50)
+        table.add_column("Back", style="dim", width=50)
+
+        for i in range(start_idx, end_idx):
+            card = all_cards[i]
+
+            # Cursor and selection indicators
+            cursor = "→" if i == current_index else " "
+            checkbox = "☑" if i in selected_indices else "☐"
+            style = "bold cyan" if i == current_index else "white"
+
+            front = card['front'][:47] + "..." if len(card['front']) > 50 else card['front']
+            back = card['back'][:47] + "..." if len(card['back']) > 50 else card['back']
+
+            table.add_row(
+                f"{cursor} {checkbox}",
+                str(i + 1),
+                front,
+                back,
+                style=style
+            )
+
+        instructions = Text()
+        instructions.append("Controls: ", style="bold cyan")
+        instructions.append("↑/↓ Navigate  ", style="white")
+        instructions.append("Space Select  ", style="white")
+        instructions.append("Enter Confirm  ", style="white")
+        instructions.append("Esc Cancel", style="white")
+
+        status = Text()
+        if selected_indices:
+            status.append(f"Selected: {len(selected_indices)} cards", style="green")
+        else:
+            status.append("No cards selected", style="yellow")
+
+        return Group(table, "", Panel(instructions, title="Controls"), status)
+
+    try:
+        # Windows-optimized display refresh
+        refresh_rate = 60 if os.name == 'nt' else 10  # Higher refresh for smoother Windows experience
+
+        with Live(create_display(), refresh_per_second=refresh_rate, screen=True) as live:
+            needs_update = True
+
+            while True:
+                # Only update display when needed to reduce lag
+                if needs_update:
+                    live.update(create_display())
+                    needs_update = False
+
+                key = get_key()
+                if key == 'up':
+                    current_index = max(0, current_index - 1)
+                    if current_index < current_page * page_size:
+                        current_page = max(0, current_page - 1)
+                    needs_update = True
+                elif key == 'down':
+                    current_index = min(len(all_cards) - 1, current_index + 1)
+                    if current_index >= (current_page + 1) * page_size:
+                        current_page = min((len(all_cards) - 1) // page_size, current_page + 1)
+                    needs_update = True
+                elif key == 'space':
+                    if current_index in selected_indices:
+                        selected_indices.remove(current_index)
+                    else:
+                        selected_indices.add(current_index)
+                    needs_update = True
+                elif key == 'enter':
+                    if selected_indices:
+                        return [all_cards[i] for i in sorted(selected_indices)]
+                elif key == 'escape':
+                    return None
+
+    except Exception as e:
+        console.print(f"[red]Error with interactive selector: {e}[/red]")
+        return _create_basic_selector(all_cards)
+
+
+def _create_paginated_selector(all_cards, all_choices):
+    """Handle large lists with manual pagination"""
+    from cli.config import console
+    import inquirer
+
+    selected_indices = set()
+    page_size = 15
+    current_page = 0
+    total_pages = (len(all_choices) - 1) // page_size + 1
+
+    while True:
+        start_idx = current_page * page_size
+        end_idx = min(start_idx + page_size, len(all_choices))
+        page_choices = all_choices[start_idx:end_idx]
+
+        # Add navigation options
+        nav_choices = page_choices.copy()
+        if current_page > 0:
+            nav_choices.insert(0, ("← Previous page", "prev"))
+        if current_page < total_pages - 1:
+            nav_choices.append(("→ Next page", "next"))
+        nav_choices.append(("✓ Done selecting", "done"))
+
+        console.clear()
+        console.print(f"[cyan]Page {current_page + 1}/{total_pages} • Selected: {len(selected_indices)} cards[/cyan]")
+
+        questions = [
+            inquirer.Checkbox(
+                'page_selection',
+                message="Select cards (or navigate)",
+                choices=nav_choices,
+                default=[choice for choice in page_choices if choice[1] in selected_indices]
+            ),
+        ]
+
+        try:
+            answers = inquirer.prompt(questions)
+            if not answers:
+                return None
+
+            selections = answers.get('page_selection', [])
+
+            if "done" in selections:
+                break
+            elif "next" in selections and current_page < total_pages - 1:
+                current_page += 1
+                continue
+            elif "prev" in selections and current_page > 0:
+                current_page -= 1
+                continue
+            else:
+                # Update selections for this page
+                for choice_text, choice_idx in page_choices:
+                    if choice_idx in selections:
+                        selected_indices.add(choice_idx)
+                    else:
+                        selected_indices.discard(choice_idx)
+
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            return None
+
+    if not selected_indices:
+        return None
+
+    return [all_cards[i] for i in sorted(selected_indices)]
+
+
+def _create_basic_selector(all_cards):
+    """Fallback basic selector"""
+    from rich.prompt import Confirm
+    from rich.table import Table
+    from cli.config import console
+
+    # Show cards in a table
+    table = Table(title=f"Available Cards ({len(all_cards)} total)")
+    table.add_column("ID", style="cyan", width=4)
+    table.add_column("Front", style="white", width=50)
+    table.add_column("Back", style="dim", width=50)
+
+    for i, card in enumerate(all_cards[:20]):  # Show first 20
+        front = card['front'][:47] + "..." if len(card['front']) > 50 else card['front']
+        back = card['back'][:47] + "..." if len(card['back']) > 50 else card['back']
+        table.add_row(str(i + 1), front, back)
+
+    if len(all_cards) > 20:
+        table.add_row("[dim]...", f"[dim]... and {len(all_cards) - 20} more", "[dim]...")
+
+    console.print(table)
+    console.print()
+
+    # Simple selection
+    try:
+        selection = console.input("[cyan]Enter card IDs (e.g., '1,3,5-10') or 'all':[/cyan] ").strip()
+
+        if not selection:
+            return None
+
+        if selection.lower() == 'all':
+            return list(all_cards)
+
+        selected_cards = []
+        parts = [part.strip() for part in selection.split(',')]
+
+        for part in parts:
+            if '-' in part:
+                start_str, end_str = part.split('-', 1)
+                start_idx = int(start_str.strip()) - 1
+                end_idx = int(end_str.strip()) - 1
+                if 0 <= start_idx <= end_idx < len(all_cards):
+                    selected_cards.extend(all_cards[start_idx:end_idx + 1])
+            else:
+                card_id = int(part) - 1
+                if 0 <= card_id < len(all_cards):
+                    selected_cards.append(all_cards[card_id])
+
+        return selected_cards if selected_cards else None
+
+    except (ValueError, KeyboardInterrupt):
+        return None
+
+
 def edit_mode(args):
     """
-    Entry point for editing existing flashcards.
+    Entry point for interactive editing of existing flashcards.
     """
     from cli.config import console, DECK, APPROVE_CARDS
     from cli.handlers import approve_flashcard
     from cli.models import Note, Flashcard
     from rich.panel import Panel
+    from rich.prompt import Prompt
 
     deck_name = args.deck if args.deck else DECK
-    query = args.query
-    max_cards = args.cards if args.cards else 10  # Default limit for editing
 
-    console.print(f"[cyan]EDIT MODE:[/cyan] [bold]{query}[/bold]")
+    console.print(Panel("Interactive Card Editing Mode", style="bold blue"))
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
     console.print()
 
@@ -348,20 +620,54 @@ def edit_mode(args):
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         return 0
 
-    # Get cards to edit
+    # Get all cards from deck
     console.print(f"[cyan]INFO:[/cyan] Retrieving cards from deck '{deck_name}'...")
-    cards_to_edit = ANKI.get_cards_for_editing(deck_name, limit=max_cards)
+    all_cards = ANKI.get_cards_for_editing(deck_name)
 
-    if not cards_to_edit:
-        console.print(f"[red]ERROR:[/red] No cards found in deck '{deck_name}' for editing")
+    if not all_cards:
+        console.print(f"[red]ERROR:[/red] No cards found in deck '{deck_name}'")
         return 0
 
-    console.print(f"[cyan]INFO:[/cyan] Found {len(cards_to_edit)} cards to potentially edit")
+    console.print(f"[cyan]INFO:[/cyan] Found {len(all_cards)} cards in deck")
     console.print()
 
-    # Edit cards using AI
-    console.print(f"[cyan]INFO:[/cyan] Applying edits based on query...")
-    edited_cards = AI.edit_cards(cards_to_edit, query)
+    # Interactive card selection with arrow keys
+    try:
+        selected_cards = _create_card_selector(all_cards)
+
+        if selected_cards is None:
+            console.print("[yellow]Editing cancelled[/yellow]")
+            return 0
+
+        if not selected_cards:
+            console.print("[yellow]No cards selected[/yellow]")
+            return 0
+
+    except Exception as e:
+        console.print(f"[red]Error in card selection: {e}[/red]")
+        console.print("[yellow]Falling back to basic interface[/yellow]")
+        return 0
+
+    # Get editing instructions
+    console.print(f"[green]Selected {len(selected_cards)} cards for editing[/green]")
+    console.print()
+
+    try:
+        edit_instructions = Prompt.ask("[cyan]Enter your editing instructions[/cyan] (describe what changes you want to make)")
+
+        if not edit_instructions.strip():
+            console.print("[yellow]No instructions provided. Editing cancelled.[/yellow]")
+            return 0
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Editing cancelled[/yellow]")
+        return 0
+
+    console.print()
+    console.print(f"[cyan]INFO:[/cyan] Applying edits: '{edit_instructions}'")
+
+    # Edit selected cards using AI
+    edited_cards = AI.edit_cards(selected_cards, edit_instructions)
 
     if not edited_cards:
         console.print("[red]ERROR:[/red] Failed to edit cards")
@@ -369,7 +675,7 @@ def edit_mode(args):
 
     # Process each edited card
     total_updated = 0
-    for i, (original_card, edited_card) in enumerate(zip(cards_to_edit, edited_cards)):
+    for i, (original_card, edited_card) in enumerate(zip(selected_cards, edited_cards)):
         console.print(f"\n[blue]CARD {i+1}:[/blue]")
 
         # Check if card was actually changed
