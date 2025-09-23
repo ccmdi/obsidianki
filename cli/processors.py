@@ -3,13 +3,13 @@ Note processing functions for ObsidianKi.
 """
 
 import concurrent.futures
+from typing import List
 from cli.config import console
 from cli.handlers import approve_note, approve_flashcard
 from cli.models import Note, Flashcard
 
 
 def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_examples, target_cards_per_note):
-    """Extract just the AI generation step - this is what we parallelize in batch mode"""
     from cli.config import DEDUPLICATE_VIA_HISTORY
 
     # Ensure note has content loaded
@@ -38,7 +38,7 @@ def generate_flashcards_for_note(note: Note, ai, obsidian, config, args, deck_ex
     return flashcards, note.content, note.path
 
 
-def process_generated_flashcards(note: Note, flashcards, anki, config, args, deck_name, note_content):
+def process_generated_flashcards(note: Note, flashcards: List[Flashcard], anki, config, args, deck_name, note_content):
     """Handle flashcard approval and Anki addition - shared logic between batch and sequential"""
     from cli.config import APPROVE_CARDS, CARD_TYPE
 
@@ -54,9 +54,7 @@ def process_generated_flashcards(note: Note, flashcards, anki, config, args, dec
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcard_objects:
-                # Convert to dict only for approval function (which needs legacy format)
-                fc_dict = flashcard.to_anki_format()
-                if approve_flashcard(fc_dict, note.filename):
+                if approve_flashcard(flashcard, note.filename):
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
             raise

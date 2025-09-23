@@ -72,10 +72,18 @@ class Flashcard:
     back: str
     note: Note
     tags: Optional[List[str]] = None
+    front_original: Optional[str] = None
+    back_original: Optional[str] = None
 
     def __post_init__(self):
         if self.tags is None:
             self.tags = self.note.tags.copy()
+
+        # If originals aren't set, use the processed versions
+        if self.front_original is None:
+            self.front_original = self.front
+        if self.back_original is None:
+            self.back_original = self.back
 
     @property
     def source_path(self) -> str:
@@ -102,7 +110,9 @@ class Flashcard:
             front=ai_flashcard.get('front', ''),
             back=ai_flashcard.get('back', ''),
             note=note,
-            tags=ai_flashcard.get('tags', note.tags.copy())
+            tags=ai_flashcard.get('tags', note.tags.copy()),
+            front_original=ai_flashcard.get('front_original'),
+            back_original=ai_flashcard.get('back_original')
         )
 
 

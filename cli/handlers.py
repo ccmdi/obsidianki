@@ -44,10 +44,18 @@ def approve_note(note_title: str, note_path: str) -> bool:
     except KeyboardInterrupt:
         raise
 
-def approve_flashcard(flashcard: dict, note_title: str) -> bool:
+def approve_flashcard(flashcard, note_title: str) -> bool:
     """Ask user to approve flashcard before adding to Anki"""
-    front_clean = flashcard.get('front_original', flashcard.get('front', 'N/A'))
-    back_clean = flashcard.get('back_original', flashcard.get('back', 'N/A'))
+    # Handle both Flashcard objects and legacy dicts
+    if hasattr(flashcard, 'front_original'):
+        # Flashcard object
+        front_clean = flashcard.front_original or flashcard.front
+        back_clean = flashcard.back_original or flashcard.back
+    else:
+        # Legacy dict format
+        front_clean = flashcard.get('front_original', flashcard.get('front', 'N/A'))
+        back_clean = flashcard.get('back_original', flashcard.get('back', 'N/A'))
+
     console.print(f"   [cyan]Front:[/cyan] {front_clean}")
     console.print(f"   [cyan]Back:[/cyan] {back_clean}")
     console.print()
