@@ -158,8 +158,8 @@ def main():
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
     # entrypoint for flashcard generation
-    from cli.processors import process_flashcard_generation
-    return process_flashcard_generation(args)
+    from cli.processors import preprocess
+    return preprocess(args)
 
 
 if __name__ == "__main__":

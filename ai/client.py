@@ -244,7 +244,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, sample_size: int = None, bias_strength: float = None, search_folders=None) -> List[Note]:
+    def find_with_agent(self, natural_request: str, sample_size: int = None, bias_strength: float = None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
@@ -252,9 +252,8 @@ class FlashcardAI:
 
         # Add folder context
         folder_context = ""
-        effective_folders = search_folders if search_folders is not None else SEARCH_FOLDERS
-        if effective_folders:
-            folder_context = f"\n\nIMPORTANT: Only search in these folders: {effective_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+        if SEARCH_FOLDERS:
+            folder_context = f"\n\nIMPORTANT: Only search in these folders: {SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
         user_prompt = f"""Natural language request: {natural_request}{date_context}{folder_context}
 
@@ -312,26 +311,25 @@ class FlashcardAI:
                                     results = []
 
                                 # Apply filtering (folders, excluded tags)
-                                if CONFIG_MANAGER: #TODO
-                                    filtered_results = []
-                                    for result in results:
-                                        note_path = result['result'].get('path', '')
+                                filtered_results = []
+                                for result in results:
+                                    note_path = result['result'].get('path', '')
 
-                                        # Apply SEARCH_FOLDERS filtering
-                                        if effective_folders:
-                                            path_matches = any(note_path.startswith(f"{folder}/") for folder in effective_folders)
-                                            if not path_matches:
-                                                continue
-
-                                        # Apply excluded tags filtering
-                                        note_tags = result['result'].get('tags', []) or []
-                                        excluded_tags = CONFIG_MANAGER.get_excluded_tags()
-                                        if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                                    # Apply SEARCH_FOLDERS filtering
+                                    if SEARCH_FOLDERS:
+                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in SEARCH_FOLDERS)
+                                        if not path_matches:
                                             continue
 
-                                        filtered_results.append(result)
+                                    # Apply excluded tags filtering
+                                    note_tags = result['result'].get('tags', []) or []
+                                    excluded_tags = CONFIG_MANAGER.get_excluded_tags()
+                                    if excluded_tags and any(tag in note_tags for tag in excluded_tags):
+                                        continue
 
-                                    results = filtered_results
+                                    filtered_results.append(result)
+
+                                results = filtered_results
 
                                 console.print(f"[cyan]Agent:[/cyan] Found {len(results)} notes")
                                 last_results = results  # Store for potential auto-finalization

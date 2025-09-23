@@ -34,7 +34,6 @@ def show_simple_help(title: str, commands: dict):
 
 def approve_note(note_title: str, note_path: str) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [magenta]Review note:[/magenta] [bold]{note_title}[/bold]")
     console.print(f"   [dim]Path: {note_path}[/dim]")
 
     try:

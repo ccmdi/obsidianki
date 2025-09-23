@@ -58,9 +58,6 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
-        console.print(f"[green]SUCCESS:[/green] Added {successful_cards} cards to Anki for {note.filename}")
-
-        # Record flashcard creation
         flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
         CONFIG_MANAGER.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
         return successful_cards
@@ -104,13 +101,9 @@ def preprocess(args):
     effective_bias_strength = args.bias if args.bias is not None else DENSITY_BIAS_STRENGTH
 
     # --allow
-    effective_search_folders = SEARCH_FOLDERS
     if args.allow:
-        if effective_search_folders:
-            effective_search_folders = list(effective_search_folders) + args.allow
-        else:
-            effective_search_folders = args.allow
-        console.print(f"[dim]Effective search folders:[/dim] {', '.join(effective_search_folders)}")
+        SEARCH_FOLDERS = list(SEARCH_FOLDERS) + args.allow if SEARCH_FOLDERS else args.allow
+        console.print(f"[dim]Search folders:[/dim] {', '.join(SEARCH_FOLDERS)}")
         console.print()
 
     if SAMPLING_MODE == "weighted":
@@ -195,7 +188,7 @@ def preprocess(args):
     if args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        notes = AI.find_with_agent(args.agent, sample_size=notes_to_sample, bias_strength=effective_bias_strength, search_folders=effective_search_folders)
+        notes = AI.find_with_agent(args.agent, sample_size=notes_to_sample, bias_strength=effective_bias_strength)
         if not notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
             return 0
@@ -233,7 +226,6 @@ def preprocess(args):
                     else:
                         console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
                 else:
-                    # Single note lookup
                     specific_note = OBSIDIAN.find_by_name(note_pattern)
                     if specific_note:
                         notes.append(specific_note)

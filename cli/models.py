@@ -6,7 +6,6 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from pathlib import Path
 from cli.config import CONFIG_MANAGER, get_sampling_weight_for_note_object
-from cli.services import OBSIDIAN
 
 
 @dataclass
@@ -55,6 +54,7 @@ class Note:
 
     def ensure_content(self):
         """Ensure the note content is loaded."""
+        from cli.services import OBSIDIAN
         if not self.content:
             self.content = OBSIDIAN.get_note_content(self.path)
 
