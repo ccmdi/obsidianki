@@ -822,6 +822,7 @@ def edit_mode(args):
         # Show changes
         console.print(f"  [cyan]Original Front:[/cyan] {original_card['front']}")
         console.print(f"  [cyan]Updated Front:[/cyan] {edited_card['front']}")
+        console.print()
         console.print(f"  [cyan]Original Back:[/cyan] {original_card['back']}")
         console.print(f"  [cyan]Updated Back:[/cyan] {edited_card['back']}")
         console.print()
@@ -832,7 +833,7 @@ def edit_mode(args):
             flashcard = Flashcard(
                 front=edited_card['front'],
                 back=edited_card['back'],
-                origin=edited_card.get('origin', original_card.get('origin', ''))
+                note=dummy_note
             )
 
             if not approve_flashcard(flashcard, dummy_note):

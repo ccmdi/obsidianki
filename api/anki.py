@@ -350,8 +350,12 @@ class AnkiAPI(BaseAPI):
                 "fields": fields
             }
 
+            # console.print(f"[cyan]DEBUG:[/cyan] Front length: {len(front)}, Back length: {len(back)}")
+            # console.print(f"[cyan]DEBUG:[/cyan] Front: {repr(front)}")
+            # console.print(f"[cyan]DEBUG:[/cyan] Back: {repr(back)}")
             result = self._request("updateNoteFields", {"note": note_data})
-            return result is not None
+            # console.print(f"[cyan]DEBUG:[/cyan] Request result: {result}")
+            return result is None
 
         except Exception as e:
             console.print(f"[red]ERROR:[/red] Failed to update note {note_id}: {e}")
