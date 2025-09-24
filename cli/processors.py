@@ -94,7 +94,10 @@ def preprocess(args):
             max_cards = args.cards
         else:
             max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
-        # notes_to_sample not used when specific notes are provided
+        
+        # handle case of --notes <n>
+        if len(args.notes) == 1 and args.notes[0].isdigit():
+            notes_to_sample = int(args.notes[0])
     elif args.cards is not None:
         # When --cards is provided, scale notes to 1/2 of cards
         max_cards = args.cards

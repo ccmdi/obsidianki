@@ -313,7 +313,14 @@ class FlashcardAI:
                                 # Apply filtering (folders, excluded tags)
                                 filtered_results = []
                                 for result in results:
-                                    note_path = result['result'].get('path', '')
+                                    # Handle Note objects directly
+                                    if hasattr(result, 'path'):
+                                        note_path = result.path
+                                        note_tags = result.tags or []
+                                    else: #TODO
+                                        # Fallback for dict format
+                                        note_path = result.get('result', {}).get('path', '')
+                                        note_tags = result.get('result', {}).get('tags', []) or []
 
                                     # Apply SEARCH_FOLDERS filtering
                                     if SEARCH_FOLDERS:
@@ -322,7 +329,6 @@ class FlashcardAI:
                                             continue
 
                                     # Apply excluded tags filtering
-                                    note_tags = result['result'].get('tags', []) or []
                                     excluded_tags = CONFIG_MANAGER.get_excluded_tags()
                                     if excluded_tags and any(tag in note_tags for tag in excluded_tags):
                                         continue
@@ -337,7 +343,12 @@ class FlashcardAI:
 
                                 # Accumulate all results by path for validation
                                 for result in results:
-                                    path = result['result'].get('path')
+                                    # Handle Note objects directly
+                                    if hasattr(result, 'path'):
+                                        path = result.path
+                                    else:
+                                        # Fallback for dict format
+                                        path = result.get('result', {}).get('path')
                                     if path:
                                         all_results[path] = result
 
@@ -348,11 +359,19 @@ class FlashcardAI:
                                     # Show detailed results for small result sets
                                     result_list = []
                                     for i, result in enumerate(results[:AI_RESULT_SET_SIZE]):
-                                        note = result['result']
-                                        path = note.get('path', 'Unknown')
-                                        name = note.get('name', 'Unknown')
-                                        tags = note.get('tags', [])
-                                        size = note.get('size', 0)
+                                        # Handle Note objects directly
+                                        if hasattr(result, 'path'):
+                                            path = result.path
+                                            name = result.filename
+                                            tags = result.tags
+                                            size = result.size
+                                        else:
+                                            # Fallback for dict format
+                                            note = result.get('result', {})
+                                            path = note.get('path', 'Unknown')
+                                            name = note.get('name', 'Unknown')
+                                            tags = note.get('tags', [])
+                                            size = note.get('size', 0)
                                         result_list.append(f"{i+1}. {name} ({path}) - {size} chars, tags: {tags}")
                                     result_summary = f"Found {len(results)} notes:\n" + "\n".join(result_list)
                                 else:
