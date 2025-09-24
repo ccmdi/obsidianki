@@ -434,6 +434,10 @@ def _create_card_selector(all_cards):
                         return 'up'
                     elif key == b'P':  # Down arrow
                         return 'down'
+                    elif key == b'K':  # Left arrow
+                        return 'left'
+                    elif key == b'M':  # Right arrow
+                        return 'right'
                 elif key == b' ':  # Space
                     return 'space'
                 elif key == b'\r':  # Enter
@@ -461,6 +465,10 @@ def _create_card_selector(all_cards):
                             return 'up'
                         elif key == '\x1b[B':  # Down arrow
                             return 'down'
+                        elif key == '\x1b[C':  # Right arrow
+                            return 'right'
+                        elif key == '\x1b[D':  # Left arrow
+                            return 'left'
                         else:
                             return 'escape'
                     else:
@@ -480,8 +488,11 @@ def _create_card_selector(all_cards):
     page_size = 15
     current_page = 0
     show_back = False  # Toggle between front and back view
+    scroll_offset = 0  # Horizontal scroll position for current card
+    scroll_mode = False  # Whether we're in scroll mode
 
     def create_display():
+        nonlocal scroll_offset, scroll_mode
         start_idx = current_page * page_size
         end_idx = min(start_idx + page_size, len(all_cards))
 
@@ -492,7 +503,8 @@ def _create_card_selector(all_cards):
 
         # Determine what to show based on toggle
         content_label = "Back" if show_back else "Front"
-        table_title = f"Select Cards to Edit (Page {current_page + 1}) - Showing {content_label}"
+        scroll_indicator = " [SCROLL]" if scroll_mode else ""
+        table_title = f"Select Cards to Edit (Page {current_page + 1}) - Showing {content_label}{scroll_indicator}"
 
         table = Table(title=table_title)
         table.add_column("ID", style="cyan", width=8, no_wrap=True)
@@ -521,9 +533,26 @@ def _create_card_selector(all_cards):
             # Replace newlines with spaces to force single line display
             content = content.replace('\n', ' ').replace('\r', ' ')
 
-            # Truncate text to fit column width
-            content_max = content_width - 3  # Account for "..."
-            display_content = content[:content_max] + "..." if len(content) > content_max else content
+            # Handle scrolling for current card
+            if i == current_index and scroll_mode:
+                # Calculate scrollable area
+                content_max = content_width - 6  # Account for scroll indicators
+                if len(content) > content_max:
+                    # Apply scroll offset
+                    max_scroll = len(content) - content_max
+                    actual_offset = min(scroll_offset, max_scroll)
+                    scrolled_content = content[actual_offset:actual_offset + content_max]
+
+                    # Add scroll indicators
+                    left_indicator = "◀" if actual_offset > 0 else " "
+                    right_indicator = "▶" if actual_offset < max_scroll else " "
+                    display_content = f"{left_indicator}{scrolled_content}{right_indicator}"
+                else:
+                    display_content = content
+            else:
+                # Normal truncation for non-current or non-scroll cards
+                content_max = content_width - 3  # Account for "..."
+                display_content = content[:content_max] + "..." if len(content) > content_max else content
 
             table.add_row(
                 id_display,
@@ -537,6 +566,9 @@ def _create_card_selector(all_cards):
         instructions.append("(", style="white")
         instructions.append("Up/Down", style="cyan")
         instructions.append(") Navigate  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Left/Right", style="cyan")
+        instructions.append(") Scroll Text  ", style="white")
         instructions.append("(", style="white")
         instructions.append("Space", style="cyan")
         instructions.append(") Select  ", style="white")
@@ -576,15 +608,42 @@ def _create_card_selector(all_cards):
 
                 key = get_key()
                 if key == 'up':
-                    current_index = max(0, current_index - 1)
-                    if current_index < current_page * page_size:
-                        current_page = max(0, current_page - 1)
+                    if scroll_mode:
+                        scroll_mode = False
+                        scroll_offset = 0
+                    else:
+                        current_index = max(0, current_index - 1)
+                        if current_index < current_page * page_size:
+                            current_page = max(0, current_page - 1)
                     needs_update = True
                 elif key == 'down':
-                    current_index = min(len(all_cards) - 1, current_index + 1)
-                    if current_index >= (current_page + 1) * page_size:
-                        current_page = min((len(all_cards) - 1) // page_size, current_page + 1)
+                    if scroll_mode:
+                        scroll_mode = False
+                        scroll_offset = 0
+                    else:
+                        current_index = min(len(all_cards) - 1, current_index + 1)
+                        if current_index >= (current_page + 1) * page_size:
+                            current_page = min((len(all_cards) - 1) // page_size, current_page + 1)
                     needs_update = True
+                elif key == 'left':
+                    if scroll_mode:
+                        scroll_offset = max(0, scroll_offset - 5)  # Scroll left by 5 chars
+                        needs_update = True
+                elif key == 'right':
+                    # Check if current card has overflowing text
+                    card = all_cards[current_index]
+                    content = card['back'] if show_back else card['front']
+                    content = content.replace('\n', ' ').replace('\r', ' ')
+                    content_max = (console.size.width - 14) - 6  # Account for scroll indicators
+
+                    if len(content) > content_max:
+                        if not scroll_mode:
+                            scroll_mode = True
+                            scroll_offset = 0
+                        else:
+                            max_scroll = len(content) - content_max
+                            scroll_offset = min(scroll_offset + 5, max_scroll)  # Scroll right by 5 chars
+                        needs_update = True
                 elif key == 'space':
                     if current_index in selected_indices:
                         selected_indices.remove(current_index)
@@ -593,6 +652,8 @@ def _create_card_selector(all_cards):
                     needs_update = True
                 elif key == 'tab':
                     show_back = not show_back
+                    scroll_mode = False
+                    scroll_offset = 0
                     needs_update = True
                 elif key == 'enter':
                     if selected_indices:
