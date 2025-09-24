@@ -487,25 +487,33 @@ def _create_card_selector(all_cards):
 
         # Get terminal width and calculate column widths
         terminal_width = console.size.width
-        # Reserve space for checkbox (4), ID (6), and minimal padding/borders (~8)
-        content_width = terminal_width - 12
+        # Reserve space for ID with indicators (8), and minimal padding/borders (~6)
+        content_width = terminal_width - 14
 
         # Determine what to show based on toggle
         content_label = "Back" if show_back else "Front"
         table_title = f"Select Cards to Edit (Page {current_page + 1}) - Showing {content_label}"
 
         table = Table(title=table_title)
-        table.add_column("", width=3, no_wrap=True)
-        table.add_column("ID", style="cyan", width=4, no_wrap=True)
+        table.add_column("ID", style="cyan", width=8, no_wrap=True)
         table.add_column(content_label, style="white", width=content_width, no_wrap=True)
 
         for i in range(start_idx, end_idx):
             card = all_cards[i]
 
-            # Cursor and selection indicators
-            cursor = "→" if i == current_index else " "
-            checkbox = "☑" if i in selected_indices else "☐"
-            style = "bold cyan" if i == current_index else "white"
+            # Row styling based on current position and selection
+            if i == current_index:
+                style = "bold cyan"
+                id_display = f"→ {i + 1}"
+            else:
+                style = "white"
+                id_display = str(i + 1)
+
+            # Add selection indicator to ID
+            if i in selected_indices:
+                id_display = f"☑ {id_display}"
+            else:
+                id_display = f"☐ {id_display}"
 
             # Get the content to display based on toggle
             content = card['back'] if show_back else card['front']
@@ -518,8 +526,7 @@ def _create_card_selector(all_cards):
             display_content = content[:content_max] + "..." if len(content) > content_max else content
 
             table.add_row(
-                f"{cursor} {checkbox}",
-                str(i + 1),
+                id_display,
                 display_content,
                 style=style
             )
