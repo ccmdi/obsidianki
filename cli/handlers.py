@@ -438,6 +438,8 @@ def _create_card_selector(all_cards):
                     return 'space'
                 elif key == b'\r':  # Enter
                     return 'enter'
+                elif key == b'\t':  # Tab
+                    return 'tab'
                 elif key == b'\x1b':  # Escape
                     return 'escape'
 
@@ -446,25 +448,29 @@ def _create_card_selector(all_cards):
             return None
         else:  # Unix/Linux/Mac
             import tty, termios
+            import select
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
                 tty.setraw(sys.stdin.fileno())
                 key = sys.stdin.read(1)
-                if key == '\x1b':  # Escape sequence
-                    key += sys.stdin.read(2)
-                    if key == '\x1b[A':  # Up arrow
-                        return 'up'
-                    elif key == '\x1b[B':  # Down arrow
-                        return 'down'
+                if key == '\x1b':  # Escape sequence - check if more data available
+                    if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
+                        key += sys.stdin.read(2)
+                        if key == '\x1b[A':  # Up arrow
+                            return 'up'
+                        elif key == '\x1b[B':  # Down arrow
+                            return 'down'
+                        else:
+                            return 'escape'
                     else:
-                        return 'escape'
+                        return 'escape'  # Just escape key
                 elif key == ' ':
                     return 'space'
+                elif key == '\t':
+                    return 'tab'
                 elif key == '\r' or key == '\n':
                     return 'enter'
-                elif key == '\x1b':
-                    return 'escape'
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return None
@@ -473,6 +479,7 @@ def _create_card_selector(all_cards):
     current_index = 0
     page_size = 15
     current_page = 0
+    show_back = False  # Toggle between front and back view
 
     def create_display():
         start_idx = current_page * page_size
@@ -480,17 +487,17 @@ def _create_card_selector(all_cards):
 
         # Get terminal width and calculate column widths
         terminal_width = console.size.width
-        # Reserve space for checkbox (4), ID (6), and padding/borders (~10)
-        available_width = terminal_width - 20
-        # Split remaining width between front and back columns
-        front_width = available_width // 2
-        back_width = available_width - front_width
+        # Reserve space for checkbox (4), ID (6), and minimal padding/borders (~8)
+        content_width = terminal_width - 12
 
-        table = Table(title=f"Select Cards to Edit (Page {current_page + 1})")
-        table.add_column("", width=3)
-        table.add_column("ID", style="cyan", width=4)
-        table.add_column("Front", style="white", width=front_width)
-        table.add_column("Back", style="dim", width=back_width)
+        # Determine what to show based on toggle
+        content_label = "Back" if show_back else "Front"
+        table_title = f"Select Cards to Edit (Page {current_page + 1}) - Showing {content_label}"
+
+        table = Table(title=table_title)
+        table.add_column("", width=3, no_wrap=True)
+        table.add_column("ID", style="cyan", width=4, no_wrap=True)
+        table.add_column(content_label, style="white", width=content_width, no_wrap=True)
 
         for i in range(start_idx, end_idx):
             card = all_cards[i]
@@ -500,20 +507,31 @@ def _create_card_selector(all_cards):
             checkbox = "☑" if i in selected_indices else "☐"
             style = "bold cyan" if i == current_index else "white"
 
-            # Truncate text to fit column width
-            front_max = front_width - 3  # Account for "..."
-            back_max = back_width - 3   # Account for "..."
+            # Get the content to display based on toggle
+            content = card['back'] if show_back else card['front']
 
-            front = card['front'][:front_max] + "..." if len(card['front']) > front_max else card['front']
-            back = card['back'][:back_max] + "..." if len(card['back']) > back_max else card['back']
+            # Replace newlines with spaces to force single line display
+            content = content.replace('\n', ' ').replace('\r', ' ')
+
+            # Truncate text to fit column width
+            content_max = content_width - 3  # Account for "..."
+            display_content = content[:content_max] + "..." if len(content) > content_max else content
 
             table.add_row(
                 f"{cursor} {checkbox}",
                 str(i + 1),
-                front,
-                back,
+                display_content,
                 style=style
             )
+
+        # Instructions and status
+        instructions = Text()
+        instructions.append("Controls: ", style="bold cyan")
+        instructions.append("↑/↓ Navigate  ", style="white")
+        instructions.append("Space Select  ", style="white")
+        instructions.append("Tab Toggle View  ", style="white")
+        instructions.append("Enter Confirm  ", style="white")
+        instructions.append("Esc Cancel", style="white")
 
         status = Text()
         if selected_indices:
@@ -521,7 +539,7 @@ def _create_card_selector(all_cards):
         else:
             status.append("No cards selected", style="yellow")
 
-        return Group(table, "", status)
+        return Group(table, "", instructions, "", status)
 
     try:
         # Windows-optimized display refresh
@@ -552,6 +570,9 @@ def _create_card_selector(all_cards):
                         selected_indices.remove(current_index)
                     else:
                         selected_indices.add(current_index)
+                    needs_update = True
+                elif key == 'tab':
+                    show_back = not show_back
                     needs_update = True
                 elif key == 'enter':
                     if selected_indices:
