@@ -444,6 +444,8 @@ def _create_card_selector(all_cards):
                     return 'enter'
                 elif key == b'\t':  # Tab
                     return 'tab'
+                elif key == b'a':  # A key
+                    return 'autoscroll'
                 elif key == b'\x1b':  # Escape
                     return 'escape'
 
@@ -479,6 +481,8 @@ def _create_card_selector(all_cards):
                     return 'tab'
                 elif key == '\r' or key == '\n':
                     return 'enter'
+                elif key == 'a':
+                    return 'autoscroll'
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return None
@@ -490,9 +494,12 @@ def _create_card_selector(all_cards):
     show_back = False  # Toggle between front and back view
     scroll_offset = 0  # Horizontal scroll position for current card
     scroll_mode = False  # Whether we're in scroll mode
+    autoscroll = False  # Whether autoscroll is active
+    autoscroll_speed = 0.1  # Autoscroll speed in seconds (much faster!)
+    last_autoscroll_time = 0  # Last time autoscroll moved
 
     def create_display():
-        nonlocal scroll_offset, scroll_mode
+        nonlocal scroll_offset, scroll_mode, autoscroll
         start_idx = current_page * page_size
         end_idx = min(start_idx + page_size, len(all_cards))
 
@@ -503,7 +510,11 @@ def _create_card_selector(all_cards):
 
         # Determine what to show based on toggle
         content_label = "Back" if show_back else "Front"
-        scroll_indicator = " [SCROLL]" if scroll_mode else ""
+        scroll_indicator = ""
+        if scroll_mode and autoscroll:
+            scroll_indicator = " [AUTO-SCROLL]"
+        elif scroll_mode:
+            scroll_indicator = " [SCROLL]"
         table_title = f"Select Cards to Edit (Page {current_page + 1}) - Showing {content_label}{scroll_indicator}"
 
         table = Table(title=table_title)
@@ -568,7 +579,10 @@ def _create_card_selector(all_cards):
         instructions.append(") Navigate  ", style="white")
         instructions.append("(", style="white")
         instructions.append("Left/Right", style="cyan")
-        instructions.append(") Scroll Text  ", style="white")
+        instructions.append(") Scroll  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("A", style="cyan")
+        instructions.append(") Auto-Scroll  ", style="white")
         instructions.append("(", style="white")
         instructions.append("Space", style="cyan")
         instructions.append(") Select  ", style="white")
@@ -594,6 +608,7 @@ def _create_card_selector(all_cards):
         return Group(table, "", instructions, "", status)
 
     try:
+        import time
         # Windows-optimized display refresh
         refresh_rate = 60 if os.name == 'nt' else 10  # Higher refresh for smoother Windows experience
 
@@ -601,6 +616,27 @@ def _create_card_selector(all_cards):
             needs_update = True
 
             while True:
+                # Handle autoscroll
+                current_time = time.time()
+                if autoscroll and scroll_mode and (current_time - last_autoscroll_time) >= autoscroll_speed:
+                    # Check if current card has overflowing text and can scroll more
+                    card = all_cards[current_index]
+                    content = card['back'] if show_back else card['front']
+                    content = content.replace('\n', ' ').replace('\r', ' ')
+                    content_max = (console.size.width - 14) - 6  # Account for scroll indicators
+
+                    if len(content) > content_max:
+                        max_scroll = len(content) - content_max
+                        if scroll_offset < max_scroll:
+                            scroll_offset += 1  # Autoscroll by 1 char for smooth movement
+                            last_autoscroll_time = current_time
+                            needs_update = True
+                        else:
+                            # At end, reset to beginning for continuous loop
+                            scroll_offset = 0
+                            last_autoscroll_time = current_time
+                            needs_update = True
+
                 # Only update display when needed to reduce lag
                 if needs_update:
                     live.update(create_display())
@@ -611,22 +647,26 @@ def _create_card_selector(all_cards):
                     if scroll_mode:
                         scroll_mode = False
                         scroll_offset = 0
-                    else:
-                        current_index = max(0, current_index - 1)
-                        if current_index < current_page * page_size:
-                            current_page = max(0, current_page - 1)
+                        autoscroll = False
+                    # Always move up regardless of scroll mode
+                    current_index = max(0, current_index - 1)
+                    if current_index < current_page * page_size:
+                        current_page = max(0, current_page - 1)
                     needs_update = True
                 elif key == 'down':
                     if scroll_mode:
                         scroll_mode = False
                         scroll_offset = 0
-                    else:
-                        current_index = min(len(all_cards) - 1, current_index + 1)
-                        if current_index >= (current_page + 1) * page_size:
-                            current_page = min((len(all_cards) - 1) // page_size, current_page + 1)
+                        autoscroll = False
+                    # Always move down regardless of scroll mode
+                    current_index = min(len(all_cards) - 1, current_index + 1)
+                    if current_index >= (current_page + 1) * page_size:
+                        current_page = min((len(all_cards) - 1) // page_size, current_page + 1)
                     needs_update = True
                 elif key == 'left':
                     if scroll_mode:
+                        if autoscroll:
+                            autoscroll = False  # Stop autoscroll when manually scrolling
                         scroll_offset = max(0, scroll_offset - 5)  # Scroll left by 5 chars
                         needs_update = True
                 elif key == 'right':
@@ -640,7 +680,11 @@ def _create_card_selector(all_cards):
                         if not scroll_mode:
                             scroll_mode = True
                             scroll_offset = 0
+                            autoscroll = True  # Start autoscroll by default!
+                            last_autoscroll_time = time.time()
                         else:
+                            if autoscroll:
+                                autoscroll = False  # Stop autoscroll when manually scrolling
                             max_scroll = len(content) - content_max
                             scroll_offset = min(scroll_offset + 5, max_scroll)  # Scroll right by 5 chars
                         needs_update = True
@@ -654,7 +698,14 @@ def _create_card_selector(all_cards):
                     show_back = not show_back
                     scroll_mode = False
                     scroll_offset = 0
+                    autoscroll = False
                     needs_update = True
+                elif key == 'autoscroll':
+                    if scroll_mode:
+                        autoscroll = not autoscroll
+                        if autoscroll:
+                            last_autoscroll_time = time.time()
+                        needs_update = True
                 elif key == 'enter':
                     if selected_indices:
                         return [all_cards[i] for i in sorted(selected_indices)]
