@@ -31,7 +31,10 @@ DEFAULT_CONFIG = {
     "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
     "USE_DECK_SCHEMA": False,  # Sample existing cards from deck to enforce consistent formatting/style
     "DECK": "Obsidian",  # Default Anki deck for adding cards
-    "SYNTAX_HIGHLIGHTING": True  # Enable syntax highlighting for code blocks in flashcards
+    "SYNTAX_HIGHLIGHTING": True,  # Enable syntax highlighting for code blocks in flashcards
+    "UPFRONT_BATCHING": False,  # Process all notes in parallel instead of one-by-one
+    "BATCH_SIZE_LIMIT": 20,  # Maximum notes to process in batch mode
+    "BATCH_CARD_LIMIT": 100  # Maximum total cards in batch mode
 }
 
 def load_config():
@@ -69,6 +72,9 @@ DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
 USE_DECK_SCHEMA = _config["USE_DECK_SCHEMA"]
 DECK = _config["DECK"]
 SYNTAX_HIGHLIGHTING = _config["SYNTAX_HIGHLIGHTING"]
+UPFRONT_BATCHING = _config["UPFRONT_BATCHING"]
+BATCH_SIZE_LIMIT = _config["BATCH_SIZE_LIMIT"]
+BATCH_CARD_LIMIT = _config["BATCH_CARD_LIMIT"]
 
 class ConfigManager:
     def __init__(self):
@@ -148,37 +154,46 @@ class ConfigManager:
         else:
             console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
-    def show_current_weights(self):
+    def show_weights(self):
         """Display current tag weights"""
-        # Only show if there are tags besides _default
         non_default_tags = {k: v for k, v in self.tag_weights.items() if k != "_default"}
+        if non_default_tags:
+            for tag, weight in sorted(self.tag_weights.items()):
+                console.print(f"  [green]{tag}:[/green] {weight}")
 
-        if not non_default_tags:
-            return
+    def add_tag_weight(self, tag: str, weight: float) -> bool:
+        """Add or update a tag weight"""
+        if weight < 0:
+            console.print(f"[red]ERROR:[/red] Weight must be positive")
+            return False
 
-        for tag, weight in sorted(self.tag_weights.items()):
-            console.print(f"  [green]{tag}:[/green] {weight}")
+        self.tag_weights[tag] = weight
+        self.save_tag_schema()
+        return True
 
-    def normalize_weights(self):
-        """Normalize all weights so they sum to 1.0"""
-        if not self.tag_weights:
-            return
-
-        total = sum(self.tag_weights.values())
-        if total > 0:
-            for tag in self.tag_weights:
-                self.tag_weights[tag] /= total
+    def remove_tag_weight(self, tag: str) -> bool:
+        """Remove a tag weight"""
+        if tag in self.tag_weights:
+            del self.tag_weights[tag]
             self.save_tag_schema()
-            # console.print("[green]SUCCESS:[/green] Normalized tag weights")
+            return True
+        return False
 
-    def reset_to_uniform(self):
-        """Reset all weights to uniform distribution"""
-        if self.tag_weights:
-            uniform_weight = 1.0 / len(self.tag_weights)
-            for tag in self.tag_weights:
-                self.tag_weights[tag] = uniform_weight
+    def add_excluded_tag(self, tag: str) -> bool:
+        """Add tag to exclusion list"""
+        if tag not in self.excluded_tags:
+            self.excluded_tags.append(tag)
             self.save_tag_schema()
-            # console.print("[green]SUCCESS:[/green] Reset to uniform weights")
+            return True
+        return False
+
+    def remove_excluded_tag(self, tag: str) -> bool:
+        """Remove tag from exclusion list"""
+        if tag in self.excluded_tags:
+            self.excluded_tags.remove(tag)
+            self.save_tag_schema()
+            return True
+        return False
 
     def load_processing_history(self):
         """Load processing history from file"""
@@ -237,40 +252,40 @@ class ConfigManager:
         total_flashcards = history["total_flashcards"]
 
         if note_size == 0:
-            note_size = 1  # Prevent division by zero
+            note_size = 1
 
-        # Calculate flashcard density (flashcards per character)
         density = total_flashcards / note_size
 
         # Apply bias - higher density = lower weight
-        # Bias strength controls how aggressively we avoid over-processed notes
+        # bias_strength = 1: guaranteed zero probability for any processed notes
+        # bias_strength = 0: no penalty for processed notes
         effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
-        bias_factor = max(0.0, 1.0 - (density * 1000 * effective_bias))
+        bias_factor = (1.0 - effective_bias) ** (density * 1000)
 
         return bias_factor
 
-def get_sampling_weight_for_note(note_tags: List[str], note_path: str, note_size: int, config: ConfigManager, bias_strength: float = None) -> float:
-    """Calculate total sampling weight for a note based on tags and processing history"""
 
-    # Base weight from tags
+def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_strength: float = None) -> float:
+    """Calculate total sampling weight for a Note object - cleaner version"""
+    from cli.models import Note
+
+    if not isinstance(note, Note):
+        raise TypeError("Expected Note object")
+
     tag_weight = 1.0
     if SAMPLING_MODE == "weighted" and config.tag_weights:
-        # Find tags that match our configured weights (excluding _default)
-        relevant_tags = [tag for tag in note_tags if tag in config.tag_weights and tag != "_default"]
+        relevant_tags = [tag for tag in note.tags if tag in config.tag_weights and tag != "_default"]
 
         if not relevant_tags:
-            # Use _default weight for notes without relevant tags
             tag_weight = config.tag_weights.get("_default", 1.0)
         else:
-            # Use maximum weight among relevant tags
             tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
 
-    # Density bias (lower for over-processed notes)
-    density_bias = config.get_density_bias_for_note(note_path, note_size, bias_strength)
-
-    # Combine weights
+    density_bias = note.get_density_bias(bias_strength)
     final_weight = tag_weight * density_bias
 
     return final_weight
 
 
+# Global config manager instance - accessible everywhere after class definition
+CONFIG_MANAGER = ConfigManager()

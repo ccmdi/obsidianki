@@ -50,16 +50,14 @@ oki                          # Alias
 
 ### Configuration Management
 ```bash
-oki config                   # Show config commands
-oki config list              # List all settings
+oki config                   # Show config
 oki config get max_cards     # Get specific setting
 oki config set max_cards 15  # Update setting
 ```
 
 ### Tag Management
 ```bash
-oki tag                      # Show tag commands
-oki tag list                 # List tag weights and exclusions
+oki tag                      # Show tags
 oki tag add python 2.0       # Add/update tag weight
 oki tag remove python        # Remove tag weight
 oki tag exclude boring       # Exclude notes with 'boring' tag
@@ -68,15 +66,22 @@ oki tag include boring       # Remove 'boring' from exclusion list
 
 ### Note Selection
 ```bash
-oki --notes "React" "JavaScript"     # Process specific notes
-oki --cards 10                       # Generate up to 10 cards total
-oki --notes "React" "JavaScript" --cards 6  # Generate ~3 cards per note (6 total)
-oki --notes "React" --cards 6        # Generate ~6 cards from React note
+# Process specific number of notes
+oki --notes 5                         # Sample 5 random notes
+oki --notes 10 --cards 20             # Sample 10 notes, max 20 cards total
 
-# Directory patterns
-oki --notes "path/to/files/*"      # Process all notes in directory
-oki --notes "path/*" --sample 5          # Sample 5 random notes from directory
-oki --notes "path/*" --sample 10 --bias 1 # Sample with maximum bias against over-processed notes
+# Process specific notes by name
+oki --notes "React" "JavaScript"       # Process specific notes
+oki --notes "React" --cards 6          # Process React note, max 6 cards
+
+# Directory patterns with sampling
+oki --notes "frontend/*"               # Process all notes in frontend/
+oki --notes "frontend/*:5"             # Sample 5 notes from frontend/
+oki --notes "docs/*.md:3"              # Sample 3 markdown files from docs/
+oki --notes "react*:2" "vue*:1"        # Sample 2 React + 1 Vue note
+
+# Mixed usage
+oki --notes "React Hooks" "components/*:3"  # Specific note + 3 from pattern
 ```
 
 ### Query Mode
@@ -90,11 +95,17 @@ oki --notes "React" -q "error handling"
 oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 ```
 
-### Deck Management
+### Advanced Features
 ```bash
+# Deck management
 oki --deck "Programming"             # Add cards to specific deck
-oki -q "Python basics" --deck "CS"  # Query mode with custom deck
-oki config set deck "MyDeck"         # Change default deck
+oki deck                             # List all Anki decks
+oki deck rename "Old" "New"          # Rename a deck
+
+# History and statistics
+oki history stats                    # View generation statistics
+oki history clear                    # Clear processing history
+oki history clear --notes "React*"   # Clear history for specific notes
 ```
 
 ## How it works
@@ -114,4 +125,32 @@ oki config set deck "MyDeck"         # Change default deck
 
 **Deduplication**: History-based and deck-based options to avoid the same repeated content
 
-**Statistics**: View generation history and top notes
+**Statistics**: View generation history and top notes with `oki history stats`
+
+**Smart note selection**: Use `--notes 5` for random sampling or `--notes "pattern/*:3"` for targeted sampling
+
+## Configuration Options
+
+Key settings you can modify with `oki config set <key> <value>`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_cards` | `6` | Maximum cards per session |
+| `notes_to_sample` | `3` | Number of notes to process in default mode |
+| `days_old` | `30` | Only process notes older than N days |
+| `sampling_mode` | `"weighted"` | `"weighted"` or `"uniform"` note selection |
+| `card_type` | `"custom"` | `"basic"` or `"custom"` Anki card type |
+| `deck` | `"Obsidian"` | Default Anki deck name |
+| `approve_notes` | `false` | Review each note before processing |
+| `approve_cards` | `false` | Review each card before adding to Anki |
+| `deduplicate_via_history` | `false` | Avoid duplicates using processing history |
+| `deduplicate_via_deck` | `false` | Avoid duplicates by checking existing deck cards |
+| `use_deck_schema` | `false` | Match existing card formatting in deck |
+| `syntax_highlighting` | `true` | Enable code syntax highlighting |
+| `upfront_batching` | `false` | Process notes in parallel (faster) |
+| `batch_size_limit` | `20` | Max notes per batch |
+| `batch_card_limit` | `100` | Max cards per batch |
+| `density_bias_strength` | `0.5` | Bias strength against over-processed notes (0-1) |
+| `search_folders` | `[]` | Limit processing to specific folders (array) |
+| `tag_schema_file` | `"tags.json"` | File for tag weights configuration |
+| `processing_history_file` | `"processing_history.json"` | File for processing history tracking |

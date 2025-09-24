@@ -105,7 +105,10 @@ ANTHROPIC_API_KEY={anthropic_key}
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
             "DEDUPLICATE_VIA_DECK": False,
             "DECK": "Obsidian",
-            "SYNTAX_HIGHLIGHTING": syntax_highlighting
+            "SYNTAX_HIGHLIGHTING": syntax_highlighting,
+            "UPFRONT_BATCHING": False,  # Default to off, users can enable via config
+            "BATCH_SIZE_LIMIT": 20,
+            "BATCH_CARD_LIMIT": 100
         }
 
         try:
