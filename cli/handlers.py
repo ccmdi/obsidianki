@@ -496,7 +496,9 @@ def _create_card_selector(all_cards):
     scroll_mode = False  # Whether we're in scroll mode
     autoscroll = False  # Whether autoscroll is active
     autoscroll_speed = 0.1  # Autoscroll speed in seconds (much faster!)
+    autoscroll_pause_duration = 1.0  # Pause duration at start/end
     last_autoscroll_time = 0  # Last time autoscroll moved
+    just_started_scroll = False  # Flag to skip initial delay
 
     def create_display():
         nonlocal scroll_offset, scroll_mode, autoscroll
@@ -618,7 +620,7 @@ def _create_card_selector(all_cards):
             while True:
                 # Handle autoscroll
                 current_time = time.time()
-                if autoscroll and scroll_mode and (current_time - last_autoscroll_time) >= autoscroll_speed:
+                if autoscroll and scroll_mode:
                     # Check if current card has overflowing text and can scroll more
                     card = all_cards[current_index]
                     content = card['back'] if show_back else card['front']
@@ -627,15 +629,31 @@ def _create_card_selector(all_cards):
 
                     if len(content) > content_max:
                         max_scroll = len(content) - content_max
-                        if scroll_offset < max_scroll:
-                            scroll_offset += 1  # Autoscroll by 1 char for smooth movement
-                            last_autoscroll_time = current_time
-                            needs_update = True
+
+                        # Determine if we're at start/end for pause logic
+                        at_start = scroll_offset == 0
+                        at_end = scroll_offset >= max_scroll
+
+                        # Use longer pause at start/end, but skip initial delay if just started
+                        if just_started_scroll and at_start:
+                            required_delay = 0  # No delay when user just pressed right
+                        elif at_start or at_end:
+                            required_delay = autoscroll_pause_duration
                         else:
-                            # At end, reset to beginning for continuous loop
-                            scroll_offset = 0
-                            last_autoscroll_time = current_time
-                            needs_update = True
+                            required_delay = autoscroll_speed
+
+                        if (current_time - last_autoscroll_time) >= required_delay:
+                            if scroll_offset < max_scroll:
+                                scroll_offset += 1  # Autoscroll by 1 char for smooth movement
+                                last_autoscroll_time = current_time
+                                just_started_scroll = False  # Clear the flag after first movement
+                                needs_update = True
+                            else:
+                                # At end, reset to beginning for continuous loop
+                                scroll_offset = 0
+                                last_autoscroll_time = current_time
+                                just_started_scroll = False  # Clear the flag
+                                needs_update = True
 
                 # Only update display when needed to reduce lag
                 if needs_update:
@@ -681,6 +699,7 @@ def _create_card_selector(all_cards):
                             scroll_mode = True
                             scroll_offset = 0
                             autoscroll = True  # Start autoscroll by default!
+                            just_started_scroll = True  # Flag to skip initial delay
                             last_autoscroll_time = time.time()
                         else:
                             if autoscroll:
