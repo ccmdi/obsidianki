@@ -120,18 +120,7 @@ oki history clear --notes "React*"   # Clear history for specific notes
 - **Standalone**: Generates flashcards from AI knowledge alone based on your query
 - **Targeted**: Extracts specific information from selected notes based on your query
 
-### Other features
-**Custom flashcard type**: Includes clickable "Origin" field that opens the source note
-
-**Deduplication**: History-based and deck-based options to avoid the same repeated content
-
-**Statistics**: View generation history and top notes with `oki history stats`
-
-**Smart note selection**: Use `--notes 5` for random sampling or `--notes "pattern/*:3"` for targeted sampling
-
 ## Configuration Options
-
-Key settings you can modify with `oki config set <key> <value>`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
