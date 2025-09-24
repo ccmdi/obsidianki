@@ -534,15 +534,28 @@ def _create_card_selector(all_cards):
         # Instructions and status
         instructions = Text()
         instructions.append("Controls: ", style="bold cyan")
-        instructions.append("↑/↓ Navigate  ", style="white")
-        instructions.append("Space Select  ", style="white")
-        instructions.append("Tab Toggle View  ", style="white")
-        instructions.append("Enter Confirm  ", style="white")
-        instructions.append("Esc Cancel", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Up/Down", style="cyan")
+        instructions.append(") Navigate  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Space", style="cyan")
+        instructions.append(") Select  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Tab", style="cyan")
+        instructions.append(") Toggle View  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Enter", style="cyan")
+        instructions.append(") Confirm  ", style="white")
+        instructions.append("(", style="white")
+        instructions.append("Esc", style="cyan")
+        instructions.append(") Cancel", style="white")
 
         status = Text()
         if selected_indices:
             status.append(f"Selected: {len(selected_indices)} cards", style="green")
+            # Show selected card IDs
+            selected_ids = sorted([i + 1 for i in selected_indices])
+            status.append(f"\nIDs: {', '.join(map(str, selected_ids))}", style="dim green")
         else:
             status.append("No cards selected", style="yellow")
 
@@ -603,7 +616,7 @@ def edit_mode(args):
 
     deck_name = args.deck if args.deck else DECK
 
-    console.print(Panel("Interactive Card Editing Mode", style="bold blue"))
+    console.print(Panel("ObsidianKi - Editing mode", style="bold blue"))
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
     console.print()
 

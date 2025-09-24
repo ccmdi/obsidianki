@@ -143,6 +143,14 @@ def main():
         handle_deck_command(args)
         return 0
 
+    if args.edit:
+        from cli.handlers import edit_mode
+        try:
+            return edit_mode(args)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Operation cancelled by user[/yellow]")
+            return 1
+
     needs_setup = False
     if not ENV_FILE.exists():
         needs_setup = True
@@ -160,21 +168,13 @@ def main():
     console.print(Panel(Text("ObsidianKi - Generating flashcards", style="bold blue"), style="blue"))
 
 
-    # entrypoint for flashcard generation or editing
-    if args.edit:
-        from cli.handlers import edit_mode
-        try:
-            return edit_mode(args)
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Operation cancelled by user[/yellow]")
-            return 1
-    else:
-        from cli.processors import preprocess
-        try:
-            return preprocess(args)
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Operation cancelled by user[/yellow]")
-            return 1
+    # entrypoint for flashcard generation
+    from cli.processors import preprocess
+    try:
+        return preprocess(args)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        return 1
 
 
 if __name__ == "__main__":
