@@ -547,5 +547,70 @@ class FlashcardAI:
                 except Exception as e:
                     console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
                     completed_results[index] = []
-                    
+
         return completed_results
+
+    def edit_cards(self, cards: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
+        """Edit existing cards based on a query"""
+        if not cards:
+            return []
+
+        # Build card context
+        cards_context = ""
+        for i, card in enumerate(cards, 1):
+            cards_context += f"Card {i}:\nFront: {card['front']}\nBack: {card['back']}\n\n"
+
+        edit_prompt = f"""You are tasked with editing existing flashcards based on a specific query/instruction.
+
+Here are the existing cards:
+{cards_context}
+
+INSTRUCTION: {query}
+
+Please apply the requested changes to ALL cards and return them using the create_flashcards tool. You must provide exactly {len(cards)} flashcards - one for each original card.
+
+IMPORTANT:
+- Apply the instruction to each card as requested
+- If the instruction says to change something, make that change
+- If a card doesn't need changes based on the instruction, keep it exactly as is
+- Return ALL {len(cards)} cards, whether changed or unchanged
+- Use the create_flashcards tool to return the results"""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                messages=[
+                    {"role": "user", "content": edit_prompt}
+                ],
+                tools=[FLASHCARD_TOOL]
+            )
+
+            if not response.content:
+                console.print("[yellow]WARNING:[/yellow] No response from AI for card editing")
+                return cards
+
+            edited_cards = []
+
+            for content_block in response.content:
+                if content_block.type == "tool_use" and content_block.name == "create_flashcards":
+                    tool_input = content_block.input
+                    if "flashcards" in tool_input:
+                        for flashcard_data in tool_input["flashcards"]:
+                            if "front" in flashcard_data and "back" in flashcard_data:
+                                edited_cards.append({
+                                    "front": flashcard_data["front"],
+                                    "back": flashcard_data["back"],
+                                    "origin": flashcard_data.get("origin", "")
+                                })
+
+            # If we didn't get the expected number of cards, fall back to original
+            if len(edited_cards) != len(cards):
+                console.print(f"[yellow]WARNING:[/yellow] Expected {len(cards)} edited cards, got {len(edited_cards)}. Using original cards.")
+                return cards
+
+            return edited_cards
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to edit cards: {e}")
+            return cards

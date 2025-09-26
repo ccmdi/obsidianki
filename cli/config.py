@@ -142,7 +142,6 @@ class ConfigManager:
         if not self.excluded_tags:
             return False
 
-        # Check if any of the note's tags are in the exclude list
         return any(tag in self.excluded_tags for tag in note_tags)
 
     def update_tag_weight(self, tag: str, weight: float):

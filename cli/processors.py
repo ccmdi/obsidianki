@@ -327,3 +327,5 @@ def preprocess(args):
     console.print("")
     console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
     return total_cards
+
+
