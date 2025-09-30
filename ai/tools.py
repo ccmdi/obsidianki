@@ -27,7 +27,6 @@ FLASHCARD_TOOL = {
     }
 }
 
-# DQL Agent System Prompt
 # DQL Execution Tool for multi-turn agent
 DQL_EXECUTION_TOOL = {
     "name": "execute_dql_query",

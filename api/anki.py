@@ -303,5 +303,3 @@ class AnkiAPI(BaseAPI):
             return version >= 5
         except Exception:
             return False
-
-

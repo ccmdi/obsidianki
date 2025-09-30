@@ -11,7 +11,6 @@ def strip_html(text: str) -> str:
 def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> str:
     """Convert markdown code blocks to HTML, optionally with syntax highlighting"""
     if not enable_syntax_highlighting:
-        # Simple conversion without syntax highlighting
         text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
         return text
 
@@ -50,6 +49,5 @@ def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> s
         return text
 
     except ImportError:
-        # Fallback to simple code tags if Pygments not available
         text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
         return text
