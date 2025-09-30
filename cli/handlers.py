@@ -727,7 +727,15 @@ def _create_card_selector(all_cards):
                         needs_update = True
                 elif key == 'enter':
                     if selected_indices:
-                        return [all_cards[i] for i in sorted(selected_indices)]
+                        from cli.utils import strip_html
+                        selected_cards = []
+                        for i in sorted(selected_indices):
+                            card = all_cards[i].copy()
+                            # Add original stripped versions for display/editing
+                            card['front_original'] = strip_html(card['front'])
+                            card['back_original'] = strip_html(card['back'])
+                            selected_cards.append(card)
+                        return selected_cards
                 elif key == 'escape':
                     return None
 

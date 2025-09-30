@@ -592,13 +592,19 @@ IMPORTANT:
                     if "flashcards" in tool_input:
                         for flashcard_data in tool_input["flashcards"]:
                             if "front" in flashcard_data and "back" in flashcard_data:
+                                # Store original text before processing
+                                front_original = flashcard_data["front"]
+                                back_original = flashcard_data["back"]
+
                                 # Process code blocks like other flashcard generation
-                                front_processed = process_code_blocks(flashcard_data["front"], SYNTAX_HIGHLIGHTING)
-                                back_processed = process_code_blocks(flashcard_data["back"], SYNTAX_HIGHLIGHTING)
+                                front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                                back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
 
                                 edited_cards.append({
                                     "front": front_processed,
                                     "back": back_processed,
+                                    "front_original": front_original,
+                                    "back_original": back_original,
                                     "origin": flashcard_data.get("origin", "")
                                 })
 
