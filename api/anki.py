@@ -296,6 +296,71 @@ class AnkiAPI(BaseAPI):
             console.print(f"[red]ERROR:[/red] Failed to rename deck: {e}")
             return False
 
+    def get_cards_for_editing(self, deck_name: str = "Obsidian", limit: int = None) -> List[Dict[str, str]]:
+        """Get cards from deck with their note IDs for editing"""
+        try:
+            query = f"deck:\"{deck_name}\" -is:suspended -is:buried"
+            card_ids = self._request("findCards", {"query": query})
+
+            if not card_ids:
+                return []
+
+            if limit and len(card_ids) > limit:
+                import random
+                card_ids = random.sample(card_ids, limit)
+
+            # Get card info including note IDs
+            cards_info = self._request("cardsInfo", {"cards": card_ids})
+
+            if not cards_info:
+                return []
+
+            # Extract card data with note IDs
+            cards = []
+            for card in cards_info:
+                fields = card.get("fields", {})
+                front = fields.get("Front", {}).get("value", "")
+                back = fields.get("Back", {}).get("value", "")
+                origin = fields.get("Origin", {}).get("value", "")
+                note_id = card.get("note")
+
+                if front and back and note_id:
+                    cards.append({
+                        "noteId": note_id,
+                        "front": front,
+                        "back": back,
+                        "origin": origin
+                    })
+
+            return cards
+
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not get cards for editing: {e}")
+            return []
+
+    def update_note(self, note_id: int, front: str, back: str, origin: str = None) -> bool:
+        """Update an existing note's fields"""
+        try:
+            fields = {"Front": front, "Back": back}
+            if origin:
+                fields["Origin"] = origin
+
+            note_data = {
+                "id": note_id,
+                "fields": fields
+            }
+
+            # console.print(f"[cyan]DEBUG:[/cyan] Front length: {len(front)}, Back length: {len(back)}")
+            # console.print(f"[cyan]DEBUG:[/cyan] Front: {repr(front)}")
+            # console.print(f"[cyan]DEBUG:[/cyan] Back: {repr(back)}")
+            result = self._request("updateNoteFields", {"note": note_data})
+            # console.print(f"[cyan]DEBUG:[/cyan] Request result: {result}")
+            return result is None
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to update note {note_id}: {e}")
+            return False
+
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
         try:

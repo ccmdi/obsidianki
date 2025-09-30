@@ -547,5 +547,95 @@ class FlashcardAI:
                 except Exception as e:
                     console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
                     completed_results[index] = []
-                    
+
         return completed_results
+
+    def edit_cards(self, cards: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
+        """Edit existing cards based on a query"""
+        if not cards:
+            return []
+
+        # Build card context using original text (strip HTML for cleaner AI input)
+        cards_context = ""
+        for i, card in enumerate(cards, 1):
+            front_clean = strip_html(card['front'])
+            back_clean = strip_html(card['back'])
+            cards_context += f"Card {i}:\nFront: {front_clean}\nBack: {back_clean}\n\n"
+
+        edit_system_prompt = """You are a flashcard editor. Your task is to apply specific edits to existing flashcards while maintaining their learning value and structure.
+
+When editing cards:
+- Apply the requested changes accurately
+- Preserve the intent and learning value of each card
+- Keep the same level of detail unless asked to change it
+- Maintain consistent formatting across cards
+- If a card doesn't need changes based on the instruction, keep it exactly as is
+- Use markdown formatting with triple backticks (```) for code blocks
+- Do NOT use HTML tags - use markdown instead"""
+
+        edit_prompt = f"""Here are the existing cards (shown in plain text format):
+{cards_context}
+
+INSTRUCTION: {query}
+
+Please apply the requested changes to ALL cards and return them using the create_flashcards tool. You must provide exactly {len(cards)} flashcards - one for each original card in order.
+
+IMPORTANT:
+- Return ALL {len(cards)} cards in the same order
+- Apply the instruction to each card as appropriate
+- If a card doesn't need changes, return it unchanged
+- Use markdown syntax with triple backticks for code blocks (```language\\ncode\\n```)
+- Do NOT use HTML tags like <pre>, <code>, <div>, etc."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-4-sonnet-20250514",
+                max_tokens=4000,
+                system=edit_system_prompt,
+                messages=[
+                    {"role": "user", "content": edit_prompt}
+                ],
+                tools=[FLASHCARD_TOOL],
+                tool_choice={"type": "tool", "name": "create_flashcards"}
+            )
+
+            if not response.content:
+                console.print("[yellow]WARNING:[/yellow] No response from AI for card editing")
+                return cards
+
+            edited_cards = []
+
+            for content_block in response.content:
+                if content_block.type == "tool_use" and content_block.name == "create_flashcards":
+                    tool_input = content_block.input
+                    if "flashcards" in tool_input:
+                        for flashcard_data in tool_input["flashcards"]:
+                            if "front" in flashcard_data and "back" in flashcard_data:
+                                # Store original text before processing
+                                front_original = flashcard_data["front"]
+                                back_original = flashcard_data["back"]
+
+                                # Process code blocks like other flashcard generation
+                                front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
+                                back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+
+                                edited_cards.append({
+                                    "front": front_processed,
+                                    "back": back_processed,
+                                    "front_original": front_original,
+                                    "back_original": back_original,
+                                    "origin": flashcard_data.get("origin", "")
+                                })
+
+            if len(edited_cards) != len(cards):
+                console.print(f"[yellow]WARNING:[/yellow] Expected {len(cards)} edited cards, got {len(edited_cards)}.")
+                console.print(f"[yellow]AI returned incomplete results. Using original cards.[/yellow]")
+                return cards
+
+            return edited_cards
+
+        except Exception as e:
+            import traceback
+            console.print(f"[red]ERROR:[/red] Failed to edit cards: {e}")
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            return cards
