@@ -53,7 +53,7 @@ def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
     #TODO add debugging for this
     front_clean = flashcard.front_original or flashcard.front
-    back_clean = flashcard.back or flashcard.back_original
+    back_clean = flashcard.back_original or flashcard.back
 
     console.print(f"   [cyan]Front:[/cyan] {front_clean}")
     console.print(f"   [cyan]Back:[/cyan] {back_clean}")
@@ -823,8 +823,8 @@ def edit_mode(args):
         console.print(f"  [cyan]Original Front:[/cyan] {original_card['front']}")
         console.print(f"  [cyan]Updated Front:[/cyan] {edited_card['front']}")
         console.print()
-        console.print(f"  [cyan]Original Back:[/cyan] {original_card['back']}")
-        console.print(f"  [cyan]Updated Back:[/cyan] {edited_card['back']}")
+        console.print(f"  [cyan]Original Back:[/cyan] {original_card['back_original']}")
+        console.print(f"  [cyan]Updated Back:[/cyan] {edited_card['back_original']}")
         console.print()
 
         # Convert to Flashcard object for approval if needed
@@ -833,6 +833,8 @@ def edit_mode(args):
             flashcard = Flashcard(
                 front=edited_card['front'],
                 back=edited_card['back'],
+                back_original=edited_card['back_original'],
+                front_original=edited_card['front_original'],
                 note=dummy_note
             )
 
