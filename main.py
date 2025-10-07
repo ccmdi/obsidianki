@@ -176,6 +176,9 @@ def main():
     except KeyboardInterrupt:
         console.print("\n[yellow]Operation cancelled by user[/yellow]")
         return 1
+    except Exception as e:
+        console.print(f"\n[red]ERROR:[/red] {e}")
+        exit(1)
 
 
 if __name__ == "__main__":
@@ -186,4 +189,4 @@ if __name__ == "__main__":
         exit(1)
     except Exception as e:
         console.print(f"\n[red]ERROR:[/red] {e}")
-        raise
+        exit(1)

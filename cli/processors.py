@@ -137,11 +137,11 @@ def preprocess(args):
     # Test connections
     if not OBSIDIAN.test_connection():
         console.print("[red]ERROR:[/red] Cannot connect to Obsidian REST API")
-        return 0
+        return 1
 
     if not ANKI.test_connection():
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
-        return 0
+        return 1
 
     # === GET NOTES TO PROCESS ===
     notes = None
@@ -160,7 +160,7 @@ def preprocess(args):
         notes = AI.find_with_agent(args.agent, sample_size=notes_to_sample, bias_strength=effective_bias_strength)
         if not notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
-            return 0
+            return 1
         # Update max_cards based on found notes (if --cards wasn't specified)
         if args.cards is None:
             max_cards = len(notes) * 2
@@ -203,13 +203,13 @@ def preprocess(args):
         
         if not notes:
             console.print("[red]ERROR:[/red] No notes found")
-            return 0
+            return 1
     else:
         # Default sampling
         notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength, search_folders=search_folders)
         if not notes:
             console.print("[red]ERROR:[/red] No old notes found")
-            return 0
+            return 1
 
     # Show processing info
     if args.query and args.notes:
@@ -318,7 +318,7 @@ def preprocess(args):
                         continue
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                    return total_cards
+                    return 0
             
             try:
                 flashcards, note_content, _ = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
@@ -332,10 +332,10 @@ def preprocess(args):
                 
             except KeyboardInterrupt:
                 console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                return total_cards
+                return 0
 
     console.print("")
     console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
-    return total_cards
+    return 0
 
 
