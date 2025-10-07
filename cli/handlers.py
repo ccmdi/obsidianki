@@ -258,7 +258,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        history_file = CONFIG_DIR / CONFIG_MANAGER.processing_history_file
+        from cli.config import CONFIG_MANAGER
+        history_file = CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -334,8 +335,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'stats':
-        from cli.config import PROCESSING_HISTORY_FILE
-        history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
+        from cli.config import CONFIG_MANAGER
+        history_file = CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found[/yellow]")
@@ -834,7 +835,7 @@ def edit_mode(args):
 
         # Convert to Flashcard object for approval if needed
         if APPROVE_CARDS:
-            dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[])
+            dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[], size=0)
             flashcard = Flashcard(
                 front=edited_card['front'],
                 back=edited_card['back'],
