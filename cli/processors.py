@@ -35,14 +35,14 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
     return flashcards
 
 
-def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
+def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = None):
     """Handle flashcard approval and Anki addition"""
     from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
     approve_cards = APPROVE_CARDS
-    if args and hasattr(args, 'mcp') and args.mcp:
+    if args.mcp:
         approve_cards = False
         print_cards = True
 
@@ -95,7 +95,7 @@ def preprocess(args):
     )
     from rich.panel import Panel
 
-    if hasattr(args, 'mcp') and args.mcp:
+    if args.mcp:
         APPROVE_NOTES = False
         UPFRONT_BATCHING = True
 
@@ -243,7 +243,7 @@ def preprocess(args):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+    use_schema = args.use_schema if args.use_schema else USE_DECK_SCHEMA
     if use_schema:
         deck_examples = ANKI.get_card_examples(deck_name)
         if deck_examples:

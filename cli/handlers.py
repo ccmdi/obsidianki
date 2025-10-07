@@ -72,7 +72,7 @@ def handle_config_command(args):
     """Handle config management commands"""
 
     # Handle help request
-    if hasattr(args, 'help') and args.help:
+    if args.help:
         show_simple_help("Configuration Management", {
             "config": "List all configuration settings",
             "config get <key>": "Get a configuration value",
@@ -174,7 +174,7 @@ def handle_tag_command(args):
     """Handle tag management commands"""
 
     # Handle help request
-    if hasattr(args, 'help') and args.help:
+    if args.help:
         show_simple_help("Tag Management", {
             "tag": "List all tag weights and exclusions",
             "tag add <tag> <weight>": "Add or update a tag weight",
@@ -241,7 +241,7 @@ def handle_history_command(args):
     """Handle history management commands"""
 
     # Handle help request
-    if hasattr(args, 'help') and args.help:
+    if args.help:
         show_simple_help("History Management", {
             "history clear": "Clear all processing history",
             "history clear --notes <patterns>": "Clear history for specific notes/patterns only",
@@ -265,7 +265,7 @@ def handle_history_command(args):
             return
 
         # Check if specific notes were requested
-        if hasattr(args, 'notes') and args.notes:
+        if args.notes:
             # Selective clearing for specific notes
             try:
                 import json
@@ -868,7 +868,7 @@ def handle_deck_command(args):
     """Handle deck management commands"""
 
     # Handle help request
-    if hasattr(args, 'help') and args.help:
+    if args.help:
         show_simple_help("Deck Management", {
             "deck": "List all Anki decks",
             "deck -m": "List all Anki decks with card counts",
@@ -899,7 +899,7 @@ def handle_deck_command(args):
         console.print()
 
         # Check if metadata flag is set
-        show_metadata = hasattr(args, 'metadata') and args.metadata
+        show_metadata = args.metadata
 
         if show_metadata:
             console.print(f"[dim]Found {len(deck_names)} decks:[/dim]")
@@ -939,7 +939,7 @@ def handle_template_command(args):
     import shlex
 
     # Handle help request
-    if hasattr(args, 'help') and args.help:
+    if args.help:
         show_simple_help("Template Management", {
             "template add <name> <command>": "Save a command template",
             "template use <name>": "Execute a saved template",
