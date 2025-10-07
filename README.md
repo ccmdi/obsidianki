@@ -48,14 +48,14 @@ obsidianki                   # Generate flashcards
 oki                          # Alias
 ```
 
-### Configuration Management
+### Configuration
 ```bash
 oki config                   # Show config
 oki config get max_cards     # Get specific setting
 oki config set max_cards 15  # Update setting
 ```
 
-### Tag Management
+### Tags
 ```bash
 oki tag                      # Show tags
 oki tag add python 2.0       # Add/update tag weight
@@ -64,7 +64,7 @@ oki tag exclude boring       # Exclude notes with 'boring' tag
 oki tag include boring       # Remove 'boring' from exclusion list
 ```
 
-### Note Selection
+### Notes
 ```bash
 # Process specific number of notes
 oki --notes 5                         # Sample 5 random notes
@@ -84,7 +84,7 @@ oki --notes "react*:2" "vue*:1"        # Sample 2 React + 1 Vue note
 oki --notes "React Hooks" "components/*:3"  # Specific note + 3 from pattern
 ```
 
-### Query Mode
+### Query mode
 ```bash
 # Make flashcard without source note
 oki -q "how to center a div"
@@ -95,7 +95,7 @@ oki --notes "React" -q "error handling"
 oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
 ```
 
-### Advanced Features
+### Advanced
 ```bash
 # Deck management
 oki --deck "Programming"             # Add cards to specific deck
@@ -109,22 +109,22 @@ oki history clear --notes "React*"   # Clear history for specific notes
 
 # Templating
 oki template add "programming" "--notes 'frontend/*' --cards 3' -b 1"
-oki template use programming # runs the above command
+oki template use programming # runs the above command as "oki --notes 'frontend/*' --cards 3' -b 1"
 ```
 
 ## How it works
 
-### Standard Mode
+### Standard mode
 1. Finds old notes in your vault (configurable age threshold)
 2. Weights notes by tags and processing history (avoids over-processed notes)
 3. Generates flashcards using Claude 4 Sonnet
 4. Creates cards in Anki **"Obsidian"** deck (or `DECK` set in config)
 
-### Query Modes
+### Query mode
 - **Standalone**: Generates flashcards from AI knowledge alone based on your query
 - **Targeted**: Extracts specific information from selected notes based on your query
 
-## Configuration Options
+## Configuration options
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -146,5 +146,5 @@ oki template use programming # runs the above command
 | `density_bias_strength` | `0.5` | Bias strength against over-processed notes (0-1) |
 | `search_folders` | `[]` | Limit processing to specific folders (array) |
 
-# Obsidianki MCP
+# MCP
 There is an [experimental MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. Useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.
