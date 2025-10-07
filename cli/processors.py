@@ -339,7 +339,7 @@ def preprocess(args):
                 return 0
 
     console.print("")
-    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
+    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to deck '{deck_name}'", style="green"))
     return 0
 
 

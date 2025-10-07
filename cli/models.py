@@ -30,7 +30,7 @@ class Note:
     @property
     def title(self) -> str:
         """Clean title without file extension."""
-        return Path(self.filename).stem
+        return self.filename.rsplit('.md', 1)[0] if self.filename.endswith('.md') else self.filename
 
     def get_sampling_weight(self, bias_strength: float = None) -> float:
         """Calculate total sampling weight based on tags and processing history."""
