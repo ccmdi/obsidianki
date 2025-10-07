@@ -102,10 +102,14 @@ oki --deck "Programming"             # Add cards to specific deck
 oki deck                             # List all Anki decks
 oki deck rename "Old" "New"          # Rename a deck
 
-# History and statistics
+# History
 oki history stats                    # View generation statistics
 oki history clear                    # Clear processing history
 oki history clear --notes "React*"   # Clear history for specific notes
+
+# Templating
+oki template add "programming" "--notes 'frontend/*' --cards 3' -b 1"
+oki template use programming # runs the above command
 ```
 
 ## How it works
@@ -141,8 +145,6 @@ oki history clear --notes "React*"   # Clear history for specific notes
 | `batch_card_limit` | `100` | Max cards per batch |
 | `density_bias_strength` | `0.5` | Bias strength against over-processed notes (0-1) |
 | `search_folders` | `[]` | Limit processing to specific folders (array) |
-| `tag_schema_file` | `"tags.json"` | File for tag weights configuration |
-| `processing_history_file` | `"processing_history.json"` | File for processing history tracking |
 
 # Obsidianki MCP
 There is an [experimental MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. Useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.
