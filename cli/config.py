@@ -1,7 +1,6 @@
 import json
-import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from dotenv import load_dotenv
 from rich.console import Console
 
@@ -11,7 +10,6 @@ CONFIG_DIR = Path.home() / ".config" / "obsidianki"
 ENV_FILE = CONFIG_DIR / ".env"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-# Load environment variables once
 load_dotenv(ENV_FILE)
 
 # Default Configuration
@@ -38,11 +36,10 @@ DEFAULT_CONFIG = {
 def load_config():
     """Load configuration from global config.json, using defaults if it doesn't exist"""
     config = DEFAULT_CONFIG.copy()
-    config_file = CONFIG_DIR / "config.json"
 
-    if config_file.exists():
+    if CONFIG_FILE.exists():
         try:
-            with open(config_file, "r") as f:
+            with open(CONFIG_FILE, "r") as f:
                 local_config = json.load(f)
                 config.update(local_config)
         except Exception as e:
@@ -104,7 +101,7 @@ class ConfigManager:
             if SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
                     console.print("[yellow]WARNING:[/yellow] '_default' weight not found in tags.json")
-                    self.tag_weights["_default"] = 0.1
+                    self.tag_weights["_default"] = 1
 
         else:
             console.print(f"[red]ERROR:[/red] {self.tag_schema_file} not found. For weighted sampling, create it with your tag weights.")
@@ -117,7 +114,6 @@ class ConfigManager:
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Combine weights and exclude array into single schema
         schema = self.tag_weights.copy()
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags
@@ -146,7 +142,6 @@ class ConfigManager:
         if tag in self.tag_weights:
             self.tag_weights[tag] = weight
             self.save_tag_schema()
-            # console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
         else:
             console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
@@ -305,5 +300,5 @@ def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_streng
     return final_weight
 
 
-# Global config manager instance - accessible everywhere after class definition
+# Global config manager instance
 CONFIG_MANAGER = ConfigManager()

@@ -148,10 +148,9 @@ def main():
 
     args = parser.parse_args()
 
-    if hasattr(args, 'help') and args.help:
-        if not args.command:
-            show_main_help()
-            return 0
+    if args.help and not args.command:
+        show_main_help()
+        return 0
 
     # Handle config, history, and tag management commands
     if args.command == 'config':
