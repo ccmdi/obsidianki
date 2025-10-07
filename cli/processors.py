@@ -41,19 +41,24 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
-    # Override approval settings when --mcp flag is set
     approve_cards = APPROVE_CARDS
     if args and hasattr(args, 'mcp') and args.mcp:
         approve_cards = False
+        print_cards = True
 
     # Flashcard approval
     cards_to_add = flashcards
-    if approve_cards:
+    if approve_cards or print_cards:
         approved_flashcards = []
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
-                if approve_flashcard(flashcard, note):
+                if approve_cards and approve_flashcard(flashcard, note):
+                    approved_flashcards.append(flashcard)
+                elif print_cards:
+                    console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")
+                    console.print(f"   [cyan]Back:[/cyan] {flashcard.back}")
+                    console.print()
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
             raise
@@ -90,10 +95,9 @@ def preprocess(args):
     )
     from rich.panel import Panel
 
-    # Override approval settings when --mcp flag is set
     if hasattr(args, 'mcp') and args.mcp:
         APPROVE_NOTES = False
-        APPROVE_CARDS = False
+        UPFRONT_BATCHING = True
 
     deck_name = args.deck if args.deck else DECK
     notes_to_sample = NOTES_TO_SAMPLE
