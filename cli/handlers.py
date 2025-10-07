@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.text import Text
 from cli.models import Note, Flashcard
 
-from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
+from cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -184,12 +184,10 @@ def handle_tag_command(args):
         })
         return
 
-    config = ConfigManager() #TODO
-
     if args.tag_action is None:
         # Default action: list tags (same as old 'list' command)
-        weights = config.get_tag_weights()
-        excluded = config.get_excluded_tags()
+        weights = CONFIG_MANAGER.get_tag_weights()
+        excluded = CONFIG_MANAGER.get_excluded_tags()
 
         if not weights and not excluded:
             console.print("[dim]No tag weights configured. Use 'oki tag add <tag> <weight>' to add tags.[/dim]")
@@ -210,13 +208,13 @@ def handle_tag_command(args):
 
     if args.tag_action == 'add':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if config.add_tag_weight(tag, args.weight):
+        if CONFIG_MANAGER.add_tag_weight(tag, args.weight):
             console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if config.remove_tag_weight(tag):
+        if CONFIG_MANAGER.remove_tag_weight(tag):
             console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
@@ -224,7 +222,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'exclude':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if config.add_excluded_tag(tag):
+        if CONFIG_MANAGER.add_excluded_tag(tag):
             console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
@@ -232,7 +230,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'include':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if config.remove_excluded_tag(tag):
+        if CONFIG_MANAGER.remove_excluded_tag(tag):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
@@ -260,8 +258,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from cli.config import PROCESSING_HISTORY_FILE
-        history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
+        history_file = CONFIG_DIR / CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -934,3 +931,108 @@ def handle_deck_command(args):
             console.print("[red]Failed to rename deck[/red]")
 
         return
+
+
+def handle_template_command(args):
+    """Handle template management commands"""
+    import sys
+    import shlex
+
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Template Management", {
+            "template add <name> <command>": "Save a command template",
+            "template use <name>": "Execute a saved template",
+            "template remove <name>": "Remove a template"
+        })
+        return
+
+    if args.template_action is None:
+        templates = CONFIG_MANAGER.load_templates()
+
+        if not templates:
+            console.print("[yellow]No templates saved[/yellow]")
+            console.print("\n[dim]Add a template with:[/dim] [cyan]oki template add <name> <command>[/cyan]")
+            return
+
+        console.print("[bold blue]Saved Templates[/bold blue]")
+        console.print()
+
+        for name, command in sorted(templates.items()):
+            console.print(f"  [cyan]{name}[/cyan]")
+            console.print(f"    [dim]oki {command}[/dim]")
+            console.print()
+
+    elif args.template_action == 'add':
+        templates = CONFIG_MANAGER.load_templates()
+        name = args.name
+        command = args.template_command
+
+        # Check if template already exists
+        if name in templates:
+            console.print(f"[yellow]WARNING:[/yellow] Template '[cyan]{name}[/cyan]' already exists")
+            if not Confirm.ask("   Overwrite?", default=False):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        templates[name] = command
+
+        if CONFIG_MANAGER.save_templates(templates):
+            console.print(f"[green]✓[/green] Saved template '[cyan]{name}[/cyan]'")
+            console.print(f"[dim]Use with:[/dim] [cyan]oki template use {name}[/cyan]")
+
+    elif args.template_action == 'use':
+        templates = CONFIG_MANAGER.load_templates()
+        name = args.name
+
+        if name not in templates:
+            console.print(f"[red]ERROR:[/red] Template '[cyan]{name}[/cyan]' not found")
+            return
+
+        command = templates[name]
+        console.print(f"[cyan]Executing template:[/cyan] [bold]{name}[/bold]")
+        console.print(f"[dim]Command:[/dim] oki {command}")
+        console.print()
+
+        # Parse the command and re-invoke main with those arguments
+        try:
+            # Import main from this module's parent
+            from main import main
+
+            # Parse the command string into arguments
+            cmd_args = shlex.split(command)
+
+            # Replace sys.argv with the new arguments
+            original_argv = sys.argv
+            sys.argv = ['oki'] + cmd_args
+
+            # Call main() with the new arguments
+            result = main()
+
+            # Restore original argv
+            sys.argv = original_argv
+
+            # Exit with the result code
+            sys.exit(result if result is not None else 0)
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to execute template: {e}")
+            sys.argv = original_argv
+
+    elif args.template_action == 'remove':
+        templates = CONFIG_MANAGER.load_templates()
+        name = args.name
+
+        if name not in templates:
+            console.print(f"[red]ERROR:[/red] Template '[cyan]{name}[/cyan]' not found")
+            return
+
+        console.print(f"[yellow]Removing template:[/yellow] [cyan]{name}[/cyan]")
+        console.print(f"[dim]Command:[/dim] oki {templates[name]}")
+
+        if Confirm.ask("   Are you sure?", default=False):
+            del templates[name]
+            if CONFIG_MANAGER.save_templates(templates):
+                console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
+        else:
+            console.print("[yellow]Cancelled[/yellow]")

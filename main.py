@@ -6,7 +6,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 
 from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
-from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command
+from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -27,7 +27,7 @@ def show_main_help():
     console.print("  [cyan]-n, --notes <args>[/cyan]     Notes to process: count (5), names (\"React\"), or patterns (\"docs/*:3\")")
     console.print("  [cyan]-q, --query <text>[/cyan]     Generate cards from query or extract from notes")
     console.print("  [cyan]-e, --edit[/cyan]             Interactive editing mode for existing cards")
-    console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
+    # console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
     console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
     console.print("  [cyan]-b, --bias <float>[/cyan]     Bias against over-processed notes (0-1)")
     console.print("  [cyan]-w, --allow <folders>[/cyan]  Temporarily expand search to additional folders")
@@ -39,6 +39,7 @@ def show_main_help():
     console.print("  [cyan]tag[/cyan]                   Manage tag weights")
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
+    console.print("  [cyan]template[/cyan]              Manage command templates")
     console.print()
 
 
@@ -55,6 +56,7 @@ def main():
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
+  
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
 
     # Config management subparser
@@ -78,6 +80,7 @@ def main():
     # config where
     config_subparsers.add_parser('where', help='Show configuration directory path')
 
+
     # History management
     history_parser = subparsers.add_parser('history', help='Manage processing history', add_help=False)
     history_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
@@ -89,6 +92,7 @@ def main():
 
     # history stats
     history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
+
 
     # Tag management
     tag_parser = subparsers.add_parser('tag', aliases=['tags'], help='Manage tag weights', add_help=False)
@@ -112,6 +116,7 @@ def main():
     include_parser = tag_subparsers.add_parser('include', help='Remove a tag from exclusion list')
     include_parser.add_argument('tag', help='Tag name to include')
 
+
     # Deck management
     deck_parser = subparsers.add_parser('deck', help='Manage Anki decks', add_help=False)
     deck_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
@@ -122,6 +127,24 @@ def main():
     rename_parser = deck_subparsers.add_parser('rename', help='Rename a deck')
     rename_parser.add_argument('old_name', help='Current deck name')
     rename_parser.add_argument('new_name', help='New deck name')
+
+    # Templating
+    template_parser = subparsers.add_parser('template', aliases=['templates'], help='Manage command templates', add_help=False)
+    template_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    template_subparsers = template_parser.add_subparsers(dest='template_action', help='Template actions')
+
+    # template add <name> <command>
+    add_template_parser = template_subparsers.add_parser('add', help='Add a command template')
+    add_template_parser.add_argument('name', help='Template name')
+    add_template_parser.add_argument('template_command', help='Command template (without "oki" prefix)')
+
+    # template use <name>
+    use_template_parser = template_subparsers.add_parser('use', help='Execute a saved template')
+    use_template_parser.add_argument('name', help='Template name')
+
+    # template remove <name>
+    remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')
+    remove_template_parser.add_argument('name', help='Template name')
 
     args = parser.parse_args()
 
@@ -142,6 +165,9 @@ def main():
         return 0
     elif args.command == 'deck':
         handle_deck_command(args)
+        return 0
+    elif args.command in ['template', 'templates']:
+        handle_template_command(args)
         return 0
 
     if args.edit:
