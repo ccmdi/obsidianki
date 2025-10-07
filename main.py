@@ -166,7 +166,7 @@ def main():
     elif args.command == 'deck':
         handle_deck_command(args)
         return 0
-    elif args.command == 'template':
+    elif args.command in ['template', 'templates']:
         handle_template_command(args)
         return 0
 
