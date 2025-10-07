@@ -143,3 +143,6 @@ oki history clear --notes "React*"   # Clear history for specific notes
 | `search_folders` | `[]` | Limit processing to specific folders (array) |
 | `tag_schema_file` | `"tags.json"` | File for tag weights configuration |
 | `processing_history_file` | `"processing_history.json"` | File for processing history tracking |
+
+# Obsidianki MCP
+There is an [experimental MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. Useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.
