@@ -9,7 +9,7 @@ from cli.models import Note, Flashcard
 from cli.services import OBSIDIAN, AI, ANKI
 
 
-def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> tuple[List[Flashcard], str, str]:
+def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> List[Flashcard]:
     from cli.config import console
     note.ensure_content()
 
@@ -32,7 +32,7 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
                                            previous_fronts=previous_fronts,
                                            deck_examples=deck_examples)
 
-    return flashcards, note.content, note.path
+    return flashcards
 
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
@@ -67,7 +67,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
             console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+        # console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
     result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
@@ -285,18 +285,18 @@ def preprocess(args):
             return 0
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_note = {
+            future_to_note: dict[concurrent.futures.Future, Note] = {
                 executor.submit(process, note, args, deck_examples, target_cards_per_note, previous_fronts): note
                 for note in valid_notes
             }
 
             for future in concurrent.futures.as_completed(future_to_note):
-                note = future_to_note[future]
+                note: Note = future_to_note[future]
 
                 try:
-                    flashcards, note_content, note_path = future.result()
+                    flashcards = future.result()
 
-                    if not flashcards or not note_content:
+                    if not flashcards:
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
 
@@ -325,9 +325,9 @@ def preprocess(args):
                     return 0
             
             try:
-                flashcards, note_content, _ = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
+                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
 
-                if not flashcards or not note_content:
+                if not flashcards:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
