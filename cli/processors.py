@@ -42,6 +42,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
     approve_cards = APPROVE_CARDS
+    print_cards = False
     if args.mcp:
         approve_cards = False
         print_cards = True
