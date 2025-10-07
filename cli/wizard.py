@@ -11,10 +11,8 @@ def setup(force_full_setup=False):
 
     step_num = 1
 
-    # Ensure config directory exists
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Setup API keys only if .env doesn't exist OR if forcing full setup
     if not ENV_FILE.exists() or force_full_setup:
         console.print(f"[cyan]Step {step_num}: API Keys[/cyan]")
         console.print("   Get Obsidian API key from: [blue]Obsidian Settings > Community Plugins > REST API > API Key[/blue]")
@@ -30,7 +28,6 @@ def setup(force_full_setup=False):
             console.print("[red]ERROR:[/red] Anthropic API key is required. Setup aborted.")
             return
 
-        # Create .env file
         env_content = f"""OBSIDIAN_API_KEY={obsidian_key}
 ANTHROPIC_API_KEY={anthropic_key}
         """
@@ -49,7 +46,6 @@ ANTHROPIC_API_KEY={anthropic_key}
     if not CONFIG_FILE.exists() or force_full_setup:
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
-        # Import config defaults here to avoid circular imports during build
         from cli.config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
 
         max_cards = IntPrompt.ask("   How many flashcards per session?", default=MAX_CARDS)
@@ -114,7 +110,7 @@ ANTHROPIC_API_KEY={anthropic_key}
                 json.dump(user_config, f, indent=2)
             console.print("   [green]✓[/green] Configuration saved")
 
-            # Create default tags.json
+            #TODO: configmanager can save this ?
             tags_file = CONFIG_DIR / "tags.json"
             default_tags = {
                 "_default": 1.0,
