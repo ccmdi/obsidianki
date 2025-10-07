@@ -107,7 +107,6 @@ class ConfigManager:
             # Validate required keys for weighted sampling
             if SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
-                    console.print("[yellow]WARNING:[/yellow] '_default' weight not found in tags.json")
                     self.tag_weights["_default"] = 1
 
         else:

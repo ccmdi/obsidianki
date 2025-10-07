@@ -153,7 +153,8 @@ class FlashcardAI:
                             path="query",
                             filename=f"Query: {query}",
                             content=query,
-                            tags=["query-generated"]
+                            tags=["query-generated"],
+                            size=0
                         )
 
                         flashcard_objects = []

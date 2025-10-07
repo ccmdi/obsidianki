@@ -155,7 +155,7 @@ def preprocess(args):
         # STANDALONE QUERY MODE - Create synthetic note for main flow
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
         from cli.models import Note
-        query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[])
+        query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
         notes = [query_note]
         max_cards = args.cards if args.cards else max_cards
         APPROVE_NOTES = False # no need to approve what a user wrote
@@ -251,7 +251,7 @@ def preprocess(args):
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     previous_fronts = []
-    if DEDUPLICATE_VIA_HISTORY:
+    if not args.query and args.notes and DEDUPLICATE_VIA_HISTORY:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
     elif args.query and not args.notes and DEDUPLICATE_VIA_DECK:
         # For standalone query mode, use deck-based deduplication
