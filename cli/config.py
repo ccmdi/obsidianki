@@ -137,12 +137,12 @@ class ConfigManager:
         """Get current excluded tags"""
         return self.excluded_tags.copy()
 
-    def is_note_excluded(self, note_tags: List[str]) -> bool:
+    def is_note_excluded(self, note: Note) -> bool:
         """Check if a note should be excluded based on its tags"""
         if not self.excluded_tags:
             return False
 
-        return any(tag in self.excluded_tags for tag in note_tags)
+        return any(tag in self.excluded_tags for tag in note.tags)
 
     def update_tag_weight(self, tag: str, weight: float):
         """Update weight for a specific tag"""
@@ -229,27 +229,27 @@ class ConfigManager:
             console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
             return False
 
-    def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int, flashcard_fronts: list = None):
+    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = None):
         """Record that we created flashcards for a note"""
-        if note_path not in self.processing_history:
-            self.processing_history[note_path] = {
-                "size": note_size,
+        if note.path not in self.processing_history:
+            self.processing_history[note.path] = {
+                "size": note.size,
                 "total_flashcards": 0,
                 "sessions": [],
                 "flashcard_fronts": []  # Track all flashcard questions ever created
             }
 
         # Update totals
-        self.processing_history[note_path]["total_flashcards"] += flashcard_count
-        self.processing_history[note_path]["size"] = note_size  # Update in case note changed
+        self.processing_history[note.path]["total_flashcards"] += flashcard_count
+        self.processing_history[note.path]["size"] = note.size  # Update in case note changed
 
         # Add flashcard fronts to history if provided
         if flashcard_fronts:
-            if "flashcard_fronts" not in self.processing_history[note_path]:
-                self.processing_history[note_path]["flashcard_fronts"] = []
-            self.processing_history[note_path]["flashcard_fronts"].extend(flashcard_fronts)
+            if "flashcard_fronts" not in self.processing_history[note.path]:
+                self.processing_history[note.path]["flashcard_fronts"] = []
+            self.processing_history[note.path]["flashcard_fronts"].extend(flashcard_fronts)
 
-        self.processing_history[note_path]["sessions"].append({
+        self.processing_history[note.path]["sessions"].append({
             "date": __import__('time').time(),
             "flashcards": flashcard_count
         })
