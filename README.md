@@ -42,7 +42,6 @@ You can then follow the interactive setup and edit the configuration as you like
 
 ## Usage
 
-### Basic Usage
 ```bash
 obsidianki                   # Generate flashcards
 oki                          # Alias
