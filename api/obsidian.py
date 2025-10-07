@@ -1,8 +1,7 @@
-import requests
 import os
 import urllib3
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import List
 
 from cli.config import console, CONFIG_MANAGER
 from cli.models import Note

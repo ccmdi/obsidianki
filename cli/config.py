@@ -1,8 +1,15 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from cli.models import Note
+
 import json
 from pathlib import Path
 from typing import Dict, List
 from dotenv import load_dotenv
 from rich.console import Console
+
+
 
 console = Console()
 
@@ -249,25 +256,25 @@ class ConfigManager:
 
         self.save_processing_history()
 
-    def get_flashcard_fronts_for_note(self, note_path: str) -> list:
+    def get_flashcard_fronts_for_note(self, note: Note) -> list:
         """Get all previously created flashcard fronts for a note"""
-        if note_path not in self.processing_history:
+        if note.path not in self.processing_history:
             return []
 
-        return self.processing_history[note_path].get("flashcard_fronts", [])
+        return self.processing_history[note.path].get("flashcard_fronts", [])
 
-    def get_density_bias_for_note(self, note_path: str, note_size: int, bias_strength: float = None) -> float:
+    def get_density_bias_for_note(self, note: Note, bias_strength: float = None) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
-        if note_path not in self.processing_history:
+        if note.path not in self.processing_history:
             return 1.0  # No bias for unprocessed notes
 
-        history = self.processing_history[note_path]
+        history = self.processing_history[note.path]
         total_flashcards = history["total_flashcards"]
 
-        if note_size == 0:
-            note_size = 1
+        if note.size == 0:
+            note.size = 1
 
-        density = total_flashcards / note_size
+        density = total_flashcards / note.size
 
         # Apply bias - higher density = lower weight
         # bias_strength = 1: guaranteed zero probability for any processed notes
@@ -278,13 +285,8 @@ class ConfigManager:
         return bias_factor
 
 
-    def get_sampling_weight_for_note_object(self, note, bias_strength: float = None) -> float:
+    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
         """Calculate total sampling weight for a Note object"""
-        from cli.models import Note
-
-        if not isinstance(note, Note):
-            raise TypeError("Expected Note object")
-
         tag_weight = 1.0
         if SAMPLING_MODE == "weighted" and self.tag_weights:
             relevant_tags = [tag for tag in note.tags if tag in self.tag_weights and tag != "_default"]

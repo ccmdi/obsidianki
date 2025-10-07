@@ -37,7 +37,7 @@ class Note:
 
     def get_density_bias(self, bias_strength: float = None) -> float:
         """Get density bias factor for this note."""
-        return CONFIG_MANAGER.get_density_bias_for_note(self.path, self.size, bias_strength)
+        return CONFIG_MANAGER.get_density_bias_for_note(self, bias_strength)
 
     def is_excluded(self) -> bool:
         """Check if this note should be excluded based on its tags."""
@@ -49,7 +49,7 @@ class Note:
 
     def get_previous_flashcard_fronts(self) -> List[str]:
         """Get all previously created flashcard fronts for deduplication."""
-        return CONFIG_MANAGER.get_flashcard_fronts_for_note(self.path)
+        return CONFIG_MANAGER.get_flashcard_fronts_for_note(self)
 
     def ensure_content(self):
         """Ensure the note content is loaded."""
