@@ -97,8 +97,6 @@ ANTHROPIC_API_KEY={anthropic_key}
             "SAMPLING_MODE": sampling_mode,
             "CARD_TYPE": card_type,
             "SEARCH_FOLDERS": [],
-            "TAG_SCHEMA_FILE": "tags.json",
-            "PROCESSING_HISTORY_FILE": "processing_history.json",
             "DENSITY_BIAS_STRENGTH": 0.5,
             "APPROVE_NOTES": approve_notes,
             "APPROVE_CARDS": approve_cards,

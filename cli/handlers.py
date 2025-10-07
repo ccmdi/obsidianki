@@ -944,7 +944,6 @@ def handle_template_command(args):
     # Handle help request
     if hasattr(args, 'help') and args.help:
         show_simple_help("Template Management", {
-            "template list": "List all saved templates",
             "template add <name> <command>": "Save a command template",
             "template use <name>": "Execute a saved template",
             "template remove <name>": "Remove a template"
@@ -975,7 +974,7 @@ def handle_template_command(args):
             console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
             return False
 
-    if args.template_action == 'list' or args.template_action is None:
+    if args.template_action is None:
         templates = load_templates()
 
         if not templates:

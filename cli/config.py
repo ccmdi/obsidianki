@@ -20,8 +20,6 @@ DEFAULT_CONFIG = {
     "NOTES_TO_SAMPLE": 3,
     "DAYS_OLD": 30,
     "SAMPLING_MODE": "weighted",  # "uniform" or "weighted"
-    "TAG_SCHEMA_FILE": "tags.json",
-    "PROCESSING_HISTORY_FILE": "processing_history.json",
     "DENSITY_BIAS_STRENGTH": 0.5,
     "SEARCH_FOLDERS": None,  # or None for all folders
     "CARD_TYPE": "custom",  # "basic" or "custom"
@@ -60,8 +58,6 @@ MAX_CARDS = _config["MAX_CARDS"]
 NOTES_TO_SAMPLE = _config["NOTES_TO_SAMPLE"]
 DAYS_OLD = _config["DAYS_OLD"]
 SAMPLING_MODE = _config["SAMPLING_MODE"]
-TAG_SCHEMA_FILE = _config["TAG_SCHEMA_FILE"]
-PROCESSING_HISTORY_FILE = _config["PROCESSING_HISTORY_FILE"]
 DENSITY_BIAS_STRENGTH = _config["DENSITY_BIAS_STRENGTH"]
 SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
 CARD_TYPE = _config["CARD_TYPE"]
