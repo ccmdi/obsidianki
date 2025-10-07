@@ -55,6 +55,7 @@ def main():
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
+    parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -180,7 +181,6 @@ def main():
 if __name__ == "__main__":
     try:
         result = main()
-        exit(result if result is not None else 0)
     except KeyboardInterrupt:
         console.print("\n[yellow]Operation cancelled by user[/yellow]")
         exit(1)

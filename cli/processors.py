@@ -35,15 +35,20 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
     return flashcards, note.content, note.path
 
 
-def postprocess(note: Note, flashcards: List[Flashcard], deck_name):
+def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
     """Handle flashcard approval and Anki addition"""
     from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
+    # Override approval settings when --mcp flag is set
+    approve_cards = APPROVE_CARDS
+    if args and hasattr(args, 'mcp') and args.mcp:
+        approve_cards = False
+
     # Flashcard approval
     cards_to_add = flashcards
-    if APPROVE_CARDS:
+    if approve_cards:
         approved_flashcards = []
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
@@ -84,6 +89,11 @@ def preprocess(args):
         DENSITY_BIAS_STRENGTH, CONFIG_MANAGER
     )
     from rich.panel import Panel
+
+    # Override approval settings when --mcp flag is set
+    if hasattr(args, 'mcp') and args.mcp:
+        APPROVE_NOTES = False
+        APPROVE_CARDS = False
 
     deck_name = args.deck if args.deck else DECK
     notes_to_sample = NOTES_TO_SAMPLE
@@ -286,7 +296,7 @@ def preprocess(args):
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
 
-                    cards_added = postprocess(note, flashcards, deck_name)
+                    cards_added = postprocess(note, flashcards, deck_name, args)
                     total_cards += cards_added
 
                 except Exception as e:
@@ -317,7 +327,7 @@ def preprocess(args):
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
-                cards_added = postprocess(note, flashcards, deck_name)
+                cards_added = postprocess(note, flashcards, deck_name, args)
                 total_cards += cards_added
                 
             except KeyboardInterrupt:
