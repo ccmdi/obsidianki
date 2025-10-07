@@ -79,6 +79,7 @@ class ConfigManager:
         self.processing_history = {}
         self.tag_schema_file = CONFIG_DIR / "tags.json"
         self.processing_history_file = CONFIG_DIR / "processing_history.json"
+        self.templates_file = CONFIG_DIR / "templates.json"
         self.load_or_create_tag_schema()
         self.load_processing_history()
 
@@ -203,6 +204,28 @@ class ConfigManager:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(self.processing_history_file, 'w') as f:
             json.dump(self.processing_history, f, indent=2)
+    
+    def load_templates(self):
+        """Load templates from JSON file"""
+        if not self.templates_file.exists():
+            return {}
+        try:
+            with open(self.templates_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to load templates: {e}")
+            return {}
+
+    def save_templates(self, templates):
+        """Save templates to JSON file"""
+        try:
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            with open(self.templates_file, 'w') as f:
+                json.dump(templates, f, indent=2)
+            return True
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
+            return False
 
     def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int, flashcard_fronts: list = None):
         """Record that we created flashcards for a note"""

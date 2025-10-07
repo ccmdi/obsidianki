@@ -129,7 +129,7 @@ def main():
     rename_parser.add_argument('new_name', help='New deck name')
 
     # Templating
-    template_parser = subparsers.add_parser('template', help='Manage command templates', add_help=False)
+    template_parser = subparsers.add_parser('template', aliases=['templates'], help='Manage command templates', add_help=False)
     template_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
     template_subparsers = template_parser.add_subparsers(dest='template_action', help='Template actions')
 
@@ -141,9 +141,6 @@ def main():
     # template use <name>
     use_template_parser = template_subparsers.add_parser('use', help='Execute a saved template')
     use_template_parser.add_argument('name', help='Template name')
-
-    # template list
-    template_subparsers.add_parser('list', help='List all saved templates')
 
     # template remove <name>
     remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')

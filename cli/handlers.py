@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.text import Text
 from cli.models import Note, Flashcard
 
-from cli.config import ConfigManager, CONFIG_FILE, CONFIG_DIR, console
+from cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -184,12 +184,10 @@ def handle_tag_command(args):
         })
         return
 
-    config = ConfigManager() #TODO
-
     if args.tag_action is None:
         # Default action: list tags (same as old 'list' command)
-        weights = config.get_tag_weights()
-        excluded = config.get_excluded_tags()
+        weights = CONFIG_MANAGER.get_tag_weights()
+        excluded = CONFIG_MANAGER.get_excluded_tags()
 
         if not weights and not excluded:
             console.print("[dim]No tag weights configured. Use 'oki tag add <tag> <weight>' to add tags.[/dim]")
@@ -210,13 +208,13 @@ def handle_tag_command(args):
 
     if args.tag_action == 'add':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if config.add_tag_weight(tag, args.weight):
+        if CONFIG_MANAGER.add_tag_weight(tag, args.weight):
             console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if config.remove_tag_weight(tag):
+        if CONFIG_MANAGER.remove_tag_weight(tag):
             console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
@@ -224,7 +222,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'exclude':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if config.add_excluded_tag(tag):
+        if CONFIG_MANAGER.add_excluded_tag(tag):
             console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
@@ -232,7 +230,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'include':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if config.remove_excluded_tag(tag):
+        if CONFIG_MANAGER.remove_excluded_tag(tag):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
@@ -260,8 +258,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from cli.config import PROCESSING_HISTORY_FILE
-        history_file = CONFIG_DIR / PROCESSING_HISTORY_FILE
+        history_file = CONFIG_DIR / CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -950,32 +947,8 @@ def handle_template_command(args):
         })
         return
 
-    TEMPLATES_FILE = CONFIG_DIR / "templates.json"
-
-    def load_templates():
-        """Load templates from JSON file"""
-        if not TEMPLATES_FILE.exists():
-            return {}
-        try:
-            with open(TEMPLATES_FILE, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to load templates: {e}")
-            return {}
-
-    def save_templates(templates):
-        """Save templates to JSON file"""
-        try:
-            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            with open(TEMPLATES_FILE, 'w') as f:
-                json.dump(templates, f, indent=2)
-            return True
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
-            return False
-
     if args.template_action is None:
-        templates = load_templates()
+        templates = CONFIG_MANAGER.load_templates()
 
         if not templates:
             console.print("[yellow]No templates saved[/yellow]")
@@ -991,7 +964,7 @@ def handle_template_command(args):
             console.print()
 
     elif args.template_action == 'add':
-        templates = load_templates()
+        templates = CONFIG_MANAGER.load_templates()
         name = args.name
         command = args.template_command
 
@@ -1004,17 +977,16 @@ def handle_template_command(args):
 
         templates[name] = command
 
-        if save_templates(templates):
+        if CONFIG_MANAGER.save_templates(templates):
             console.print(f"[green]✓[/green] Saved template '[cyan]{name}[/cyan]'")
             console.print(f"[dim]Use with:[/dim] [cyan]oki template use {name}[/cyan]")
 
     elif args.template_action == 'use':
-        templates = load_templates()
+        templates = CONFIG_MANAGER.load_templates()
         name = args.name
 
         if name not in templates:
             console.print(f"[red]ERROR:[/red] Template '[cyan]{name}[/cyan]' not found")
-            console.print("\n[dim]List templates with:[/dim] [cyan]oki template list[/cyan]")
             return
 
         command = templates[name]
@@ -1048,7 +1020,7 @@ def handle_template_command(args):
             sys.argv = original_argv
 
     elif args.template_action == 'remove':
-        templates = load_templates()
+        templates = CONFIG_MANAGER.load_templates()
         name = args.name
 
         if name not in templates:
@@ -1060,7 +1032,7 @@ def handle_template_command(args):
 
         if Confirm.ask("   Are you sure?", default=False):
             del templates[name]
-            if save_templates(templates):
+            if CONFIG_MANAGER.save_templates(templates):
                 console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
         else:
             console.print("[yellow]Cancelled[/yellow]")
