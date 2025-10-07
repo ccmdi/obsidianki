@@ -278,26 +278,26 @@ class ConfigManager:
         return bias_factor
 
 
-def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_strength: float = None) -> float:
-    """Calculate total sampling weight for a Note object - cleaner version"""
-    from cli.models import Note
+    def get_sampling_weight_for_note_object(self, note, bias_strength: float = None) -> float:
+        """Calculate total sampling weight for a Note object"""
+        from cli.models import Note
 
-    if not isinstance(note, Note):
-        raise TypeError("Expected Note object")
+        if not isinstance(note, Note):
+            raise TypeError("Expected Note object")
 
-    tag_weight = 1.0
-    if SAMPLING_MODE == "weighted" and config.tag_weights:
-        relevant_tags = [tag for tag in note.tags if tag in config.tag_weights and tag != "_default"]
+        tag_weight = 1.0
+        if SAMPLING_MODE == "weighted" and self.tag_weights:
+            relevant_tags = [tag for tag in note.tags if tag in self.tag_weights and tag != "_default"]
 
-        if not relevant_tags:
-            tag_weight = config.tag_weights.get("_default", 1.0)
-        else:
-            tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
+            if not relevant_tags:
+                tag_weight = self.tag_weights.get("_default", 1.0)
+            else:
+                tag_weight = max(self.tag_weights[tag] for tag in relevant_tags)
 
-    density_bias = note.get_density_bias(bias_strength)
-    final_weight = tag_weight * density_bias
+        density_bias = note.get_density_bias(bias_strength)
+        final_weight = tag_weight * density_bias
 
-    return final_weight
+        return final_weight
 
 
 # Global config manager instance

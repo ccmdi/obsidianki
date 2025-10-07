@@ -4,8 +4,7 @@ Clean data models for ObsidianKi to replace scattered dictionaries and parameter
 
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-from pathlib import Path
-from cli.config import CONFIG_MANAGER, get_sampling_weight_for_note_object
+from cli.config import CONFIG_MANAGER
 
 
 @dataclass
@@ -34,7 +33,7 @@ class Note:
 
     def get_sampling_weight(self, bias_strength: float = None) -> float:
         """Calculate total sampling weight based on tags and processing history."""
-        return get_sampling_weight_for_note_object(self, CONFIG_MANAGER, bias_strength)
+        return CONFIG_MANAGER.get_sampling_weight_for_note_object(self, bias_strength)
 
     def get_density_bias(self, bias_strength: float = None) -> float:
         """Get density bias factor for this note."""
