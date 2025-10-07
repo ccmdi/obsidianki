@@ -499,57 +499,6 @@ class FlashcardAI:
         console.print()
         return sampled_notes
 
-    def generate_batch(self, note_batch: List[Tuple[str, str]], target_cards_per_note: int = None,
-                      previous_fronts_batch: List[List[str]] = None,
-                      deck_examples: List[Dict[str, str]] = None,
-                      query: str = None) -> List[List[Dict[str, str]]]:
-        """Generate flashcards for multiple notes in parallel"""
-
-        def generate_single_note(args):
-            """Helper function for parallel processing"""
-            note_content, note_title, previous_fronts, index = args
-
-            try:
-                if query:
-                    return self.generate_from_note_query(
-                        note_content, note_title, query,
-                        target_cards=target_cards_per_note,
-                        previous_fronts=previous_fronts,
-                        deck_examples=deck_examples
-                    )
-                else:
-                    return self.generate_flashcards(
-                        note_content, note_title,
-                        target_cards=target_cards_per_note,
-                        previous_fronts=previous_fronts,
-                        deck_examples=deck_examples
-                    )
-            except Exception as e:
-                console.print(f"[yellow]WARNING:[/yellow] Failed to generate cards for note {index + 1}: {e}")
-                return []
-
-        previous_fronts_batch = previous_fronts_batch or [[] for _ in note_batch]
-        args_list = [
-            (content, title, previous_fronts, i)
-            for i, ((content, title), previous_fronts) in enumerate(zip(note_batch, previous_fronts_batch))
-        ]
-
-        with ThreadPoolExecutor(max_workers=min(5, len(note_batch))) as executor:
-            future_to_index = {executor.submit(generate_single_note, args): i for i, args in enumerate(args_list)}
-
-            completed_results = [None] * len(note_batch)
-
-            for future in as_completed(future_to_index):
-                index = future_to_index[future]
-                try:
-                    result = future.result()
-                    completed_results[index] = result
-                except Exception as e:
-                    console.print(f"[red]ERROR:[/red] Note {index + 1} failed: {e}")
-                    completed_results[index] = []
-
-        return completed_results
-
     def edit_cards(self, cards: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
         """Edit existing cards based on a query"""
         if not cards:

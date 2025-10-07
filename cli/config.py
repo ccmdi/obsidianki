@@ -1,9 +1,15 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from cli.models import Note
+
 import json
-import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from dotenv import load_dotenv
 from rich.console import Console
+
+
 
 console = Console()
 
@@ -11,7 +17,6 @@ CONFIG_DIR = Path.home() / ".config" / "obsidianki"
 ENV_FILE = CONFIG_DIR / ".env"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-# Load environment variables once
 load_dotenv(ENV_FILE)
 
 # Default Configuration
@@ -38,11 +43,10 @@ DEFAULT_CONFIG = {
 def load_config():
     """Load configuration from global config.json, using defaults if it doesn't exist"""
     config = DEFAULT_CONFIG.copy()
-    config_file = CONFIG_DIR / "config.json"
 
-    if config_file.exists():
+    if CONFIG_FILE.exists():
         try:
-            with open(config_file, "r") as f:
+            with open(CONFIG_FILE, "r") as f:
                 local_config = json.load(f)
                 config.update(local_config)
         except Exception as e:
@@ -104,7 +108,7 @@ class ConfigManager:
             if SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
                     console.print("[yellow]WARNING:[/yellow] '_default' weight not found in tags.json")
-                    self.tag_weights["_default"] = 0.1
+                    self.tag_weights["_default"] = 1
 
         else:
             console.print(f"[red]ERROR:[/red] {self.tag_schema_file} not found. For weighted sampling, create it with your tag weights.")
@@ -117,7 +121,6 @@ class ConfigManager:
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Combine weights and exclude array into single schema
         schema = self.tag_weights.copy()
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags
@@ -134,19 +137,18 @@ class ConfigManager:
         """Get current excluded tags"""
         return self.excluded_tags.copy()
 
-    def is_note_excluded(self, note_tags: List[str]) -> bool:
+    def is_note_excluded(self, note: Note) -> bool:
         """Check if a note should be excluded based on its tags"""
         if not self.excluded_tags:
             return False
 
-        return any(tag in self.excluded_tags for tag in note_tags)
+        return any(tag in self.excluded_tags for tag in note.tags)
 
     def update_tag_weight(self, tag: str, weight: float):
         """Update weight for a specific tag"""
         if tag in self.tag_weights:
             self.tag_weights[tag] = weight
             self.save_tag_schema()
-            # console.print(f"[green]SUCCESS:[/green] Updated {tag} weight to {weight}")
         else:
             console.print(f"[yellow]WARNING:[/yellow] Tag '{tag}' not found in schema")
 
@@ -227,52 +229,52 @@ class ConfigManager:
             console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
             return False
 
-    def record_flashcards_created(self, note_path: str, note_size: int, flashcard_count: int, flashcard_fronts: list = None):
+    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = None):
         """Record that we created flashcards for a note"""
-        if note_path not in self.processing_history:
-            self.processing_history[note_path] = {
-                "size": note_size,
+        if note.path not in self.processing_history:
+            self.processing_history[note.path] = {
+                "size": note.size,
                 "total_flashcards": 0,
                 "sessions": [],
                 "flashcard_fronts": []  # Track all flashcard questions ever created
             }
 
         # Update totals
-        self.processing_history[note_path]["total_flashcards"] += flashcard_count
-        self.processing_history[note_path]["size"] = note_size  # Update in case note changed
+        self.processing_history[note.path]["total_flashcards"] += flashcard_count
+        self.processing_history[note.path]["size"] = note.size  # Update in case note changed
 
         # Add flashcard fronts to history if provided
         if flashcard_fronts:
-            if "flashcard_fronts" not in self.processing_history[note_path]:
-                self.processing_history[note_path]["flashcard_fronts"] = []
-            self.processing_history[note_path]["flashcard_fronts"].extend(flashcard_fronts)
+            if "flashcard_fronts" not in self.processing_history[note.path]:
+                self.processing_history[note.path]["flashcard_fronts"] = []
+            self.processing_history[note.path]["flashcard_fronts"].extend(flashcard_fronts)
 
-        self.processing_history[note_path]["sessions"].append({
+        self.processing_history[note.path]["sessions"].append({
             "date": __import__('time').time(),
             "flashcards": flashcard_count
         })
 
         self.save_processing_history()
 
-    def get_flashcard_fronts_for_note(self, note_path: str) -> list:
+    def get_flashcard_fronts_for_note(self, note: Note) -> list:
         """Get all previously created flashcard fronts for a note"""
-        if note_path not in self.processing_history:
+        if note.path not in self.processing_history:
             return []
 
-        return self.processing_history[note_path].get("flashcard_fronts", [])
+        return self.processing_history[note.path].get("flashcard_fronts", [])
 
-    def get_density_bias_for_note(self, note_path: str, note_size: int, bias_strength: float = None) -> float:
+    def get_density_bias_for_note(self, note: Note, bias_strength: float = None) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
-        if note_path not in self.processing_history:
+        if note.path not in self.processing_history:
             return 1.0  # No bias for unprocessed notes
 
-        history = self.processing_history[note_path]
+        history = self.processing_history[note.path]
         total_flashcards = history["total_flashcards"]
 
-        if note_size == 0:
-            note_size = 1
+        if note.size == 0:
+            note.size = 1
 
-        density = total_flashcards / note_size
+        density = total_flashcards / note.size
 
         # Apply bias - higher density = lower weight
         # bias_strength = 1: guaranteed zero probability for any processed notes
@@ -283,27 +285,22 @@ class ConfigManager:
         return bias_factor
 
 
-def get_sampling_weight_for_note_object(note, config: ConfigManager, bias_strength: float = None) -> float:
-    """Calculate total sampling weight for a Note object - cleaner version"""
-    from cli.models import Note
+    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
+        """Calculate total sampling weight for a Note object"""
+        tag_weight = 1.0
+        if SAMPLING_MODE == "weighted" and self.tag_weights:
+            relevant_tags = [tag for tag in note.tags if tag in self.tag_weights and tag != "_default"]
 
-    if not isinstance(note, Note):
-        raise TypeError("Expected Note object")
+            if not relevant_tags:
+                tag_weight = self.tag_weights.get("_default", 1.0)
+            else:
+                tag_weight = max(self.tag_weights[tag] for tag in relevant_tags)
 
-    tag_weight = 1.0
-    if SAMPLING_MODE == "weighted" and config.tag_weights:
-        relevant_tags = [tag for tag in note.tags if tag in config.tag_weights and tag != "_default"]
+        density_bias = note.get_density_bias(bias_strength)
+        final_weight = tag_weight * density_bias
 
-        if not relevant_tags:
-            tag_weight = config.tag_weights.get("_default", 1.0)
-        else:
-            tag_weight = max(config.tag_weights[tag] for tag in relevant_tags)
-
-    density_bias = note.get_density_bias(bias_strength)
-    final_weight = tag_weight * density_bias
-
-    return final_weight
+        return final_weight
 
 
-# Global config manager instance - accessible everywhere after class definition
+# Global config manager instance
 CONFIG_MANAGER = ConfigManager()

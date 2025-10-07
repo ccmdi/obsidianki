@@ -9,7 +9,7 @@ from cli.models import Note, Flashcard
 from cli.services import OBSIDIAN, AI, ANKI
 
 
-def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> tuple[List[Flashcard], str, str]:
+def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> List[Flashcard]:
     from cli.config import console
     note.ensure_content()
 
@@ -32,17 +32,18 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
                                            previous_fronts=previous_fronts,
                                            deck_examples=deck_examples)
 
-    return flashcards, note.content, note.path
+    return flashcards
 
 
-def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
+def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = None):
     """Handle flashcard approval and Anki addition"""
     from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
     approve_cards = APPROVE_CARDS
-    if args and hasattr(args, 'mcp') and args.mcp:
+    print_cards = False
+    if args.mcp:
         approve_cards = False
         print_cards = True
 
@@ -67,7 +68,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
             console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
+        # console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
     result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
@@ -76,7 +77,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name, args=None):
     if successful_cards > 0:
         if note.path != "query": #TODO
             flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-            CONFIG_MANAGER.record_flashcards_created(note.path, note.size, successful_cards, flashcard_fronts)
+            CONFIG_MANAGER.record_flashcards_created(note, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
@@ -95,7 +96,7 @@ def preprocess(args):
     )
     from rich.panel import Panel
 
-    if hasattr(args, 'mcp') and args.mcp:
+    if args.mcp:
         APPROVE_NOTES = False
         UPFRONT_BATCHING = True
 
@@ -243,7 +244,7 @@ def preprocess(args):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    use_schema = args.use_schema if hasattr(args, 'use_schema') else USE_DECK_SCHEMA
+    use_schema = args.use_schema if args.use_schema else USE_DECK_SCHEMA
     if use_schema:
         deck_examples = ANKI.get_card_examples(deck_name)
         if deck_examples:
@@ -285,18 +286,18 @@ def preprocess(args):
             return 0
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_note = {
+            future_to_note: dict[concurrent.futures.Future, Note] = {
                 executor.submit(process, note, args, deck_examples, target_cards_per_note, previous_fronts): note
                 for note in valid_notes
             }
 
             for future in concurrent.futures.as_completed(future_to_note):
-                note = future_to_note[future]
+                note: Note = future_to_note[future]
 
                 try:
-                    flashcards, note_content, note_path = future.result()
+                    flashcards = future.result()
 
-                    if not flashcards or not note_content:
+                    if not flashcards:
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
 
@@ -325,9 +326,9 @@ def preprocess(args):
                     return 0
             
             try:
-                flashcards, note_content, _ = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
+                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
 
-                if not flashcards or not note_content:
+                if not flashcards:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
@@ -339,7 +340,7 @@ def preprocess(args):
                 return 0
 
     console.print("")
-    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to your Obsidian deck", style="green"))
+    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to deck '{deck_name}'", style="green"))
     return 0
 
 
