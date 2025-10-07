@@ -934,3 +934,134 @@ def handle_deck_command(args):
             console.print("[red]Failed to rename deck[/red]")
 
         return
+
+
+def handle_template_command(args):
+    """Handle template management commands"""
+    import sys
+    import shlex
+
+    # Handle help request
+    if hasattr(args, 'help') and args.help:
+        show_simple_help("Template Management", {
+            "template list": "List all saved templates",
+            "template add <name> <command>": "Save a command template",
+            "template use <name>": "Execute a saved template",
+            "template remove <name>": "Remove a template"
+        })
+        return
+
+    TEMPLATES_FILE = CONFIG_DIR / "templates.json"
+
+    def load_templates():
+        """Load templates from JSON file"""
+        if not TEMPLATES_FILE.exists():
+            return {}
+        try:
+            with open(TEMPLATES_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to load templates: {e}")
+            return {}
+
+    def save_templates(templates):
+        """Save templates to JSON file"""
+        try:
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            with open(TEMPLATES_FILE, 'w') as f:
+                json.dump(templates, f, indent=2)
+            return True
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
+            return False
+
+    if args.template_action == 'list' or args.template_action is None:
+        templates = load_templates()
+
+        if not templates:
+            console.print("[yellow]No templates saved[/yellow]")
+            console.print("\n[dim]Add a template with:[/dim] [cyan]oki template add <name> <command>[/cyan]")
+            return
+
+        console.print("[bold blue]Saved Templates[/bold blue]")
+        console.print()
+
+        for name, command in sorted(templates.items()):
+            console.print(f"  [cyan]{name}[/cyan]")
+            console.print(f"    [dim]oki {command}[/dim]")
+            console.print()
+
+    elif args.template_action == 'add':
+        templates = load_templates()
+        name = args.name
+        command = args.template_command
+
+        # Check if template already exists
+        if name in templates:
+            console.print(f"[yellow]WARNING:[/yellow] Template '[cyan]{name}[/cyan]' already exists")
+            if not Confirm.ask("   Overwrite?", default=False):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        templates[name] = command
+
+        if save_templates(templates):
+            console.print(f"[green]✓[/green] Saved template '[cyan]{name}[/cyan]'")
+            console.print(f"[dim]Use with:[/dim] [cyan]oki template use {name}[/cyan]")
+
+    elif args.template_action == 'use':
+        templates = load_templates()
+        name = args.name
+
+        if name not in templates:
+            console.print(f"[red]ERROR:[/red] Template '[cyan]{name}[/cyan]' not found")
+            console.print("\n[dim]List templates with:[/dim] [cyan]oki template list[/cyan]")
+            return
+
+        command = templates[name]
+        console.print(f"[cyan]Executing template:[/cyan] [bold]{name}[/bold]")
+        console.print(f"[dim]Command:[/dim] oki {command}")
+        console.print()
+
+        # Parse the command and re-invoke main with those arguments
+        try:
+            # Import main from this module's parent
+            from main import main
+
+            # Parse the command string into arguments
+            cmd_args = shlex.split(command)
+
+            # Replace sys.argv with the new arguments
+            original_argv = sys.argv
+            sys.argv = ['oki'] + cmd_args
+
+            # Call main() with the new arguments
+            result = main()
+
+            # Restore original argv
+            sys.argv = original_argv
+
+            # Exit with the result code
+            sys.exit(result if result is not None else 0)
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to execute template: {e}")
+            sys.argv = original_argv
+
+    elif args.template_action == 'remove':
+        templates = load_templates()
+        name = args.name
+
+        if name not in templates:
+            console.print(f"[red]ERROR:[/red] Template '[cyan]{name}[/cyan]' not found")
+            return
+
+        console.print(f"[yellow]Removing template:[/yellow] [cyan]{name}[/cyan]")
+        console.print(f"[dim]Command:[/dim] oki {templates[name]}")
+
+        if Confirm.ask("   Are you sure?", default=False):
+            del templates[name]
+            if save_templates(templates):
+                console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
+        else:
+            console.print("[yellow]Cancelled[/yellow]")
