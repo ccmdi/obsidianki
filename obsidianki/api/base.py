@@ -3,7 +3,7 @@
 import requests
 from abc import ABC, abstractmethod
 from typing import Any
-from cli.config import console
+from obsidianki.cli.config import console
 
 
 class BaseAPI(ABC):

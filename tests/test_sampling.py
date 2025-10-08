@@ -1,7 +1,7 @@
 """Test core business logic (weighting, sampling, bias calculations, etc.)"""
 import pytest
-from cli.models import Note
-from cli.config import ConfigManager
+from obsidianki.cli.models import Note
+from obsidianki.cli.config import ConfigManager
 from pathlib import Path
 import tempfile
 import json
@@ -216,8 +216,8 @@ class TestDensityBias:
             config_manager.load_processing_history()
 
             # Patch both the config module's SAMPLING_MODE and the models CONFIG_MANAGER
-            with patch('cli.config.SAMPLING_MODE', 'weighted'), \
-                 patch('cli.models.CONFIG_MANAGER', config_manager):
+            with patch('obsidianki.cli.config.SAMPLING_MODE', 'weighted'), \
+                 patch('obsidianki.cli.models.CONFIG_MANAGER', config_manager):
 
                 note = Note(
                     path="note.md",
@@ -312,7 +312,7 @@ class TestProcessingHistory:
             config_manager.load_processing_history()
 
             # Patch the global CONFIG_MANAGER that Note uses
-            with patch('cli.models.CONFIG_MANAGER', config_manager):
+            with patch('obsidianki.cli.models.CONFIG_MANAGER', config_manager):
                 note = Note(path="note.md", filename="Note", content="test", tags=[], size=100)
 
                 fronts = note.get_previous_flashcard_fronts()

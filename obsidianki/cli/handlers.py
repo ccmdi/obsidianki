@@ -4,9 +4,9 @@ import json
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
-from cli.models import Note, Flashcard
+from obsidianki.cli.models import Note, Flashcard
 
-from cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
+from obsidianki.cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -258,7 +258,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from cli.config import CONFIG_MANAGER
+        from obsidianki.cli.config import CONFIG_MANAGER
         history_file = CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
@@ -335,7 +335,7 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'stats':
-        from cli.config import CONFIG_MANAGER
+        from obsidianki.cli.config import CONFIG_MANAGER
         history_file = CONFIG_MANAGER.processing_history_file
 
         if not history_file.exists():
@@ -725,7 +725,7 @@ def _create_card_selector(all_cards):
                         needs_update = True
                 elif key == 'enter':
                     if selected_indices:
-                        from cli.utils import strip_html
+                        from obsidianki.cli.utils import strip_html
                         selected_cards = []
                         for i in sorted(selected_indices):
                             card = all_cards[i].copy()
@@ -745,9 +745,9 @@ def edit_mode(args):
     """
     Entry point for interactive editing of existing flashcards.
     """
-    from cli.config import console, DECK, APPROVE_CARDS
-    from cli.models import Note, Flashcard
-    from cli.services import ANKI, AI
+    from obsidianki.cli.config import console, DECK, APPROVE_CARDS
+    from obsidianki.cli.models import Note, Flashcard
+    from obsidianki.cli.services import ANKI, AI
     from rich.panel import Panel
     from rich.prompt import Prompt
 
@@ -876,7 +876,7 @@ def handle_deck_command(args):
         return
 
     # Import here to avoid circular imports and startup delays
-    from cli.services import ANKI
+    from obsidianki.cli.services import ANKI
 
     anki = ANKI
 

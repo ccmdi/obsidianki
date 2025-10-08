@@ -3,9 +3,9 @@ import urllib3
 from datetime import datetime, timedelta
 from typing import List
 
-from cli.config import console, CONFIG_MANAGER
-from cli.models import Note
-from api.base import BaseAPI
+from obsidianki.cli.config import console, CONFIG_MANAGER
+from obsidianki.cli.models import Note
+from obsidianki.api.base import BaseAPI
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -80,7 +80,7 @@ class ObsidianAPI(BaseAPI):
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
-        from cli.config import SEARCH_FOLDERS
+        from obsidianki.cli.config import SEARCH_FOLDERS
         filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'file.mtime < date("{cutoff_str}") {filters}'
@@ -94,7 +94,7 @@ class ObsidianAPI(BaseAPI):
     def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0) -> List[Note]:
         """Get notes with specific tags"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        from cli.config import SEARCH_FOLDERS
+        from obsidianki.cli.config import SEARCH_FOLDERS
         filters = self._build_filters(SEARCH_FOLDERS)
 
         condition = f'({tag_conditions})'

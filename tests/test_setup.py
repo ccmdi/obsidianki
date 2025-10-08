@@ -21,9 +21,9 @@ def clean_temp_config():
         env_file = config_dir / ".env"
 
         # Patch config paths
-        with patch('cli.config.CONFIG_DIR', config_dir), \
-             patch('cli.config.CONFIG_FILE', config_file), \
-             patch('cli.config.ENV_FILE', env_file):
+        with patch('obsidianki.cli.config.CONFIG_DIR', config_dir), \
+             patch('obsidianki.cli.config.CONFIG_FILE', config_file), \
+             patch('obsidianki.cli.config.ENV_FILE', env_file):
             yield {
                 'config_dir': config_dir,
                 'config_file': config_file,
@@ -38,24 +38,24 @@ def mock_services(monkeypatch):
     monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
 
-    import cli.services
+    import obsidianki.cli.services
 
     # Store originals
-    original_ai = cli.services.AI
-    original_obsidian = cli.services.OBSIDIAN
-    original_anki = cli.services.ANKI
+    original_ai = obsidianki.cli.services.AI
+    original_obsidian = obsidianki.cli.services.OBSIDIAN
+    original_anki = obsidianki.cli.services.ANKI
 
     # Replace with mocks
-    cli.services.AI = DummyFlashcardAI()
-    cli.services.OBSIDIAN = DummyObsidianAPI()
-    cli.services.ANKI = DummyAnkiAPI()
+    obsidianki.cli.services.AI = DummyFlashcardAI()
+    obsidianki.cli.services.OBSIDIAN = DummyObsidianAPI()
+    obsidianki.cli.services.ANKI = DummyAnkiAPI()
 
     yield
 
     # Restore originals
-    cli.services.AI = original_ai
-    cli.services.OBSIDIAN = original_obsidian
-    cli.services.ANKI = original_anki
+    obsidianki.cli.services.AI = original_ai
+    obsidianki.cli.services.OBSIDIAN = original_obsidian
+    obsidianki.cli.services.ANKI = original_anki
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ class TestSetupFlow:
 
         sys.argv = ['oki', '--setup']
 
-        from main import main
+        from obsidianki.main import main
 
         try:
             result = main()
@@ -173,7 +173,7 @@ class TestSetupFlow:
         """Test that setup completes without crashing"""
         sys.argv = ['oki', '--setup']
 
-        from main import main
+        from obsidianki.main import main
 
         # Should not raise an exception
         try:
@@ -214,14 +214,14 @@ class TestSetupFlow:
                 return kwargs.get('default', False)
 
             # Patch both the wizard module's paths and the prompts
-            with patch('cli.wizard.CONFIG_DIR', test_config_dir), \
-                 patch('cli.wizard.ENV_FILE', test_env), \
-                 patch('cli.wizard.CONFIG_FILE', test_config), \
+            with patch('obsidianki.cli.wizard.CONFIG_DIR', test_config_dir), \
+                 patch('obsidianki.cli.wizard.ENV_FILE', test_env), \
+                 patch('obsidianki.cli.wizard.CONFIG_FILE', test_config), \
                  patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
                  patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
                  patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):
 
-                from cli.wizard import setup
+                from obsidianki.cli.wizard import setup
                 setup(force_full_setup=True)
 
                 # Verify files were created
@@ -248,7 +248,7 @@ class TestSetupValidation:
 
         with patch('rich.prompt.Prompt.ask', side_effect=mock_empty_prompt):
             sys.argv = ['oki', '--setup']
-            from main import main
+            from obsidianki.main import main
 
             result = main()
 
@@ -260,7 +260,7 @@ class TestSetupValidation:
         """Test that deck names with special characters are handled"""
         # Set up config first
         sys.argv = ['oki', '--setup']
-        from main import main
+        from obsidianki.main import main
         main()
 
         # Test that deck names with special characters work

@@ -4,7 +4,7 @@ Clean data models for ObsidianKi to replace scattered dictionaries and parameter
 
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-from cli.config import CONFIG_MANAGER
+from obsidianki.cli.config import CONFIG_MANAGER
 
 
 @dataclass
@@ -49,7 +49,7 @@ class Note:
 
     def ensure_content(self):
         """Ensure the note content is loaded."""
-        from cli.services import OBSIDIAN
+        from obsidianki.cli.services import OBSIDIAN
         if not self.content:
             self.content = OBSIDIAN.get_note_content(self.path)
 

@@ -30,8 +30,8 @@ dev = [
 ]
 
 [project.scripts]
-obsidianki = "main:main"
-oki = "main:main"
+obsidianki = "obsidianki.main:main"
+oki = "obsidianki.main:main"
 
 [project.urls]
 Homepage = "https://github.com/ccmdi/obsidianki"
@@ -39,8 +39,7 @@ Repository = "https://github.com/ccmdi/obsidianki"
 Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
-py-modules = ["main"]
-packages = {find = {exclude = ["tests", "tests.*"]}}
+packages = {find = {exclude = ["tests", "tests.*", "deprecated", "deprecated.*"]}}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
