@@ -1,12 +1,11 @@
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from anthropic import Anthropic
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 
 from cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS, CONFIG_MANAGER
 from cli.utils import process_code_blocks, strip_html
 from cli.models import Note, Flashcard
-from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, NOTE_RANKING_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
+from ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
 AI_RESULT_SET_SIZE = 20

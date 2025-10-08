@@ -1,11 +1,8 @@
 import argparse
-import os
-from pathlib import Path
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.text import Text
 
-from cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
+from cli.config import console, ENV_FILE, CONFIG_FILE
 from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
 
 def show_main_help():
@@ -56,7 +53,7 @@ def main():
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
-  
+
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
 
     # Config management subparser
