@@ -128,11 +128,8 @@ def mock_prompts():
 class TestSetupFlow:
     """Test the setup wizard"""
 
-    def test_setup_creates_config_files(self, clean_temp_config, mock_services, mock_prompts, capsys):
-        #TODO
+    def test_setup_creates_config_files(self, clean_temp_config, mock_services, mock_prompts):
         """Test that setup creates .env and config.json"""
-        print("\n=== Testing setup flow ===")
-
         paths = clean_temp_config
 
         # Verify files don't exist initially
@@ -145,24 +142,28 @@ class TestSetupFlow:
 
         try:
             result = main()
-            print(f"Setup returned: {result}")
         except SystemExit as e:
-            print(f"Setup exited with: {e.code}")
             result = e.code if e.code is not None else 0
 
-        captured = capsys.readouterr()
-        print(f"Setup output:\n{captured.out}")
+        # Should complete successfully
+        assert result == 0, f"Setup should return 0, got {result}"
 
-        # Check if files were created
-        if paths['env_file'].exists():
-            print(f".env file created: {paths['env_file']}")
-            with open(paths['env_file'], 'r') as f:
-                print(f"Contents:\n{f.read()}")
+        # Verify files were created
+        assert paths['env_file'].exists(), ".env file should be created"
+        assert paths['config_file'].exists(), "config.json file should be created"
 
-        if paths['config_file'].exists():
-            print(f"config.json created: {paths['config_file']}")
-            with open(paths['config_file'], 'r') as f:
-                print(f"Contents:\n{f.read()}")
+        # Verify .env has required keys
+        with open(paths['env_file'], 'r') as f:
+            env_content = f.read()
+            assert 'OBSIDIAN_API_KEY' in env_content, ".env should contain OBSIDIAN_API_KEY"
+            assert 'ANTHROPIC_API_KEY' in env_content, ".env should contain ANTHROPIC_API_KEY"
+
+        # Verify config.json has valid JSON structure
+        with open(paths['config_file'], 'r') as f:
+            config = json.load(f)
+            assert 'MAX_CARDS' in config, "config should contain MAX_CARDS"
+            assert 'NOTES_TO_SAMPLE' in config, "config should contain NOTES_TO_SAMPLE"
+            assert 'DECK' in config, "config should contain DECK"
 
     def test_setup_runs_without_error(self, clean_temp_config, mock_services, mock_prompts):
         """Test that setup completes without crashing"""
@@ -179,40 +180,92 @@ class TestSetupFlow:
             # SystemExit with code 0 is ok
             assert e.code == 0 or e.code is None
 
-    def test_setup_when_config_missing(self, clean_temp_config, mock_services, mock_prompts):
-        #TODO
-        """Test that CLI triggers setup when config is missing"""
-        paths = clean_temp_config
+    def test_setup_when_config_missing(self):
+        """Test that setup wizard logic works correctly when called directly"""
+        # This tests the setup wizard directly since testing through main()
+        # with patched config paths is problematic due to module-level imports
 
-        # Config doesn't exist, so it should trigger setup
-        sys.argv = ['oki', 'config']
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_config_dir = Path(tmpdir)
+            test_env = test_config_dir / ".env"
+            test_config = test_config_dir / "config.json"
 
-        from main import main
+            # Mock prompts
+            def mock_prompt(text, **kwargs):
+                if 'Obsidian' in text:
+                    return 'test_obs_key_123'
+                elif 'Anthropic' in text:
+                    return 'test_anthro_key_456'
+                elif 'Sampling mode' in text:
+                    return 'random'
+                elif 'Card type' in text:
+                    return 'basic'
+                return ''
 
-        # Should run setup automatically or gracefully handle missing config
-        try:
-            result = main()
-            # Should either complete setup or handle missing config
-            assert result == 0 or result is None or result == 1
-        except SystemExit:
-            pass  # Exit is acceptable for setup flow
+            def mock_int_prompt(text, **kwargs):
+                return kwargs.get('default', 6)
+
+            def mock_confirm(text, **kwargs):
+                return kwargs.get('default', False)
+
+            # Patch both the wizard module's paths and the prompts
+            with patch('cli.wizard.CONFIG_DIR', test_config_dir), \
+                 patch('cli.wizard.ENV_FILE', test_env), \
+                 patch('cli.wizard.CONFIG_FILE', test_config), \
+                 patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
+                 patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
+                 patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):
+
+                from cli.wizard import setup
+                setup(force_full_setup=True)
+
+                # Verify files were created
+                assert test_env.exists(), "Setup should create .env"
+                assert test_config.exists(), "Setup should create config.json"
+
+                # Verify content
+                with open(test_env, 'r') as f:
+                    env_content = f.read()
+                    assert 'test_obs_key_123' in env_content
+                    assert 'test_anthro_key_456' in env_content
 
 
 class TestSetupValidation:
     """Test setup validation logic"""
 
-    def test_empty_api_keys_rejected(self):
-        #TODO
-        """Test that empty API keys are handled"""
-        # This would test validation logic
-        # For now, just document the expected behavior
-        assert True
+    def test_empty_api_keys_rejected(self, clean_temp_config, mock_services):
+        """Test that empty API keys are rejected during setup"""
+        paths = clean_temp_config
 
-    def test_invalid_deck_names_handled(self):
-        #TODO
-        """Test that invalid deck names are handled"""
-        # Would test deck name validation
-        assert True
+        # Mock prompts to return empty strings
+        def mock_empty_prompt(prompt_text, **kwargs):
+            return ""  # Empty key
+
+        with patch('rich.prompt.Prompt.ask', side_effect=mock_empty_prompt):
+            sys.argv = ['oki', '--setup']
+            from main import main
+
+            result = main()
+
+            # Setup should return None or 0 (it just returns early without creating files)
+            # Files should NOT be created when API keys are empty
+            assert not paths['env_file'].exists(), "Should not create .env with empty keys"
+
+    def test_invalid_deck_names_handled(self, clean_temp_config, mock_services, mock_prompts):
+        """Test that deck names with special characters are handled"""
+        # Set up config first
+        sys.argv = ['oki', '--setup']
+        from main import main
+        main()
+
+        # Test that deck names with special characters work
+        # AnkiConnect should handle deck creation
+        sys.argv = ['oki', '-d', 'Test::Subdeck']
+        result = main()
+
+        # Should complete successfully - Anki allows :: for subdecks
+        assert result == 0, "Should handle deck names with special characters"
 
 
 if __name__ == "__main__":
