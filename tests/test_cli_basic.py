@@ -85,25 +85,24 @@ def temp_config():
 
 @pytest.fixture
 def mock_config():
-    """Mock configuration settings and ensure config files exist"""
+    """Patch config to use temp directory and disable interactive prompts"""
     import cli.config
 
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir)
         env_file = config_dir / ".env"
         config_file = config_dir / "config.json"
+        history_file = config_dir / "processing_history.json"
 
-        # Create dummy .env
         env_file.write_text("OBSIDIAN_API_KEY=test\nANTHROPIC_API_KEY=test\n")
-
-        # Create dummy config.json
         config_file.write_text('{"DECK": "Obsidian-test"}')
 
-        # Patch config paths in BOTH cli.config AND main modules
         with patch.object(cli.config, 'ENV_FILE', env_file), \
              patch.object(cli.config, 'CONFIG_FILE', config_file), \
              patch('main.ENV_FILE', env_file), \
              patch('main.CONFIG_FILE', config_file), \
+             patch.object(cli.config.CONFIG_MANAGER, 'processing_history_file', history_file), \
+             patch.object(cli.config.CONFIG_MANAGER, 'processing_history', {}), \
              patch.object(cli.config, 'APPROVE_NOTES', False), \
              patch.object(cli.config, 'APPROVE_CARDS', False):
             yield
