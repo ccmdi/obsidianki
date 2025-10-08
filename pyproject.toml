@@ -39,7 +39,7 @@ Repository = "https://github.com/ccmdi/obsidianki"
 Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
-packages = {find = {exclude = ["tests", "tests.*", "deprecated", "deprecated.*"]}}
+packages = {find = {exclude = ["tests", "tests.*"]}}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
