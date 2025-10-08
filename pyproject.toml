@@ -40,7 +40,7 @@ Issues = "https://github.com/ccmdi/obsidianki/issues"
 
 [tool.setuptools]
 py-modules = ["main"]
-packages = {find = {}}
+packages = {find = {exclude = ["tests", "tests.*"]}}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
