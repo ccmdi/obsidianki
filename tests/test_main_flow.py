@@ -40,14 +40,30 @@ def mock_services():
 
 @pytest.fixture
 def mock_config():
-    """Patch config values directly to disable approvals"""
+    """Patch config values directly to disable approvals and ensure config files exist"""
     import cli.config
+    import tempfile
+    from pathlib import Path
 
-    # Patch to disable approvals for automated testing
-    with patch.object(cli.config, 'APPROVE_NOTES', False), \
-         patch.object(cli.config, 'APPROVE_CARDS', False), \
-         patch.object(cli.config, 'UPFRONT_BATCHING', False):
-        yield
+    # Create temporary config files so setup wizard doesn't trigger
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_dir = Path(tmpdir)
+        env_file = config_dir / ".env"
+        config_file = config_dir / "config.json"
+
+        # Create dummy .env
+        env_file.write_text("OBSIDIAN_API_KEY=test\nANTHROPIC_API_KEY=test\n")
+
+        # Create dummy config.json
+        config_file.write_text('{"DECK": "Obsidian-test"}')
+
+        # Patch config paths and values
+        with patch.object(cli.config, 'ENV_FILE', env_file), \
+             patch.object(cli.config, 'CONFIG_FILE', config_file), \
+             patch.object(cli.config, 'APPROVE_NOTES', False), \
+             patch.object(cli.config, 'APPROVE_CARDS', False), \
+             patch.object(cli.config, 'UPFRONT_BATCHING', False):
+            yield
 
 
 class TestDefaultFlow:
