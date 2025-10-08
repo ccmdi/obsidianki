@@ -32,8 +32,5 @@ jobs:
         uv pip install --system -e .
 
     - name: Run tests
-      env:
-        OBSIDIAN_API_KEY: test_key_for_ci
-        ANTHROPIC_API_KEY: test_key_for_ci
       run: |
         pytest tests/ -v
