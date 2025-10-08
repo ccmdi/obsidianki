@@ -12,17 +12,27 @@ from tests.mocks.dummy_anki import DummyAnkiAPI
 def mock_services():
     """Set up mock services before each test"""
     import cli.services
+    import sys
+    import importlib
 
     original_ai = cli.services.AI
     original_obsidian = cli.services.OBSIDIAN
     original_anki = cli.services.ANKI
 
+    # Create fresh instances for each test
     cli.services.AI = DummyFlashcardAI()
     cli.services.OBSIDIAN = DummyObsidianAPI()
     cli.services.ANKI = DummyAnkiAPI()
 
+    # Force reload of modules that import cli.services to pick up fresh instances
+    if 'cli.processors' in sys.modules:
+        importlib.reload(sys.modules['cli.processors'])
+    if 'main' in sys.modules:
+        importlib.reload(sys.modules['main'])
+
     yield
 
+    # Restore original services
     cli.services.AI = original_ai
     cli.services.OBSIDIAN = original_obsidian
     cli.services.ANKI = original_anki
@@ -58,14 +68,16 @@ class TestDefaultFlow:
 
         from main import main
         import cli.services
+        import cli.config
 
         anki = cli.services.ANKI
-        initial_card_count = len(anki.cards.get("Test Deck", []))
+        deck_name = cli.config.DECK  # Use the actual configured deck name
+        initial_card_count = len(anki.cards.get(deck_name, []))
 
         result = main()
 
         # Should have added cards
-        final_card_count = len(anki.cards.get("Test Deck", []))
+        final_card_count = len(anki.cards.get(deck_name, []))
         assert final_card_count > initial_card_count, "Should add cards to Anki"
 
 
@@ -82,6 +94,7 @@ class TestCardsFlag:
         assert result == 0, "Should complete successfully with card limit"
 
     def test_cards_zero(self, mock_services, mock_config):
+        #TODO
         """Test: oki -c 0 (edge case: zero cards)"""
         sys.argv = ['oki', '-c', '0']
 
@@ -314,103 +327,54 @@ class TestCombinedFlags:
 class TestEdgeCases:
     """Test edge cases and error conditions"""
 
-    def test_no_notes_found(self, mock_config):
+    def test_no_notes_found(self, mock_services, mock_config):
         """Test behavior when no notes match criteria"""
         import cli.services
-        from tests.mocks.dummy_obsidian import DummyObsidianAPI
-        from tests.mocks.dummy_anki import DummyAnkiAPI
-        from tests.mocks.dummy_ai import DummyFlashcardAI
+        
+        # The fixture provides the mock, we just modify it
+        cli.services.OBSIDIAN.notes = []
 
-        # Create fresh mocks
-        obsidian = DummyObsidianAPI()
-        obsidian.notes = []  # Empty notes
+        sys.argv = ['oki']
+        from main import main
+        result = main()
+        assert result == 1, "Should return error when no notes found"
 
-        orig_obsidian = cli.services.OBSIDIAN
-        orig_anki = cli.services.ANKI
-        orig_ai = cli.services.AI
-
-        cli.services.OBSIDIAN = obsidian
-        cli.services.ANKI = DummyAnkiAPI()
-        cli.services.AI = DummyFlashcardAI()
-
-        try:
-            sys.argv = ['oki']
-            from main import main
-            result = main()
-            assert result == 1, "Should return error when no notes found"
-        finally:
-            cli.services.OBSIDIAN = orig_obsidian
-            cli.services.ANKI = orig_anki
-            cli.services.AI = orig_ai
-
-    def test_connection_failure_obsidian(self, mock_config):
+    def test_connection_failure_obsidian(self, mock_services, mock_config):
         """Test behavior when Obsidian connection fails"""
         import cli.services
-        from tests.mocks.dummy_obsidian import DummyObsidianAPI
-        from tests.mocks.dummy_anki import DummyAnkiAPI
-        from tests.mocks.dummy_ai import DummyFlashcardAI
+        
+        # The fixture provides the mock, we just modify it
+        cli.services.OBSIDIAN.test_connection = lambda: False
 
-        obsidian = DummyObsidianAPI()
-        obsidian.test_connection = lambda: False
+        sys.argv = ['oki']
+        from main import main
+        result = main()
+        assert result == 1, "Should fail when Obsidian connection fails"
 
-        orig_obsidian = cli.services.OBSIDIAN
-        orig_anki = cli.services.ANKI
-        orig_ai = cli.services.AI
-
-        cli.services.OBSIDIAN = obsidian
-        cli.services.ANKI = DummyAnkiAPI()
-        cli.services.AI = DummyFlashcardAI()
-
-        try:
-            sys.argv = ['oki']
-            from main import main
-            result = main()
-            assert result == 1, "Should fail when Obsidian connection fails"
-        finally:
-            cli.services.OBSIDIAN = orig_obsidian
-            cli.services.ANKI = orig_anki
-            cli.services.AI = orig_ai
-
-    def test_connection_failure_anki(self, mock_config):
+    def test_connection_failure_anki(self, mock_services, mock_config):
         """Test behavior when Anki connection fails"""
         import cli.services
-        from tests.mocks.dummy_obsidian import DummyObsidianAPI
-        from tests.mocks.dummy_anki import DummyAnkiAPI
-        from tests.mocks.dummy_ai import DummyFlashcardAI
 
-        anki = DummyAnkiAPI()
-        anki.test_connection = lambda: False
+        # The fixture provides the mock, we just modify it
+        cli.services.ANKI.test_connection = lambda: False
 
-        orig_obsidian = cli.services.OBSIDIAN
-        orig_anki = cli.services.ANKI
-        orig_ai = cli.services.AI
-
-        cli.services.OBSIDIAN = DummyObsidianAPI()
-        cli.services.ANKI = anki
-        cli.services.AI = DummyFlashcardAI()
-
-        try:
-            sys.argv = ['oki']
-            from main import main
-            result = main()
-            assert result == 1, "Should fail when Anki connection fails"
-        finally:
-            cli.services.OBSIDIAN = orig_obsidian
-            cli.services.ANKI = orig_anki
-            cli.services.AI = orig_ai
+        sys.argv = ['oki']
+        from main import main
+        result = main()
+        assert result == 1, "Should fail when Anki connection fails"
 
     def test_no_flashcards_generated(self, mock_services, mock_config):
         """Test behavior when AI generates no flashcards"""
         import cli.services
-        # Make AI return empty list
+
+        # The fixture provides the mock, we just modify it
         cli.services.AI.generate_flashcards = lambda *args, **kwargs: []
 
+        # Use a command that is guaranteed to find a note
         sys.argv = ['oki']
 
         from main import main
         result = main()
-
-        # Should complete but with 0 cards
         assert result == 0, "Should handle no flashcards gracefully"
 
 
@@ -423,12 +387,14 @@ class TestFlashcardGeneration:
 
         from main import main
         import cli.services
+        import cli.config
 
         result = main()
 
         # Check cards in Anki have content
         anki = cli.services.ANKI
-        cards = anki.cards.get("Test Deck", [])
+        deck_name = cli.config.DECK  # Use the actual configured deck name
+        cards = anki.cards.get(deck_name, [])
 
         assert len(cards) > 0, "Should generate at least one card"
         for card in cards:
@@ -441,11 +407,13 @@ class TestFlashcardGeneration:
 
         from main import main
         import cli.services
+        import cli.config
 
         result = main()
 
         anki = cli.services.ANKI
-        cards = anki.cards.get("Test Deck", [])
+        deck_name = cli.config.DECK  # Use the actual configured deck name
+        cards = anki.cards.get(deck_name, [])
 
         assert len(cards) > 0, "Should generate cards"
         for card in cards:

@@ -129,6 +129,7 @@ class TestSetupFlow:
     """Test the setup wizard"""
 
     def test_setup_creates_config_files(self, clean_temp_config, mock_services, mock_prompts, capsys):
+        #TODO
         """Test that setup creates .env and config.json"""
         print("\n=== Testing setup flow ===")
 
@@ -179,6 +180,7 @@ class TestSetupFlow:
             assert e.code == 0 or e.code is None
 
     def test_setup_when_config_missing(self, clean_temp_config, mock_services, mock_prompts):
+        #TODO
         """Test that CLI triggers setup when config is missing"""
         paths = clean_temp_config
 
@@ -200,12 +202,14 @@ class TestSetupValidation:
     """Test setup validation logic"""
 
     def test_empty_api_keys_rejected(self):
+        #TODO
         """Test that empty API keys are handled"""
         # This would test validation logic
         # For now, just document the expected behavior
         assert True
 
     def test_invalid_deck_names_handled(self):
+        #TODO
         """Test that invalid deck names are handled"""
         # Would test deck name validation
         assert True
