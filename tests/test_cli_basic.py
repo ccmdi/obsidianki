@@ -165,7 +165,7 @@ class TestConfigCommands:
         assert result == 0
         captured = capsys.readouterr()
         # Should print some path
-        assert len(captured.out.strip()) > 0
+        assert ('.config\\obsidianki' in captured.out) or ('.config/obsidianki' in captured.out)
 
 
 class TestDeckCommands:
