@@ -23,6 +23,12 @@ dependencies = [
     "bullet>=2.2.0"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0"
+]
+
 [project.scripts]
 obsidianki = "main:main"
 oki = "main:main"
@@ -35,3 +41,10 @@ Issues = "https://github.com/ccmdi/obsidianki/issues"
 [tool.setuptools]
 py-modules = ["main"]
 packages = {find = {}}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
