@@ -32,8 +32,12 @@ def clean_temp_config():
 
 
 @pytest.fixture
-def mock_services():
+def mock_services(monkeypatch):
     """Set up mock services before each test"""
+    # Set dummy env vars so real API clients can be imported
+    monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
+
     import cli.services
 
     # Store originals

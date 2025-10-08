@@ -13,8 +13,12 @@ from tests.mocks.dummy_anki import DummyAnkiAPI
 
 
 @pytest.fixture
-def mock_services():
+def mock_services(monkeypatch):
     """Set up mock services before each test"""
+    # Set dummy env vars so real API clients can be imported
+    monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
+
     import cli.services
 
     # Store originals
@@ -95,9 +99,11 @@ def mock_config():
         # Create dummy config.json
         config_file.write_text('{"DECK": "Obsidian-test"}')
 
-        # Patch config paths and values
+        # Patch config paths in BOTH cli.config AND main modules
         with patch.object(cli.config, 'ENV_FILE', env_file), \
              patch.object(cli.config, 'CONFIG_FILE', config_file), \
+             patch('main.ENV_FILE', env_file), \
+             patch('main.CONFIG_FILE', config_file), \
              patch.object(cli.config, 'APPROVE_NOTES', False), \
              patch.object(cli.config, 'APPROVE_CARDS', False):
             yield
