@@ -757,12 +757,10 @@ def edit_mode(args):
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
     console.print()
 
-    # Test connections
     if not ANKI.test_connection():
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         return 0
 
-    # Get all cards from deck
     console.print(f"[cyan]INFO:[/cyan] Retrieving cards from deck '{deck_name}'...")
     all_cards = ANKI.get_cards_for_editing(deck_name)
 

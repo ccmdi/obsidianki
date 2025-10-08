@@ -1,5 +1,4 @@
 import requests
-import json
 from typing import List, Dict
 import urllib.parse
 from rich.console import Console
