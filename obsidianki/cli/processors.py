@@ -3,13 +3,14 @@ Note processing functions for ObsidianKi.
 """
 
 import concurrent.futures
+import argparse
 from typing import List
 from obsidianki.cli.handlers import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 
 
-def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> List[Flashcard]:
+def process(note: Note, args: argparse.Namespace, deck_examples: List[Flashcard], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
     from obsidianki.cli.config import console
     note.ensure_content()
 
@@ -76,7 +77,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
         return 0
 
-def preprocess(args):
+def preprocess(args: argparse.Namespace):
     """
     Entry point for flashcard generation.
     """
@@ -137,11 +138,12 @@ def preprocess(args):
     notes = None
 
     if args.query and not args.agent and not args.notes:
-        # STANDALONE QUERY MODE - Create synthetic note for main flow
+        # STANDALONE QUERY MODE
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
         from obsidianki.cli.models import Note
         query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
         notes = [query_note]
+
         CONFIG.max_cards = args.cards or CONFIG.max_cards
         CONFIG.approve_notes = False # no need to approve what a user wrote
     elif args.agent:
@@ -152,11 +154,9 @@ def preprocess(args):
             console.print("[red]ERROR:[/red] Agent found no matching notes")
             return 1
 
-        if args.cards is None:
-            CONFIG.max_cards = len(notes) * 2
+        CONFIG.max_cards = args.cards or len(notes) * 2
 
     elif args.notes:
-        # Handle --notes argument parsing
         if len(args.notes) == 1 and args.notes[0].isdigit():
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
