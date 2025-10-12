@@ -152,7 +152,7 @@ def preprocess(args):
         query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
         notes = [query_note]
         max_cards = args.cards if args.cards else max_cards
-        APPROVE_NOTES = False # no need to approve what a user wrote
+        CONFIG.APPROVE_NOTES = False # no need to approve what a user wrote
     elif args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")

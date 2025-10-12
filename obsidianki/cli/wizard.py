@@ -46,43 +46,43 @@ ANTHROPIC_API_KEY={anthropic_key}
     if not CONFIG_FILE.exists() or force_full_setup:
         console.print(f"\n[cyan]Step {step_num}: Preferences[/cyan]")
 
-        from obsidianki.cli.config import MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE, APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY
+        from obsidianki.cli.config import CONFIG
 
-        max_cards = IntPrompt.ask("   How many flashcards per session?", default=MAX_CARDS)
-        notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=NOTES_TO_SAMPLE)
-        days_old = IntPrompt.ask("   Only process notes older than X days?", default=DAYS_OLD)
+        max_cards = IntPrompt.ask("   How many flashcards per session?", default=CONFIG.MAX_CARDS)
+        notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=CONFIG.NOTES_TO_SAMPLE)
+        days_old = IntPrompt.ask("   Only process notes older than X days?", default=CONFIG.DAYS_OLD)
 
         sampling_mode = Prompt.ask(
             "   Sampling mode",
             choices=["random", "weighted"],
-            default=SAMPLING_MODE
+            default=CONFIG.SAMPLING_MODE
         )
 
         card_type = Prompt.ask(
             "   Card type",
             choices=["basic", "custom"],
-            default=CARD_TYPE
+            default=CONFIG.CARD_TYPE
         )
 
         console.print("\n   [cyan]Approval Settings[/cyan]")
         approve_notes = Confirm.ask(
             "   Review each note before AI processing?",
-            default=APPROVE_NOTES
+            default=CONFIG.APPROVE_NOTES
         )
 
         approve_cards = Confirm.ask(
             "   Review each flashcard before adding to Anki?",
-            default=APPROVE_CARDS
+            default=CONFIG.APPROVE_CARDS
         )
 
         deduplicate_via_history = Confirm.ask(
             "   Avoid duplicate flashcards using processing history?",
-            default=DEDUPLICATE_VIA_HISTORY
+            default=CONFIG.DEDUPLICATE_VIA_HISTORY
         )
 
         syntax_highlighting = Confirm.ask(
             "   Enable syntax highlighting for code blocks in flashcards?",
-            default=True
+            default=CONFIG.SYNTAX_HIGHLIGHTING
         )
 
         # Create config.json with user preferences and defaults

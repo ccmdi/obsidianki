@@ -745,13 +745,12 @@ def edit_mode(args):
     """
     Entry point for interactive editing of existing flashcards.
     """
-    from obsidianki.cli.config import console, DECK, APPROVE_CARDS
     from obsidianki.cli.models import Note, Flashcard
     from obsidianki.cli.services import ANKI, AI
     from rich.panel import Panel
     from rich.prompt import Prompt
 
-    deck_name = args.deck if args.deck else DECK
+    deck_name = args.deck if args.deck else CONFIG.DECK
 
     console.print(Panel("ObsidianKi - Editing mode", style="bold blue"))
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
@@ -832,7 +831,7 @@ def edit_mode(args):
         console.print()
 
         # Convert to Flashcard object for approval if needed
-        if APPROVE_CARDS:
+        if CONFIG.APPROVE_CARDS:
             dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[], size=0)
             flashcard = Flashcard(
                 front=edited_card['front'],

@@ -64,9 +64,9 @@ def mock_config():
              patch('obsidianki.main.CONFIG_FILE', config_file), \
              patch.object(obsidianki.cli.config.CONFIG, 'processing_history_file', history_file), \
              patch.object(obsidianki.cli.config.CONFIG, 'processing_history', {}), \
-             patch.object(obsidianki.cli.config, 'APPROVE_NOTES', False), \
-             patch.object(obsidianki.cli.config, 'APPROVE_CARDS', False), \
-             patch.object(obsidianki.cli.config, 'UPFRONT_BATCHING', False):
+             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_NOTES', False), \
+             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_CARDS', False), \
+             patch.object(obsidianki.cli.config.CONFIG, 'UPFRONT_BATCHING', False):
             yield
 
 
@@ -91,7 +91,7 @@ class TestDefaultFlow:
         import obsidianki.cli.config
 
         anki = obsidianki.cli.services.ANKI
-        deck_name = obsidianki.cli.config.DECK  # Use the actual configured deck name
+        deck_name = obsidianki.cli.config.CONFIG.DECK  # Use the actual configured deck name
         initial_card_count = len(anki.cards.get(deck_name, []))
 
         result = main()
@@ -414,7 +414,7 @@ class TestFlashcardGeneration:
 
         # Check cards in Anki have content
         anki = obsidianki.cli.services.ANKI
-        deck_name = obsidianki.cli.config.DECK  # Use the actual configured deck name
+        deck_name = obsidianki.cli.config.CONFIG.DECK  # Use the actual configured deck name
         cards = anki.cards.get(deck_name, [])
 
         assert len(cards) > 0, "Should generate at least one card"
@@ -433,7 +433,7 @@ class TestFlashcardGeneration:
         result = main()
 
         anki = obsidianki.cli.services.ANKI
-        deck_name = obsidianki.cli.config.DECK  # Use the actual configured deck name
+        deck_name = obsidianki.cli.config.CONFIG.DECK  # Use the actual configured deck name
         cards = anki.cards.get(deck_name, [])
 
         assert len(cards) > 0, "Should generate cards"

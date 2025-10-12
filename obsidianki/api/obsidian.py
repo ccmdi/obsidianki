@@ -80,8 +80,7 @@ class ObsidianAPI(BaseAPI):
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
-        from obsidianki.cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS)
+        filters = self._build_filters(CONFIG.SEARCH_FOLDERS)
 
         condition = f'file.mtime < date("{cutoff_str}") {filters}'
         query = self._build_base_query(condition)
@@ -94,8 +93,7 @@ class ObsidianAPI(BaseAPI):
     def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0) -> List[Note]:
         """Get notes with specific tags"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        from obsidianki.cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS)
+        filters = self._build_filters(CONFIG.SEARCH_FOLDERS)
 
         condition = f'({tag_conditions})'
 

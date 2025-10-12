@@ -82,6 +82,12 @@ class Config:
             # Normal attribute assignment
             object.__setattr__(self, name, value)
 
+    def __delattr__(self, name):
+        if hasattr(self, '_config') and name in self._config:
+            pass
+        else:
+            object.__delattr__(self, name)
+
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
         if self.tag_schema_file.exists():

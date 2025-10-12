@@ -216,7 +216,7 @@ class TestDensityBias:
             config.load_processing_history()
 
             # Patch both the config module's SAMPLING_MODE and the models CONFIG
-            with patch('obsidianki.cli.config.SAMPLING_MODE', 'weighted'), \
+            with patch('obsidianki.cli.config.CONFIG.SAMPLING_MODE', 'weighted'), \
                  patch('obsidianki.cli.models.CONFIG', config):
 
                 note = Note(
