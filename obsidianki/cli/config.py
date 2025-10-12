@@ -131,7 +131,6 @@ class Config:
     def save_tag_schema(self):
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
         schema = self.tag_weights.copy()
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags

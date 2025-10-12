@@ -4,59 +4,11 @@ import sys
 import tempfile
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-# Import mocks
-from tests.mocks.dummy_ai import DummyFlashcardAI
-from tests.mocks.dummy_obsidian import DummyObsidianAPI
-from tests.mocks.dummy_anki import DummyAnkiAPI
-
-
-@pytest.fixture
-def clean_temp_config():
-    """Create a temporary directory for fresh config setup"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config_dir = Path(tmpdir)
-        config_file = config_dir / "config.json"
-        env_file = config_dir / ".env"
-
-        # Patch config paths
-        with patch('obsidianki.cli.config.CONFIG_DIR', config_dir), \
-             patch('obsidianki.cli.config.CONFIG_FILE', config_file), \
-             patch('obsidianki.cli.config.ENV_FILE', env_file):
-            yield {
-                'config_dir': config_dir,
-                'config_file': config_file,
-                'env_file': env_file
-            }
-
-
-@pytest.fixture
-def mock_services(monkeypatch):
-    """Set up mock services before each test"""
-    # Set dummy env vars so real API clients can be imported
-    monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
-
-    import obsidianki.cli.services
-
-    # Store originals
-    original_ai = obsidianki.cli.services.AI
-    original_obsidian = obsidianki.cli.services.OBSIDIAN
-    original_anki = obsidianki.cli.services.ANKI
-
-    # Replace with mocks
-    obsidianki.cli.services.AI = DummyFlashcardAI()
-    obsidianki.cli.services.OBSIDIAN = DummyObsidianAPI()
-    obsidianki.cli.services.ANKI = DummyAnkiAPI()
-
-    yield
-
-    # Restore originals
-    obsidianki.cli.services.AI = original_ai
-    obsidianki.cli.services.OBSIDIAN = original_obsidian
-    obsidianki.cli.services.ANKI = original_anki
-
+import tests.utils
+mock_services = tests.utils.mock_services
+clean_temp_config = tests.utils.clean_temp_config
 
 @pytest.fixture
 def mock_prompts():
@@ -184,57 +136,52 @@ class TestSetupFlow:
             # SystemExit with code 0 is ok
             assert e.code == 0 or e.code is None
 
-    def test_setup_when_config_missing(self):
+    def test_setup_when_config_missing(self, clean_temp_config, mock_services, mock_prompts):
         """Test that setup wizard logic works correctly when called directly"""
-        # This tests the setup wizard directly since testing through main()
-        # with patched config paths is problematic due to module-level imports
+        test_config_dir = clean_temp_config['config_dir']
+        test_env = clean_temp_config['env_file']
+        test_config = clean_temp_config['config_file']
 
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmpdir:
-            test_config_dir = Path(tmpdir)
-            test_env = test_config_dir / ".env"
-            test_config = test_config_dir / "config.json"
+        # Mock prompts
+        def mock_prompt(text, **kwargs):
+            if 'Obsidian' in text:
+                return 'test_obs_key_123'
+            elif 'Anthropic' in text:
+                return 'test_anthro_key_456'
+            elif 'Sampling mode' in text:
+                return 'random'
+            elif 'Card type' in text:
+                return 'basic'
+            return ''
 
-            # Mock prompts
-            def mock_prompt(text, **kwargs):
-                if 'Obsidian' in text:
-                    return 'test_obs_key_123'
-                elif 'Anthropic' in text:
-                    return 'test_anthro_key_456'
-                elif 'Sampling mode' in text:
-                    return 'random'
-                elif 'Card type' in text:
-                    return 'basic'
-                return ''
+        def mock_int_prompt(text, **kwargs):
+            return kwargs.get('default', 6)
 
-            def mock_int_prompt(text, **kwargs):
-                return kwargs.get('default', 6)
+        def mock_confirm(text, **kwargs):
+            return kwargs.get('default', False)
 
-            def mock_confirm(text, **kwargs):
-                return kwargs.get('default', False)
+        # Patch both the wizard module's paths and config module's paths
+        with patch('obsidianki.cli.wizard.CONFIG_DIR', test_config_dir), \
+                patch('obsidianki.cli.wizard.ENV_FILE', test_env), \
+                patch('obsidianki.cli.wizard.CONFIG_FILE', test_config), \
+                patch('obsidianki.cli.config.CONFIG_DIR', test_config_dir), \
+                patch('obsidianki.cli.config.CONFIG_FILE', test_config), \
+                patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
+                patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
+                patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):
 
-            # Patch both the wizard module's paths and config module's paths
-            with patch('obsidianki.cli.wizard.CONFIG_DIR', test_config_dir), \
-                 patch('obsidianki.cli.wizard.ENV_FILE', test_env), \
-                 patch('obsidianki.cli.wizard.CONFIG_FILE', test_config), \
-                 patch('obsidianki.cli.config.CONFIG_DIR', test_config_dir), \
-                 patch('obsidianki.cli.config.CONFIG_FILE', test_config), \
-                 patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
-                 patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
-                 patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):
+            from obsidianki.cli.wizard import setup
+            setup(force_full_setup=True)
 
-                from obsidianki.cli.wizard import setup
-                setup(force_full_setup=True)
+            # Verify files were created
+            assert test_env.exists(), "Setup should create .env"
+            assert test_config.exists(), "Setup should create config.json"
 
-                # Verify files were created
-                assert test_env.exists(), "Setup should create .env"
-                assert test_config.exists(), "Setup should create config.json"
-
-                # Verify content
-                with open(test_env, 'r') as f:
-                    env_content = f.read()
-                    assert 'test_obs_key_123' in env_content
-                    assert 'test_anthro_key_456' in env_content
+            # Verify content
+            with open(test_env, 'r') as f:
+                env_content = f.read()
+                assert 'test_obs_key_123' in env_content
+                assert 'test_anthro_key_456' in env_content
 
 
 class TestSetupValidation:

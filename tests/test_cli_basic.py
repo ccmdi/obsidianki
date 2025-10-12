@@ -4,39 +4,10 @@ import sys
 import tempfile
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-# Import mocks
-from tests.mocks.dummy_ai import DummyFlashcardAI
-from tests.mocks.dummy_obsidian import DummyObsidianAPI
-from tests.mocks.dummy_anki import DummyAnkiAPI
-
-
-@pytest.fixture
-def mock_services(monkeypatch):
-    """Set up mock services before each test"""
-    # Set dummy env vars so real API clients can be imported
-    monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
-
-    import obsidianki.cli.services
-
-    # Store originals
-    original_ai = obsidianki.cli.services.AI
-    original_obsidian = obsidianki.cli.services.OBSIDIAN
-    original_anki = obsidianki.cli.services.ANKI
-
-    # Replace with mocks
-    obsidianki.cli.services.AI = DummyFlashcardAI()
-    obsidianki.cli.services.OBSIDIAN = DummyObsidianAPI()
-    obsidianki.cli.services.ANKI = DummyAnkiAPI()
-
-    yield
-
-    # Restore originals
-    obsidianki.cli.services.AI = original_ai
-    obsidianki.cli.services.OBSIDIAN = original_obsidian
-    obsidianki.cli.services.ANKI = original_anki
+import tests.utils
+mock_services = tests.utils.mock_services
 
 
 @pytest.fixture
