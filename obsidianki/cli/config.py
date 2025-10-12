@@ -39,25 +39,9 @@ DEFAULT_CONFIG = {
     "BATCH_CARD_LIMIT": 100  # Maximum total cards in batch mode
 }
 
-def load_config():
-    """Load configuration from global config.json, using defaults if it doesn't exist"""
-    config = DEFAULT_CONFIG.copy()
-
-    if CONFIG_FILE.exists():
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                local_config = json.load(f)
-                config.update(local_config)
-        except Exception as e:
-            console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
-            console.print("[cyan]Using default configuration[/cyan]")
-
-    return config
-
-
 class Config:
     def __init__(self):
-        self._config = load_config()
+        self._config = self.load()
         self.tag_weights = {}
         self.excluded_tags = []
         self.processing_history = {}
@@ -68,25 +52,49 @@ class Config:
         self.load_processing_history()
 
     def __getattr__(self, name):
-        """Dynamically expose config dict values as attributes"""
-        if name.isupper() and name in self._config:
-            return self._config[name]
+        """Dynamically expose config dict values as attributes (lowercase or uppercase)"""
+        upper_name = name.upper()
+        if upper_name in self._config:
+            return self._config[upper_name]
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __setattr__(self, name, value):
-        """Allow setting config values dynamically"""
-        # If _config exists and this key is in it, update the dict
-        if hasattr(self, '_config') and name in self._config:
-            self._config[name] = value
-        else:
-            # Normal attribute assignment
-            object.__setattr__(self, name, value)
+        """Allow setting config values dynamically (lowercase or uppercase)"""
+        if hasattr(self, '_config'):
+            upper_name = name.upper()
+            if upper_name in self._config:
+                self._config[upper_name] = value
+                return
+        # Normal attribute assignment
+        object.__setattr__(self, name, value)
 
     def __delattr__(self, name):
-        if hasattr(self, '_config') and name in self._config:
-            pass
-        else:
-            object.__delattr__(self, name)
+        """Allow deleting config values (needed for patch cleanup)"""
+        if hasattr(self, '_config'):
+            upper_name = name.upper()
+            if upper_name in self._config:
+                pass
+                return
+        object.__delattr__(self, name)
+    
+    def save(self, config_dict):
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config_dict, f, indent=2)
+    
+    def load(self):
+        config = DEFAULT_CONFIG.copy()
+
+        if CONFIG_FILE.exists():
+            try:
+                with open(CONFIG_FILE, "r") as f:
+                    local_config = json.load(f)
+                    config.update(local_config)
+            except Exception as e:
+                console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
+                console.print("[cyan]Using default configuration[/cyan]")
+
+        return config
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""

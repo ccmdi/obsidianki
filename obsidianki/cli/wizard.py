@@ -48,41 +48,41 @@ ANTHROPIC_API_KEY={anthropic_key}
 
         from obsidianki.cli.config import CONFIG
 
-        max_cards = IntPrompt.ask("   How many flashcards per session?", default=CONFIG.MAX_CARDS)
-        notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=CONFIG.NOTES_TO_SAMPLE)
-        days_old = IntPrompt.ask("   Only process notes older than X days?", default=CONFIG.DAYS_OLD)
+        max_cards = IntPrompt.ask("   How many flashcards per session?", default=CONFIG.max_cards)
+        notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=CONFIG.notes_to_sample)
+        days_old = IntPrompt.ask("   Only process notes older than X days?", default=CONFIG.days_old)
 
         sampling_mode = Prompt.ask(
             "   Sampling mode",
             choices=["random", "weighted"],
-            default=CONFIG.SAMPLING_MODE
+            default=CONFIG.sampling_mode
         )
 
         card_type = Prompt.ask(
             "   Card type",
             choices=["basic", "custom"],
-            default=CONFIG.CARD_TYPE
+            default=CONFIG.card_type
         )
 
         console.print("\n   [cyan]Approval Settings[/cyan]")
         approve_notes = Confirm.ask(
             "   Review each note before AI processing?",
-            default=CONFIG.APPROVE_NOTES
+            default=CONFIG.approve_notes
         )
 
         approve_cards = Confirm.ask(
             "   Review each flashcard before adding to Anki?",
-            default=CONFIG.APPROVE_CARDS
+            default=CONFIG.approve_cards
         )
 
         deduplicate_via_history = Confirm.ask(
             "   Avoid duplicate flashcards using processing history?",
-            default=CONFIG.DEDUPLICATE_VIA_HISTORY
+            default=CONFIG.deduplicate_via_history
         )
 
         syntax_highlighting = Confirm.ask(
             "   Enable syntax highlighting for code blocks in flashcards?",
-            default=CONFIG.SYNTAX_HIGHLIGHTING
+            default=CONFIG.syntax_highlighting
         )
 
         # Create config.json with user preferences and defaults
@@ -106,18 +106,11 @@ ANTHROPIC_API_KEY={anthropic_key}
         }
 
         try:
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(user_config, f, indent=2)
+            CONFIG.save(user_config)
             console.print("   [green]✓[/green] Configuration saved")
 
-            #TODO: configmanager can save this ?
-            tags_file = CONFIG_DIR / "tags.json"
-            default_tags = {
-                "_default": 1.0,
-                "_exclude": []
-            }
-            with open(tags_file, "w") as f:
-                json.dump(default_tags, f, indent=2)
+            CONFIG.tag_weights = {"_default": 1.0}
+            CONFIG.save_tag_schema()
             console.print("   [green]✓[/green] Default tags schema created")
 
         except Exception as e:

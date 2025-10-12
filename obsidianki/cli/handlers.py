@@ -51,7 +51,6 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
-    #TODO add debugging for this
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
 
@@ -750,7 +749,7 @@ def edit_mode(args):
     from rich.panel import Panel
     from rich.prompt import Prompt
 
-    deck_name = args.deck if args.deck else CONFIG.DECK
+    deck_name = args.deck if args.deck else CONFIG.deck
 
     console.print(Panel("ObsidianKi - Editing mode", style="bold blue"))
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
@@ -831,7 +830,7 @@ def edit_mode(args):
         console.print()
 
         # Convert to Flashcard object for approval if needed
-        if CONFIG.APPROVE_CARDS:
+        if CONFIG.approve_cards:
             dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[], size=0)
             flashcard = Flashcard(
                 front=edited_card['front'],

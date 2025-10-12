@@ -97,8 +97,8 @@ class FlashcardAI:
                         for card in flashcard_dicts:
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+                            back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
 
                             flashcard = Flashcard(
                                 front=front_processed,
@@ -161,8 +161,8 @@ class FlashcardAI:
                             # Process the front and back content
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+                            back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
 
                             # Create Flashcard object
                             flashcard = Flashcard(
@@ -221,8 +221,8 @@ class FlashcardAI:
                             # Process the front and back content
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+                            back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
 
                             # Create Flashcard object
                             flashcard = Flashcard(
@@ -252,8 +252,8 @@ class FlashcardAI:
 
         # Add folder context
         folder_context = ""
-        if CONFIG.SEARCH_FOLDERS:
-            folder_context = f"\n\nIMPORTANT: Only search in these folders: {CONFIG.SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+        if CONFIG.search_folders:
+            folder_context = f"\n\nIMPORTANT: Only search in these folders: {CONFIG.search_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
         user_prompt = f"""Natural language request: {natural_request}{date_context}{folder_context}
 
@@ -322,9 +322,9 @@ class FlashcardAI:
                                         note_path = result.get('result', {}).get('path', '')
                                         note_tags = result.get('result', {}).get('tags', []) or []
 
-                                    # Apply SEARCH_FOLDERS filtering
-                                    if CONFIG.SEARCH_FOLDERS:
-                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in CONFIG.SEARCH_FOLDERS)
+                                    # Apply search_folders filtering
+                                    if CONFIG.search_folders:
+                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in CONFIG.search_folders)
                                         if not path_matches:
                                             continue
 
@@ -565,8 +565,8 @@ IMPORTANT:
                                 back_original = flashcard_data["back"]
 
                                 # Process code blocks like other flashcard generation
-                                front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
-                                back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                                front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+                                back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
 
                                 edited_cards.append({
                                     "front": front_processed,
