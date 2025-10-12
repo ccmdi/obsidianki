@@ -19,7 +19,6 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 load_dotenv(ENV_FILE)
 
-# Default Configuration
 DEFAULT_CONFIG = {
     "MAX_CARDS": 6,
     "NOTES_TO_SAMPLE": 3,
@@ -55,7 +54,6 @@ def load_config():
 
     return config
 
-# Load configuration
 _config = load_config()
 
 MAX_CARDS = _config["MAX_CARDS"]
