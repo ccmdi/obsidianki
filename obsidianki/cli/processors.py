@@ -37,11 +37,11 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = None):
     """Handle flashcard approval and Anki addition"""
-    from obsidianki.cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
+    from obsidianki.cli.config import console, CONFIG
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
-    approve_cards = APPROVE_CARDS
+    approve_cards = CONFIG.APPROVE_CARDS
     print_cards = False
     if args.mcp:
         approve_cards = False
@@ -68,16 +68,15 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = 
             console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        # console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
+    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CONFIG.CARD_TYPE)
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
         if note.path != "query": #TODO
             flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-            CONFIG_MANAGER.record_flashcards_created(note, successful_cards, flashcard_fronts)
+            CONFIG.record_flashcards_created(note, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
@@ -88,20 +87,15 @@ def preprocess(args):
     """
     Entry point for flashcard generation.
     """
-    from obsidianki.cli.config import (
-        console, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE,
-        APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK,
-        USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT,
-        DENSITY_BIAS_STRENGTH, CONFIG_MANAGER
-    )
+    from obsidianki.cli.config import console, CONFIG
     from rich.panel import Panel
 
     if args.mcp:
-        APPROVE_NOTES = False
-        UPFRONT_BATCHING = True
+        CONFIG.APPROVE_NOTES = False
+        CONFIG.UPFRONT_BATCHING = True
 
-    deck_name = args.deck if args.deck else DECK
-    notes_to_sample = NOTES_TO_SAMPLE
+    deck_name = args.deck if args.deck else CONFIG.DECK
+    notes_to_sample = CONFIG.NOTES_TO_SAMPLE
 
     if args.notes:
         # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
@@ -119,24 +113,24 @@ def preprocess(args):
         notes_to_sample = max(1, max_cards // 2)
     else:
         # Default behavior - use config values
-        max_cards = MAX_CARDS
-        notes_to_sample = NOTES_TO_SAMPLE
+        max_cards = CONFIG.MAX_CARDS
+        notes_to_sample = CONFIG.NOTES_TO_SAMPLE
 
     # --bias
-    effective_bias_strength = args.bias if args.bias is not None else DENSITY_BIAS_STRENGTH
+    effective_bias_strength = args.bias if args.bias is not None else CONFIG.DENSITY_BIAS_STRENGTH
 
     # Handle search folders - processors.py owns this state
-    search_folders = SEARCH_FOLDERS
+    search_folders = CONFIG.SEARCH_FOLDERS
     if args.allow:
-        search_folders = list(SEARCH_FOLDERS) + args.allow if SEARCH_FOLDERS else args.allow
+        search_folders = list(CONFIG.SEARCH_FOLDERS) + args.allow if CONFIG.SEARCH_FOLDERS else args.allow
         console.print(f"[dim]Search folders:[/dim] {', '.join(search_folders)}")
         console.print()
 
-    if SAMPLING_MODE == "weighted":
-        CONFIG_MANAGER.show_weights()
+    if CONFIG.SAMPLING_MODE == "weighted":
+        CONFIG.show_weights()
     console.print()
 
-    if args.query and not args.notes and DEDUPLICATE_VIA_DECK:
+    if args.query and not args.notes and CONFIG.DEDUPLICATE_VIA_DECK:
         console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
@@ -176,7 +170,7 @@ def preprocess(args):
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength, search_folders=search_folders)
+            notes = OBSIDIAN.sample_old_notes(days=CONFIG.DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength, search_folders=search_folders)
         else:
             # User specified note names/patterns: --notes "React" "JS"
             notes = []
@@ -211,7 +205,7 @@ def preprocess(args):
             return 1
     else:
         # Default sampling
-        notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength, search_folders=search_folders)
+        notes = OBSIDIAN.sample_old_notes(days=CONFIG.DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength, search_folders=search_folders)
         if not notes:
             console.print("[red]ERROR:[/red] No old notes found")
             return 1
@@ -225,14 +219,14 @@ def preprocess(args):
     console.print()
 
     # === BATCH MODE DECISION ===
-    use_batch_mode = UPFRONT_BATCHING and len(notes) > 1
+    use_batch_mode = CONFIG.UPFRONT_BATCHING and len(notes) > 1
     if use_batch_mode:
-        if len(notes) > BATCH_SIZE_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(notes)} > {BATCH_SIZE_LIMIT})")
+        if len(notes) > CONFIG.BATCH_SIZE_LIMIT:
+            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(notes)} > {CONFIG.BATCH_SIZE_LIMIT})")
             console.print(f"[yellow]This could result in expensive API costs. Use fewer notes or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
-        elif max_cards > BATCH_CARD_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({max_cards} > {BATCH_CARD_LIMIT})")
+        elif max_cards > CONFIG.BATCH_CARD_LIMIT:
+            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({max_cards} > {CONFIG.BATCH_CARD_LIMIT})")
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
             use_batch_mode = False
 
@@ -244,16 +238,16 @@ def preprocess(args):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    use_schema = args.use_schema if args.use_schema else USE_DECK_SCHEMA
+    use_schema = args.use_schema if args.use_schema else CONFIG.USE_DECK_SCHEMA
     if use_schema:
         deck_examples = ANKI.get_card_examples(deck_name)
         if deck_examples:
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     previous_fronts = []
-    if not args.query and args.notes and DEDUPLICATE_VIA_HISTORY:
+    if not args.query and args.notes and CONFIG.DEDUPLICATE_VIA_HISTORY:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
-    elif args.query and not args.notes and DEDUPLICATE_VIA_DECK:
+    elif args.query and not args.notes and CONFIG.DEDUPLICATE_VIA_DECK:
         # For standalone query mode, use deck-based deduplication
         deck_fronts = ANKI.get_card_fronts(deck_name)
         if deck_fronts:
@@ -273,7 +267,7 @@ def preprocess(args):
             note.ensure_content()
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if APPROVE_NOTES:
+            if CONFIG.APPROVE_NOTES:
                 try:
                     if not approve_note(note):
                         continue
@@ -317,7 +311,7 @@ def preprocess(args):
 
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if APPROVE_NOTES:
+            if CONFIG.APPROVE_NOTES:
                 try:
                     if not approve_note(note):
                         continue

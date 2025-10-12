@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.text import Text
 from obsidianki.cli.models import Note, Flashcard
 
-from obsidianki.cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
+from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console, CONFIG
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -186,8 +186,8 @@ def handle_tag_command(args):
 
     if args.tag_action is None:
         # Default action: list tags (same as old 'list' command)
-        weights = CONFIG_MANAGER.get_tag_weights()
-        excluded = CONFIG_MANAGER.get_excluded_tags()
+        weights = CONFIG.get_tag_weights()
+        excluded = CONFIG.get_excluded_tags()
 
         if not weights and not excluded:
             console.print("[dim]No tag weights configured. Use 'oki tag add <tag> <weight>' to add tags.[/dim]")
@@ -208,13 +208,13 @@ def handle_tag_command(args):
 
     if args.tag_action == 'add':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if CONFIG_MANAGER.add_tag_weight(tag, args.weight):
+        if CONFIG.add_tag_weight(tag, args.weight):
             console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if CONFIG_MANAGER.remove_tag_weight(tag):
+        if CONFIG.remove_tag_weight(tag):
             console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
@@ -222,7 +222,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'exclude':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if CONFIG_MANAGER.add_excluded_tag(tag):
+        if CONFIG.add_excluded_tag(tag):
             console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
@@ -230,7 +230,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'include':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if CONFIG_MANAGER.remove_excluded_tag(tag):
+        if CONFIG.remove_excluded_tag(tag):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
@@ -258,8 +258,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from obsidianki.cli.config import CONFIG_MANAGER
-        history_file = CONFIG_MANAGER.processing_history_file
+        from obsidianki.cli.config import CONFIG
+        history_file = CONFIG.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -335,8 +335,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'stats':
-        from obsidianki.cli.config import CONFIG_MANAGER
-        history_file = CONFIG_MANAGER.processing_history_file
+        from obsidianki.cli.config import CONFIG
+        history_file = CONFIG.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found[/yellow]")
@@ -947,7 +947,7 @@ def handle_template_command(args):
         return
 
     if args.template_action is None:
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
 
         if not templates:
             console.print("[yellow]No templates saved[/yellow]")
@@ -963,7 +963,7 @@ def handle_template_command(args):
             console.print()
 
     elif args.template_action == 'add':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
         command = args.template_command
 
@@ -976,12 +976,12 @@ def handle_template_command(args):
 
         templates[name] = command
 
-        if CONFIG_MANAGER.save_templates(templates):
+        if CONFIG.save_templates(templates):
             console.print(f"[green]✓[/green] Saved template '[cyan]{name}[/cyan]'")
             console.print(f"[dim]Use with:[/dim] [cyan]oki template use {name}[/cyan]")
 
     elif args.template_action == 'use':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
 
         if name not in templates:
@@ -1019,7 +1019,7 @@ def handle_template_command(args):
             sys.argv = original_argv
 
     elif args.template_action == 'remove':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
 
         if name not in templates:
@@ -1031,7 +1031,7 @@ def handle_template_command(args):
 
         if Confirm.ask("   Are you sure?", default=False):
             del templates[name]
-            if CONFIG_MANAGER.save_templates(templates):
+            if CONFIG.save_templates(templates):
                 console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
         else:
             console.print("[yellow]Cancelled[/yellow]")

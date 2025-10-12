@@ -62,8 +62,8 @@ def mock_config():
              patch.object(obsidianki.cli.config, 'CONFIG_FILE', config_file), \
              patch('obsidianki.main.ENV_FILE', env_file), \
              patch('obsidianki.main.CONFIG_FILE', config_file), \
-             patch.object(obsidianki.cli.config.CONFIG_MANAGER, 'processing_history_file', history_file), \
-             patch.object(obsidianki.cli.config.CONFIG_MANAGER, 'processing_history', {}), \
+             patch.object(obsidianki.cli.config.CONFIG, 'processing_history_file', history_file), \
+             patch.object(obsidianki.cli.config.CONFIG, 'processing_history', {}), \
              patch.object(obsidianki.cli.config, 'APPROVE_NOTES', False), \
              patch.object(obsidianki.cli.config, 'APPROVE_CARDS', False), \
              patch.object(obsidianki.cli.config, 'UPFRONT_BATCHING', False):

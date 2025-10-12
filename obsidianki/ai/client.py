@@ -2,7 +2,7 @@ import os
 from anthropic import Anthropic
 from typing import List, Dict
 
-from obsidianki.cli.config import console, SYNTAX_HIGHLIGHTING, SEARCH_FOLDERS, CONFIG_MANAGER
+from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
@@ -97,8 +97,8 @@ class FlashcardAI:
                         for card in flashcard_dicts:
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
 
                             flashcard = Flashcard(
                                 front=front_processed,
@@ -161,8 +161,8 @@ class FlashcardAI:
                             # Process the front and back content
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
 
                             # Create Flashcard object
                             flashcard = Flashcard(
@@ -221,8 +221,8 @@ class FlashcardAI:
                             # Process the front and back content
                             front_original = card.get('front', '')
                             back_original = card.get('back', '')
-                            front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
-                            back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+                            front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                            back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
 
                             # Create Flashcard object
                             flashcard = Flashcard(
@@ -252,8 +252,8 @@ class FlashcardAI:
 
         # Add folder context
         folder_context = ""
-        if SEARCH_FOLDERS:
-            folder_context = f"\n\nIMPORTANT: Only search in these folders: {SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
+        if CONFIG.SEARCH_FOLDERS:
+            folder_context = f"\n\nIMPORTANT: Only search in these folders: {CONFIG.SEARCH_FOLDERS}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
 
         user_prompt = f"""Natural language request: {natural_request}{date_context}{folder_context}
 
@@ -323,13 +323,13 @@ class FlashcardAI:
                                         note_tags = result.get('result', {}).get('tags', []) or []
 
                                     # Apply SEARCH_FOLDERS filtering
-                                    if SEARCH_FOLDERS:
-                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in SEARCH_FOLDERS)
+                                    if CONFIG.SEARCH_FOLDERS:
+                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in CONFIG.SEARCH_FOLDERS)
                                         if not path_matches:
                                             continue
 
                                     # Apply excluded tags filtering
-                                    excluded_tags = CONFIG_MANAGER.get_excluded_tags()
+                                    excluded_tags = CONFIG.get_excluded_tags()
                                     if excluded_tags and any(tag in note_tags for tag in excluded_tags):
                                         continue
 
@@ -565,8 +565,8 @@ IMPORTANT:
                                 back_original = flashcard_data["back"]
 
                                 # Process code blocks like other flashcard generation
-                                front_processed = process_code_blocks(front_original, SYNTAX_HIGHLIGHTING)
-                                back_processed = process_code_blocks(back_original, SYNTAX_HIGHLIGHTING)
+                                front_processed = process_code_blocks(front_original, CONFIG.SYNTAX_HIGHLIGHTING)
+                                back_processed = process_code_blocks(back_original, CONFIG.SYNTAX_HIGHLIGHTING)
 
                                 edited_cards.append({
                                     "front": front_processed,

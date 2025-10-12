@@ -54,28 +54,10 @@ def load_config():
 
     return config
 
-_config = load_config()
 
-MAX_CARDS = _config["MAX_CARDS"]
-NOTES_TO_SAMPLE = _config["NOTES_TO_SAMPLE"]
-DAYS_OLD = _config["DAYS_OLD"]
-SAMPLING_MODE = _config["SAMPLING_MODE"]
-DENSITY_BIAS_STRENGTH = _config["DENSITY_BIAS_STRENGTH"]
-SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
-CARD_TYPE = _config["CARD_TYPE"]
-APPROVE_NOTES = _config["APPROVE_NOTES"]
-APPROVE_CARDS = _config["APPROVE_CARDS"]
-DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
-DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
-USE_DECK_SCHEMA = _config["USE_DECK_SCHEMA"]
-DECK = _config["DECK"]
-SYNTAX_HIGHLIGHTING = _config["SYNTAX_HIGHLIGHTING"]
-UPFRONT_BATCHING = _config["UPFRONT_BATCHING"]
-BATCH_SIZE_LIMIT = _config["BATCH_SIZE_LIMIT"]
-BATCH_CARD_LIMIT = _config["BATCH_CARD_LIMIT"]
-
-class ConfigManager:
+class Config:
     def __init__(self):
+        self._config = load_config()
         self.tag_weights = {}
         self.excluded_tags = []
         self.processing_history = {}
@@ -84,6 +66,21 @@ class ConfigManager:
         self.templates_file = CONFIG_DIR / "templates.json"
         self.load_or_create_tag_schema()
         self.load_processing_history()
+
+    def __getattr__(self, name):
+        """Dynamically expose config dict values as attributes"""
+        if name.isupper() and name in self._config:
+            return self._config[name]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """Allow setting config values dynamically"""
+        # If _config exists and this key is in it, update the dict
+        if hasattr(self, '_config') and name in self._config:
+            self._config[name] = value
+        else:
+            # Normal attribute assignment
+            object.__setattr__(self, name, value)
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
@@ -103,7 +100,7 @@ class ConfigManager:
                 self.excluded_tags = []
 
             # Validate required keys for weighted sampling
-            if SAMPLING_MODE == "weighted":
+            if self.SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
                     self.tag_weights["_default"] = 1
 
@@ -276,7 +273,7 @@ class ConfigManager:
         # Apply bias - higher density = lower weight
         # bias_strength = 1: guaranteed zero probability for any processed notes
         # bias_strength = 0: no penalty for processed notes
-        effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
+        effective_bias = bias_strength if bias_strength is not None else self.DENSITY_BIAS_STRENGTH
         bias_factor = (1.0 - effective_bias) ** (density * 1000)
 
         return bias_factor
@@ -285,7 +282,7 @@ class ConfigManager:
     def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
         """Calculate total sampling weight for a Note object"""
         tag_weight = 1.0
-        if SAMPLING_MODE == "weighted" and self.tag_weights:
+        if self.SAMPLING_MODE == "weighted" and self.tag_weights:
             relevant_tags = [tag for tag in note.tags if tag in self.tag_weights and tag != "_default"]
 
             if not relevant_tags:
@@ -299,5 +296,5 @@ class ConfigManager:
         return final_weight
 
 
-# Global config manager instance
-CONFIG_MANAGER = ConfigManager()
+# Global config instance
+CONFIG = Config()

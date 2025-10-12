@@ -3,7 +3,7 @@ import urllib3
 from datetime import datetime, timedelta
 from typing import List
 
-from obsidianki.cli.config import console, CONFIG_MANAGER
+from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.models import Note
 from obsidianki.api.base import BaseAPI
 
@@ -34,8 +34,8 @@ class ObsidianAPI(BaseAPI):
             filters.append(f"({' OR '.join(folder_conditions)})")
 
         # Excluded tags filter
-        if CONFIG_MANAGER and hasattr(CONFIG_MANAGER, 'excluded_tags') and CONFIG_MANAGER.excluded_tags:
-            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
+        if CONFIG and CONFIG.excluded_tags:
+            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG.excluded_tags]
             filters.append(f"({' AND '.join(exclude_conditions)})")
 
         return f"AND {' AND '.join(filters)}" if filters else ""
@@ -175,7 +175,7 @@ class ObsidianAPI(BaseAPI):
             return results
 
         # Apply sampling
-        if CONFIG_MANAGER: #TODO
+        if CONFIG: #TODO
             return self._weighted_sample(results, sample_size, bias_strength)
         else:
             import random

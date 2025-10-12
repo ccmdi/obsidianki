@@ -1,7 +1,7 @@
 """Test core business logic (weighting, sampling, bias calculations, etc.)"""
 import pytest
 from obsidianki.cli.models import Note
-from obsidianki.cli.config import ConfigManager
+from obsidianki.cli.config import Config
 from pathlib import Path
 import tempfile
 import json
@@ -27,9 +27,9 @@ class TestWeightedSampling:
                 json.dump(tag_weights, f)
 
             # Create config manager
-            config_manager = ConfigManager()
-            config_manager.tag_schema_file = tag_file
-            config_manager.load_or_create_tag_schema()
+            config = Config()
+            config.tag_schema_file = tag_file
+            config.load_or_create_tag_schema()
 
             # Test: Note with high priority tag
             high_note = Note(
@@ -39,8 +39,8 @@ class TestWeightedSampling:
                 tags=["important", "other"],
                 size=100
             )
-            high_note._config_manager = config_manager
-            weight = config_manager.get_sampling_weight_for_note_object(high_note, bias_strength=0)
+            high_note._config = config
+            weight = config.get_sampling_weight_for_note_object(high_note, bias_strength=0)
             assert weight == 3.0, "Should use highest tag weight"
 
             # Test: Note with medium priority tag
@@ -51,8 +51,8 @@ class TestWeightedSampling:
                 tags=["review"],
                 size=100
             )
-            med_note._config_manager = config_manager
-            weight = config_manager.get_sampling_weight_for_note_object(med_note, bias_strength=0)
+            med_note._config = config
+            weight = config.get_sampling_weight_for_note_object(med_note, bias_strength=0)
             assert weight == 2.0, "Should use tag weight"
 
             # Test: Note with no matching tags uses default
@@ -63,8 +63,8 @@ class TestWeightedSampling:
                 tags=["unweighted"],
                 size=100
             )
-            default_note._config_manager = config_manager
-            weight = config_manager.get_sampling_weight_for_note_object(default_note, bias_strength=0)
+            default_note._config = config
+            weight = config.get_sampling_weight_for_note_object(default_note, bias_strength=0)
             assert weight == 1.0, "Should use default weight for unmatched tags"
 
             # Test: Note with multiple tags uses highest
@@ -75,8 +75,8 @@ class TestWeightedSampling:
                 tags=["important", "review", "low-priority"],
                 size=100
             )
-            multi_note._config_manager = config_manager
-            weight = config_manager.get_sampling_weight_for_note_object(multi_note, bias_strength=0)
+            multi_note._config = config
+            weight = config.get_sampling_weight_for_note_object(multi_note, bias_strength=0)
             assert weight == 3.0, "Should use highest weight among tags"
 
     def test_tag_exclusion(self):
@@ -94,9 +94,9 @@ class TestWeightedSampling:
             with open(tag_file, 'w') as f:
                 json.dump(tag_schema, f)
 
-            config_manager = ConfigManager()
-            config_manager.tag_schema_file = tag_file
-            config_manager.load_or_create_tag_schema()
+            config = Config()
+            config.tag_schema_file = tag_file
+            config.load_or_create_tag_schema()
 
             # Test: Note with excluded tag
             excluded_note = Note(
@@ -106,7 +106,7 @@ class TestWeightedSampling:
                 tags=["private", "important"],
                 size=100
             )
-            assert config_manager.is_note_excluded(excluded_note), "Should exclude notes with private tag"
+            assert config.is_note_excluded(excluded_note), "Should exclude notes with private tag"
 
             # Test: Normal note
             normal_note = Note(
@@ -116,7 +116,7 @@ class TestWeightedSampling:
                 tags=["important"],
                 size=100
             )
-            assert not config_manager.is_note_excluded(normal_note), "Should not exclude normal notes"
+            assert not config.is_note_excluded(normal_note), "Should not exclude normal notes"
 
 
 class TestDensityBias:
@@ -128,9 +128,9 @@ class TestDensityBias:
             config_dir = Path(tmpdir)
             history_file = config_dir / "processing_history.json"
 
-            config_manager = ConfigManager()
-            config_manager.processing_history_file = history_file
-            config_manager.processing_history = {}
+            config = Config()
+            config.processing_history_file = history_file
+            config.processing_history = {}
 
             note = Note(
                 path="new_note.md",
@@ -139,9 +139,9 @@ class TestDensityBias:
                 tags=[],
                 size=100
             )
-            note._config_manager = config_manager
+            note._config = config
 
-            bias = config_manager.get_density_bias_for_note(note, bias_strength=0.5)
+            bias = config.get_density_bias_for_note(note, bias_strength=0.5)
             assert bias == 1.0, "Unprocessed notes should have no bias penalty"
 
     def test_density_bias_processed_notes(self):
@@ -162,9 +162,9 @@ class TestDensityBias:
             with open(history_file, 'w') as f:
                 json.dump(history, f)
 
-            config_manager = ConfigManager()
-            config_manager.processing_history_file = history_file
-            config_manager.load_processing_history()
+            config = Config()
+            config.processing_history_file = history_file
+            config.load_processing_history()
 
             note = Note(
                 path="processed.md",
@@ -173,14 +173,14 @@ class TestDensityBias:
                 tags=[],
                 size=100
             )
-            note._config_manager = config_manager
+            note._config = config
 
             # With bias strength 1.0, heavily processed notes should have very low weight
-            bias = config_manager.get_density_bias_for_note(note, bias_strength=1.0)
+            bias = config.get_density_bias_for_note(note, bias_strength=1.0)
             assert bias < 0.1, "Heavily processed notes should have strong bias penalty with high bias_strength"
 
             # With bias strength 0.0, no penalty
-            bias_none = config_manager.get_density_bias_for_note(note, bias_strength=0.0)
+            bias_none = config.get_density_bias_for_note(note, bias_strength=0.0)
             assert bias_none == 1.0, "No bias penalty with bias_strength=0"
 
     def test_density_bias_combined_with_tags(self):
@@ -209,15 +209,15 @@ class TestDensityBias:
             with open(history_file, 'w') as f:
                 json.dump(history, f)
 
-            config_manager = ConfigManager()
-            config_manager.tag_schema_file = tag_file
-            config_manager.processing_history_file = history_file
-            config_manager.load_or_create_tag_schema()
-            config_manager.load_processing_history()
+            config = Config()
+            config.tag_schema_file = tag_file
+            config.processing_history_file = history_file
+            config.load_or_create_tag_schema()
+            config.load_processing_history()
 
-            # Patch both the config module's SAMPLING_MODE and the models CONFIG_MANAGER
+            # Patch both the config module's SAMPLING_MODE and the models CONFIG
             with patch('obsidianki.cli.config.SAMPLING_MODE', 'weighted'), \
-                 patch('obsidianki.cli.models.CONFIG_MANAGER', config_manager):
+                 patch('obsidianki.cli.models.CONFIG', config):
 
                 note = Note(
                     path="note.md",
@@ -228,13 +228,13 @@ class TestDensityBias:
                 )
 
                 # Get individual components
-                density_bias = config_manager.get_density_bias_for_note(note, bias_strength=0.5)
+                density_bias = config.get_density_bias_for_note(note, bias_strength=0.5)
 
                 # Tag weight for "important" should be 2.0
                 tag_weight = 2.0
 
                 # Final weight should be their product
-                weight = config_manager.get_sampling_weight_for_note_object(note, bias_strength=0.5)
+                weight = config.get_sampling_weight_for_note_object(note, bias_strength=0.5)
                 expected = tag_weight * density_bias
 
                 # Verify the calculation is correct
@@ -253,9 +253,9 @@ class TestProcessingHistory:
             config_dir = Path(tmpdir)
             history_file = config_dir / "processing_history.json"
 
-            config_manager = ConfigManager()
-            config_manager.processing_history_file = history_file
-            config_manager.processing_history = {}
+            config = Config()
+            config.processing_history_file = history_file
+            config.processing_history = {}
 
             note = Note(
                 path="test.md",
@@ -266,27 +266,27 @@ class TestProcessingHistory:
             )
 
             # Record first session
-            config_manager.record_flashcards_created(
+            config.record_flashcards_created(
                 note,
                 flashcard_count=5,
                 flashcard_fronts=["Q1", "Q2", "Q3", "Q4", "Q5"]
             )
 
-            assert "test.md" in config_manager.processing_history
-            assert config_manager.processing_history["test.md"]["total_flashcards"] == 5
-            assert len(config_manager.processing_history["test.md"]["flashcard_fronts"]) == 5
-            assert len(config_manager.processing_history["test.md"]["sessions"]) == 1
+            assert "test.md" in config.processing_history
+            assert config.processing_history["test.md"]["total_flashcards"] == 5
+            assert len(config.processing_history["test.md"]["flashcard_fronts"]) == 5
+            assert len(config.processing_history["test.md"]["sessions"]) == 1
 
             # Record second session
-            config_manager.record_flashcards_created(
+            config.record_flashcards_created(
                 note,
                 flashcard_count=3,
                 flashcard_fronts=["Q6", "Q7", "Q8"]
             )
 
-            assert config_manager.processing_history["test.md"]["total_flashcards"] == 8
-            assert len(config_manager.processing_history["test.md"]["flashcard_fronts"]) == 8
-            assert len(config_manager.processing_history["test.md"]["sessions"]) == 2
+            assert config.processing_history["test.md"]["total_flashcards"] == 8
+            assert len(config.processing_history["test.md"]["flashcard_fronts"]) == 8
+            assert len(config.processing_history["test.md"]["sessions"]) == 2
 
     def test_get_previous_fronts(self):
         """Test retrieving previous flashcard fronts for deduplication"""
@@ -307,12 +307,12 @@ class TestProcessingHistory:
             with open(history_file, 'w') as f:
                 json.dump(history, f)
 
-            config_manager = ConfigManager()
-            config_manager.processing_history_file = history_file
-            config_manager.load_processing_history()
+            config = Config()
+            config.processing_history_file = history_file
+            config.load_processing_history()
 
-            # Patch the global CONFIG_MANAGER that Note uses
-            with patch('obsidianki.cli.models.CONFIG_MANAGER', config_manager):
+            # Patch the global CONFIG that Note uses
+            with patch('obsidianki.cli.models.CONFIG', config):
                 note = Note(path="note.md", filename="Note", content="test", tags=[], size=100)
 
                 fronts = note.get_previous_flashcard_fronts()
