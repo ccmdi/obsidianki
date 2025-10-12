@@ -60,11 +60,14 @@ class Config:
 
     def __setattr__(self, name, value):
         """Allow setting config values dynamically (lowercase or uppercase)"""
-        if hasattr(self, '_config'):
+        try:
+            _config = object.__getattribute__(self, '_config')
             upper_name = name.upper()
-            if upper_name in self._config:
-                self._config[upper_name] = value
+            if upper_name in _config:
+                _config[upper_name] = value
                 return
+        except AttributeError:
+            pass
         # Normal attribute assignment
         object.__setattr__(self, name, value)
 

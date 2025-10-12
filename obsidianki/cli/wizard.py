@@ -85,25 +85,21 @@ ANTHROPIC_API_KEY={anthropic_key}
             default=CONFIG.syntax_highlighting
         )
 
-        # Create config.json with user preferences and defaults
-        user_config = {
+        # Create config.json with user preferences merged with defaults
+        from obsidianki.cli.config import DEFAULT_CONFIG
+
+        user_config = DEFAULT_CONFIG.copy()
+        user_config.update({
             "MAX_CARDS": max_cards,
             "NOTES_TO_SAMPLE": notes_to_sample,
             "DAYS_OLD": days_old,
             "SAMPLING_MODE": sampling_mode,
             "CARD_TYPE": card_type,
-            "SEARCH_FOLDERS": [],
-            "DENSITY_BIAS_STRENGTH": 0.5,
             "APPROVE_NOTES": approve_notes,
             "APPROVE_CARDS": approve_cards,
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
-            "DEDUPLICATE_VIA_DECK": False,
-            "DECK": "Obsidian",
             "SYNTAX_HIGHLIGHTING": syntax_highlighting,
-            "UPFRONT_BATCHING": False,  # Default to off, users can enable via config
-            "BATCH_SIZE_LIMIT": 20,
-            "BATCH_CARD_LIMIT": 100
-        }
+        })
 
         try:
             CONFIG.save(user_config)

@@ -213,10 +213,12 @@ class TestSetupFlow:
             def mock_confirm(text, **kwargs):
                 return kwargs.get('default', False)
 
-            # Patch both the wizard module's paths and the prompts
+            # Patch both the wizard module's paths and config module's paths
             with patch('obsidianki.cli.wizard.CONFIG_DIR', test_config_dir), \
                  patch('obsidianki.cli.wizard.ENV_FILE', test_env), \
                  patch('obsidianki.cli.wizard.CONFIG_FILE', test_config), \
+                 patch('obsidianki.cli.config.CONFIG_DIR', test_config_dir), \
+                 patch('obsidianki.cli.config.CONFIG_FILE', test_config), \
                  patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
                  patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
                  patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):

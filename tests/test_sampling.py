@@ -29,6 +29,7 @@ class TestWeightedSampling:
             # Create config manager
             config = Config()
             config.tag_schema_file = tag_file
+            config.sampling_mode = "weighted"
             config.load_or_create_tag_schema()
 
             # Test: Note with high priority tag
