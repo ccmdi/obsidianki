@@ -111,16 +111,9 @@ def preprocess(args):
         # When --cards is provided, scale notes to 1/2 of cards
         CONFIG.MAX_CARDS = args.cards
         CONFIG.NOTES_TO_SAMPLE = max(1, CONFIG.MAX_CARDS // 2)
-    else:
-        # Default behavior - use config values
-        #TODO
-        CONFIG.MAX_CARDS = CONFIG.MAX_CARDS
-        CONFIG.NOTES_TO_SAMPLE = CONFIG.NOTES_TO_SAMPLE
 
-    # Handle search folders - processors.py owns this state
-    CONFIG.SEARCH_FOLDERS = args.allow or CONFIG.SEARCH_FOLDERS # --allow
     if args.allow:
-        CONFIG.SEARCH_FOLDERS = list(CONFIG.SEARCH_FOLDERS) + args.allow if CONFIG.SEARCH_FOLDERS else args.allow
+        CONFIG.SEARCH_FOLDERS = (CONFIG.SEARCH_FOLDERS or []) + args.allow
         console.print(f"[dim]Search folders:[/dim] {', '.join(CONFIG.SEARCH_FOLDERS)}")
         console.print()
 
