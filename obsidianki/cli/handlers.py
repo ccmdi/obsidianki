@@ -5,6 +5,7 @@ from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
 from obsidianki.cli.models import Note, Flashcard
+from obsidianki.cli.utils import create_obsidian_link
 
 from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console, CONFIG
 
@@ -33,7 +34,7 @@ def show_simple_help(title: str, commands: dict):
 
 def approve_note(note: Note) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [dim]Path: {note.path}[/dim]")
+    console.print(f"   [dim]Path: {create_obsidian_link(note)}[/dim]")
 
     if note is not None:
         weight = note.get_sampling_weight()
