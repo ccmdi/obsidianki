@@ -204,7 +204,6 @@ class ObsidianAPI(BaseAPI):
         try:
             self._make_obsidian_request("/")
             return True
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to connect to Obsidian API: {e}")
+        except Exception:
             return False
 
