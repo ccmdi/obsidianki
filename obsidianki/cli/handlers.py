@@ -34,12 +34,27 @@ def show_simple_help(title: str, commands: dict):
 
 def approve_note(note: Note) -> bool:
     """Ask user to approve note processing"""
-    console.print(f"   [dim]Path: {create_obsidian_link(note)}[/dim]")
+    weight = note.get_sampling_weight()
+    total_cards = 0
+    deck_cards = 0
 
-    if note is not None:
-        weight = note.get_sampling_weight()
-        if weight == 0:
-            console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
+    if note.path in CONFIG.processing_history:
+        history = CONFIG.processing_history[note.path]
+        total_cards = history.get("total_flashcards", 0)
+
+        if CONFIG.DECK and "decks" in history:
+            deck_cards = history["decks"].get(CONFIG.DECK, 0)
+
+    if deck_cards > 0:
+        metadata = f"[dim](W {weight:.2f} | D {deck_cards} | T {total_cards})[/dim]"
+    else:
+        metadata = f"[dim](W {weight:.2f} | T {total_cards})[/dim]"
+
+    # Format: NOTE TITLE (W <weight> | D <deck> | T <total>)
+    console.print(f"   [dim]Path: {create_obsidian_link(note)} {metadata}[/dim]")
+
+    if weight == 0:
+        console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
 
     try:
         result = Confirm.ask("   Process this note?", default=True)
@@ -50,7 +65,7 @@ def approve_note(note: Note) -> bool:
     except Exception as e:
         raise
 
-def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
+def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
@@ -841,7 +856,7 @@ def edit_mode(args):
                 note=dummy_note
             )
 
-            if not approve_flashcard(flashcard, dummy_note):
+            if not approve_flashcard(flashcard):
                 console.print("  [yellow]Skipping this card[/yellow]")
                 continue
 

@@ -52,7 +52,7 @@ class ObsidianAPI(BaseAPI):
             WHERE {extra_conditions}
             SORT {sort_field} {sort_order}"""
 
-    def _make_obsidian_request(self, endpoint: str, method: str = "GET", data: dict = None):
+    def _make_obsidian_request(self, endpoint: str, method: str = "GET", data: dict = {}):
         """Make a request to the Obsidian REST API, ignoring SSL verification"""
         url = f"{self.base_url}{endpoint}"
         response = super()._make_request(method, url, json=data, verify=False)
@@ -72,10 +72,9 @@ class ObsidianAPI(BaseAPI):
 
             return [Note.from_obsidian_result(result) for result in dict_results]
         except Exception as e:
-            self._handle_request_error(e, "DQL query execution")
             raise
 
-    def get_old_notes(self, days: int, limit: int = None) -> List[Note]:
+    def get_old_notes(self, days: int, limit: int = 0) -> List[Note]:
         """Get notes older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
@@ -113,7 +112,7 @@ class ObsidianAPI(BaseAPI):
         response = self._make_obsidian_request(f"/vault/{encoded_path}")
         return response if isinstance(response, str) else response.get("content", "")
 
-    def sample_old_notes(self, days: int, limit: int = None, bias_strength: float = None, search_folders: List[str] = None) -> List[Note]:
+    def sample_old_notes(self, days: int, limit: int = 0, bias_strength: float = 0.0, search_folders: List[str] = []) -> List[Note]:
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
@@ -131,7 +130,7 @@ class ObsidianAPI(BaseAPI):
         # Use weighted sampling by default (since we have global config)
         return self._weighted_sample(all_notes, limit, bias_strength)
 
-    def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = None) -> List[Note]:
+    def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = 0.0) -> List[Note]:
         """Perform weighted sampling based on note tags and processing history"""
         import random
 
@@ -155,7 +154,7 @@ class ObsidianAPI(BaseAPI):
 
         return sampled_notes
 
-    def find_by_pattern(self, pattern: str, sample_size: int = None, bias_strength: float = None, search_folders: List[str] = None) -> List[Note]:
+    def find_by_pattern(self, pattern: str, sample_size: int = 0, bias_strength: float = 0.0, search_folders: List[str] = []) -> List[Note]:
         """Find notes by pattern"""
         filters = self._build_filters(search_folders)
 
@@ -190,7 +189,7 @@ class ObsidianAPI(BaseAPI):
             import random
             return random.sample(results, sample_size)
 
-    def find_by_name(self, note_name: str, search_folders: List[str]) -> Note:
+    def find_by_name(self, note_name: str, search_folders: List[str]) -> Note | None:
         """Find note by name with partial matching"""
         filters = self._build_filters(search_folders)
 

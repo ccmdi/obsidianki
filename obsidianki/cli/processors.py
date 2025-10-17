@@ -49,7 +49,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
-                if CONFIG.approve_cards and approve_flashcard(flashcard, note):
+                if CONFIG.approve_cards and approve_flashcard(flashcard):
                     approved_flashcards.append(flashcard)
                 elif CONFIG.print_cards:
                     console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")

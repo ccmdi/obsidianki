@@ -61,4 +61,4 @@ def create_obsidian_link(note: Note) -> str:
     import urllib.parse
     encoded_path = urllib.parse.quote(note.path, safe='')
     obsidian_link = f"obsidian://open?file={encoded_path}"
-    return f"<a href='{obsidian_link}'>{note.title}</a>"
+    return f"[link={obsidian_link}]{note.path}[/link]"
