@@ -1,6 +1,6 @@
 """Dummy AI implementation that returns static responses"""
 from typing import List, Dict
-from cli.models import Note, Flashcard
+from obsidianki.cli.models import Note, Flashcard
 
 
 class DummyFlashcardAI:

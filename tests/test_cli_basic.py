@@ -4,39 +4,10 @@ import sys
 import tempfile
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-# Import mocks
-from tests.mocks.dummy_ai import DummyFlashcardAI
-from tests.mocks.dummy_obsidian import DummyObsidianAPI
-from tests.mocks.dummy_anki import DummyAnkiAPI
-
-
-@pytest.fixture
-def mock_services(monkeypatch):
-    """Set up mock services before each test"""
-    # Set dummy env vars so real API clients can be imported
-    monkeypatch.setenv("OBSIDIAN_API_KEY", "test_key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
-
-    import cli.services
-
-    # Store originals
-    original_ai = cli.services.AI
-    original_obsidian = cli.services.OBSIDIAN
-    original_anki = cli.services.ANKI
-
-    # Replace with mocks
-    cli.services.AI = DummyFlashcardAI()
-    cli.services.OBSIDIAN = DummyObsidianAPI()
-    cli.services.ANKI = DummyAnkiAPI()
-
-    yield
-
-    # Restore originals
-    cli.services.AI = original_ai
-    cli.services.OBSIDIAN = original_obsidian
-    cli.services.ANKI = original_anki
+import tests.utils
+mock_services = tests.utils.mock_services
 
 
 @pytest.fixture
@@ -77,16 +48,16 @@ def temp_config():
             f.write("OBSIDIAN_API_KEY=test_key\n")
 
         # Patch config paths
-        with patch('cli.config.CONFIG_DIR', config_dir), \
-             patch('cli.config.CONFIG_FILE', config_file), \
-             patch('cli.config.ENV_FILE', env_file):
+        with patch('obsidianki.cli.config.CONFIG_DIR', config_dir), \
+             patch('obsidianki.cli.config.CONFIG_FILE', config_file), \
+             patch('obsidianki.cli.config.ENV_FILE', env_file):
             yield config_dir
 
 
 @pytest.fixture
 def mock_config():
     """Patch config to use temp directory and disable interactive prompts"""
-    import cli.config
+    import obsidianki.cli.config
 
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir)
@@ -97,14 +68,14 @@ def mock_config():
         env_file.write_text("OBSIDIAN_API_KEY=test\nANTHROPIC_API_KEY=test\n")
         config_file.write_text('{"DECK": "Obsidian-test"}')
 
-        with patch.object(cli.config, 'ENV_FILE', env_file), \
-             patch.object(cli.config, 'CONFIG_FILE', config_file), \
-             patch('main.ENV_FILE', env_file), \
-             patch('main.CONFIG_FILE', config_file), \
-             patch.object(cli.config.CONFIG_MANAGER, 'processing_history_file', history_file), \
-             patch.object(cli.config.CONFIG_MANAGER, 'processing_history', {}), \
-             patch.object(cli.config, 'APPROVE_NOTES', False), \
-             patch.object(cli.config, 'APPROVE_CARDS', False):
+        with patch.object(obsidianki.cli.config, 'ENV_FILE', env_file), \
+             patch.object(obsidianki.cli.config, 'CONFIG_FILE', config_file), \
+             patch('obsidianki.main.ENV_FILE', env_file), \
+             patch('obsidianki.main.CONFIG_FILE', config_file), \
+             patch.object(obsidianki.cli.config.CONFIG, 'processing_history_file', history_file), \
+             patch.object(obsidianki.cli.config.CONFIG, 'processing_history', {}), \
+             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_NOTES', False), \
+             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_CARDS', False):
             yield
 
 
@@ -115,7 +86,7 @@ class TestBasicCommands:
         """Test help command displays without error"""
         sys.argv = ['oki', '--help']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -126,7 +97,7 @@ class TestBasicCommands:
         """Test config help command"""
         sys.argv = ['oki', 'config', '--help']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -137,7 +108,7 @@ class TestBasicCommands:
         """Test tag help command"""
         sys.argv = ['oki', 'tag', '--help']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -148,7 +119,7 @@ class TestBasicCommands:
         """Test history help command"""
         sys.argv = ['oki', 'history', '--help']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -159,7 +130,7 @@ class TestBasicCommands:
         """Test deck help command"""
         sys.argv = ['oki', 'deck', '--help']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -174,12 +145,12 @@ class TestConfigCommands:
         """Test listing configuration"""
         sys.argv = ['oki', 'config']
 
-        from main import main
+        from obsidianki.main import main
 
         # Reload config module to pick up patched paths
-        import cli.config
+        import obsidianki.cli.config
         import importlib
-        importlib.reload(cli.config)
+        importlib.reload(obsidianki.cli.config)
 
         result = main()
         assert result == 0
@@ -188,7 +159,7 @@ class TestConfigCommands:
         """Test showing config directory"""
         sys.argv = ['oki', 'config', 'where']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0
@@ -204,7 +175,7 @@ class TestDeckCommands:
         """Test listing decks"""
         sys.argv = ['oki', 'deck']
 
-        from main import main
+        from obsidianki.main import main
         result = main()
 
         assert result == 0

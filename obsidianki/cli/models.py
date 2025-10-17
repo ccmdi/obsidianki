@@ -4,7 +4,7 @@ Clean data models for ObsidianKi to replace scattered dictionaries and parameter
 
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-from cli.config import CONFIG_MANAGER
+from obsidianki.cli.config import CONFIG
 
 
 @dataclass
@@ -29,27 +29,27 @@ class Note:
 
     def get_sampling_weight(self, bias_strength: float = None) -> float:
         """Calculate total sampling weight based on tags and processing history."""
-        return CONFIG_MANAGER.get_sampling_weight_for_note_object(self, bias_strength)
+        return CONFIG.get_sampling_weight_for_note_object(self, bias_strength)
 
     def get_density_bias(self, bias_strength: float = None) -> float:
         """Get density bias factor for this note."""
-        return CONFIG_MANAGER.get_density_bias_for_note(self, bias_strength)
+        return CONFIG.get_density_bias_for_note(self, bias_strength)
 
     def is_excluded(self) -> bool:
         """Check if this note should be excluded based on its tags."""
-        return CONFIG_MANAGER.is_note_excluded(self)
+        return CONFIG.is_note_excluded(self)
 
     def has_processing_history(self) -> bool:
         """Check if this note has been processed before."""
-        return self.path in CONFIG_MANAGER.processing_history
+        return self.path in CONFIG.processing_history
 
     def get_previous_flashcard_fronts(self) -> List[str]:
         """Get all previously created flashcard fronts for deduplication."""
-        return CONFIG_MANAGER.get_flashcard_fronts_for_note(self)
+        return CONFIG.get_flashcard_fronts_for_note(self)
 
     def ensure_content(self):
         """Ensure the note content is loaded."""
-        from cli.services import OBSIDIAN
+        from obsidianki.cli.services import OBSIDIAN
         if not self.content:
             self.content = OBSIDIAN.get_note_content(self.path)
 

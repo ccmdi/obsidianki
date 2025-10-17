@@ -3,14 +3,15 @@ Note processing functions for ObsidianKi.
 """
 
 import concurrent.futures
+import argparse
 from typing import List
-from cli.handlers import approve_note, approve_flashcard
-from cli.models import Note, Flashcard
-from cli.services import OBSIDIAN, AI, ANKI
+from obsidianki.cli.handlers import approve_note, approve_flashcard
+from obsidianki.cli.models import Note, Flashcard
+from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 
 
-def process(note: Note, args, deck_examples, target_cards_per_note, previous_fronts) -> List[Flashcard]:
-    from cli.config import console
+def process(note: Note, args: argparse.Namespace, deck_examples: List[Flashcard], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
+    from obsidianki.cli.config import console
     note.ensure_content()
 
     # Generate flashcards
@@ -35,28 +36,22 @@ def process(note: Note, args, deck_examples, target_cards_per_note, previous_fro
     return flashcards
 
 
-def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = None):
+def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
     """Handle flashcard approval and Anki addition"""
-    from cli.config import console, APPROVE_CARDS, CARD_TYPE, CONFIG_MANAGER
+    from obsidianki.cli.config import console, CONFIG
 
     console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
 
-    approve_cards = APPROVE_CARDS
-    print_cards = False
-    if args.mcp:
-        approve_cards = False
-        print_cards = True
-
     # Flashcard approval
     cards_to_add = flashcards
-    if approve_cards or print_cards:
+    if CONFIG.approve_cards or CONFIG.print_cards:
         approved_flashcards = []
         try:
             console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
-                if approve_cards and approve_flashcard(flashcard, note):
+                if CONFIG.approve_cards and approve_flashcard(flashcard, note):
                     approved_flashcards.append(flashcard)
-                elif print_cards:
+                elif CONFIG.print_cards:
                     console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")
                     console.print(f"   [cyan]Back:[/cyan] {flashcard.back}")
                     console.print()
@@ -68,75 +63,66 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str, args = 
             console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
-        # console.print(f"[cyan]Approved {len(approved_flashcards)}/{len(flashcards)} flashcards[/cyan]")
         cards_to_add = approved_flashcards
 
-    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CARD_TYPE)
+    result = ANKI.add_flashcards(cards_to_add, deck_name=deck_name, card_type=CONFIG.card_type)
     successful_cards = len([r for r in result if r is not None])
 
     if successful_cards > 0:
         if note.path != "query": #TODO
             flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
-            CONFIG_MANAGER.record_flashcards_created(note, successful_cards, flashcard_fronts)
+            CONFIG.record_flashcards_created(note, successful_cards, flashcard_fronts)
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
         return 0
 
-
-def preprocess(args):
+def preprocess(args: argparse.Namespace):
     """
     Entry point for flashcard generation.
     """
-    from cli.config import (
-        console, MAX_CARDS, NOTES_TO_SAMPLE, DAYS_OLD, SAMPLING_MODE, CARD_TYPE,
-        APPROVE_NOTES, APPROVE_CARDS, DEDUPLICATE_VIA_HISTORY, DEDUPLICATE_VIA_DECK,
-        USE_DECK_SCHEMA, DECK, SEARCH_FOLDERS, UPFRONT_BATCHING, BATCH_SIZE_LIMIT, BATCH_CARD_LIMIT,
-        DENSITY_BIAS_STRENGTH, CONFIG_MANAGER
-    )
+    from obsidianki.cli.config import console, CONFIG
     from rich.panel import Panel
 
     if args.mcp:
-        APPROVE_NOTES = False
-        UPFRONT_BATCHING = True
+        # preprocess
+        CONFIG.approve_notes = False
+        CONFIG.upfront_batching = True
 
-    deck_name = args.deck if args.deck else DECK
-    notes_to_sample = NOTES_TO_SAMPLE
+        # postprocess
+        CONFIG.approve_cards = False
+        CONFIG.print_cards = True
+    else:
+        CONFIG.print_cards = False
+
+    CONFIG.deck = args.deck or CONFIG.deck # --deck
+    CONFIG.density_bias_strength = args.bias or CONFIG.density_bias_strength # --bias
 
     if args.notes:
         # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
         if args.cards is not None:
-            max_cards = args.cards
+            CONFIG.max_cards = args.cards
         else:
-            max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
-        
+            CONFIG.max_cards = len(args.notes) * 2  # Will be updated after we find actual notes
+
         # handle case of --notes <n>
         if len(args.notes) == 1 and args.notes[0].isdigit():
-            notes_to_sample = int(args.notes[0])
+            CONFIG.notes_to_sample = int(args.notes[0])
     elif args.cards is not None:
         # When --cards is provided, scale notes to 1/2 of cards
-        max_cards = args.cards
-        notes_to_sample = max(1, max_cards // 2)
-    else:
-        # Default behavior - use config values
-        max_cards = MAX_CARDS
-        notes_to_sample = NOTES_TO_SAMPLE
+        CONFIG.max_cards = args.cards
+        CONFIG.notes_to_sample = max(1, CONFIG.max_cards // 2)
 
-    # --bias
-    effective_bias_strength = args.bias if args.bias is not None else DENSITY_BIAS_STRENGTH
-
-    # Handle search folders - processors.py owns this state
-    search_folders = SEARCH_FOLDERS
     if args.allow:
-        search_folders = list(SEARCH_FOLDERS) + args.allow if SEARCH_FOLDERS else args.allow
-        console.print(f"[dim]Search folders:[/dim] {', '.join(search_folders)}")
+        CONFIG.search_folders = (CONFIG.search_folders or []) + args.allow
+        console.print(f"[dim]Search folders:[/dim] {', '.join(CONFIG.search_folders)}")
         console.print()
 
-    if SAMPLING_MODE == "weighted":
-        CONFIG_MANAGER.show_weights()
+    if CONFIG.sampling_mode == "weighted":
+        CONFIG.show_weights()
     console.print()
 
-    if args.query and not args.notes and DEDUPLICATE_VIA_DECK:
+    if args.query and not args.notes and CONFIG.deduplicate_via_deck:
         console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
@@ -152,31 +138,30 @@ def preprocess(args):
     notes = None
 
     if args.query and not args.agent and not args.notes:
-        # STANDALONE QUERY MODE - Create synthetic note for main flow
+        # STANDALONE QUERY MODE
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
-        from cli.models import Note
+        from obsidianki.cli.models import Note
         query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
         notes = [query_note]
-        max_cards = args.cards if args.cards else max_cards
-        APPROVE_NOTES = False # no need to approve what a user wrote
+
+        CONFIG.max_cards = args.cards or CONFIG.max_cards
+        CONFIG.approve_notes = False # no need to approve what a user wrote
     elif args.agent:
         console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
         console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        notes = AI.find_with_agent(args.agent, sample_size=notes_to_sample, bias_strength=effective_bias_strength)
+        notes = AI.find_with_agent(args.agent, sample_size=CONFIG.notes_to_sample, bias_strength=CONFIG.density_bias_strength)
         if not notes:
             console.print("[red]ERROR:[/red] Agent found no matching notes")
             return 1
-        # Update max_cards based on found notes (if --cards wasn't specified)
-        if args.cards is None:
-            max_cards = len(notes) * 2
+
+        CONFIG.max_cards = args.cards or len(notes) * 2
 
     elif args.notes:
-        # Handle --notes argument parsing
         if len(args.notes) == 1 and args.notes[0].isdigit():
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=note_count, bias_strength=effective_bias_strength, search_folders=search_folders)
+            notes = OBSIDIAN.sample_old_notes(days=CONFIG.days_old, limit=note_count, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
         else:
             # User specified note names/patterns: --notes "React" "JS"
             notes = []
@@ -189,8 +174,8 @@ def preprocess(args):
                         if parts[1].isdigit():
                             note_pattern = parts[0]
                             sample_size = int(parts[1])
-                    
-                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=effective_bias_strength, search_folders=search_folders)
+
+                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
                     if pattern_notes:
                         notes.extend(pattern_notes)
                         if sample_size and len(pattern_notes) == sample_size:
@@ -200,7 +185,7 @@ def preprocess(args):
                     else:
                         console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
                 else:
-                    specific_note = OBSIDIAN.find_by_name(note_pattern, search_folders=search_folders)
+                    specific_note = OBSIDIAN.find_by_name(note_pattern, search_folders=CONFIG.search_folders)
                     if specific_note:
                         notes.append(specific_note)
                     else:
@@ -211,7 +196,7 @@ def preprocess(args):
             return 1
     else:
         # Default sampling
-        notes = OBSIDIAN.sample_old_notes(days=DAYS_OLD, limit=notes_to_sample, bias_strength=effective_bias_strength, search_folders=search_folders)
+        notes = OBSIDIAN.sample_old_notes(days=CONFIG.days_old, limit=CONFIG.notes_to_sample, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
         if not notes:
             console.print("[red]ERROR:[/red] No old notes found")
             return 1
@@ -221,22 +206,22 @@ def preprocess(args):
         console.print(f"[cyan]TARGETED MODE:[/cyan] Extracting '{args.query}' from {len(notes)} note(s)")
     elif not args.query:
         console.print(f"[cyan]INFO:[/cyan] Processing {len(notes)} note(s)")
-    console.print(f"[cyan]TARGET:[/cyan] {max_cards} flashcards maximum")
+    console.print(f"[cyan]TARGET:[/cyan] {CONFIG.max_cards} flashcards maximum")
     console.print()
 
     # === BATCH MODE DECISION ===
-    use_batch_mode = UPFRONT_BATCHING and len(notes) > 1
-    if use_batch_mode:
-        if len(notes) > BATCH_SIZE_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(notes)} > {BATCH_SIZE_LIMIT})")
+    CONFIG.upfront_batching = CONFIG.upfront_batching and len(notes) > 1
+    if CONFIG.upfront_batching:
+        if len(notes) > CONFIG.batch_size_limit:
+            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many notes ({len(notes)} > {CONFIG.batch_size_limit})")
             console.print(f"[yellow]This could result in expensive API costs. Use fewer notes or disable UPFRONT_BATCHING.[/yellow]")
-            use_batch_mode = False
-        elif max_cards > BATCH_CARD_LIMIT:
-            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({max_cards} > {BATCH_CARD_LIMIT})")
+            CONFIG.upfront_batching = False
+        elif CONFIG.max_cards > CONFIG.batch_card_limit:
+            console.print(f"[yellow]WARNING:[/yellow] Batch mode disabled - too many target cards ({CONFIG.max_cards} > {CONFIG.batch_card_limit})")
             console.print(f"[yellow]This could result in expensive API costs. Use fewer cards or disable UPFRONT_BATCHING.[/yellow]")
-            use_batch_mode = False
+            CONFIG.upfront_batching = False
 
-    target_cards_per_note = max(1, max_cards // len(notes))
+    target_cards_per_note = max(1, CONFIG.max_cards // len(notes))
 
     if args.cards and target_cards_per_note > 5:
         console.print(f"[yellow]WARNING:[/yellow] Requesting more than 5 cards per note can decrease quality")
@@ -244,25 +229,25 @@ def preprocess(args):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    use_schema = args.use_schema if args.use_schema else USE_DECK_SCHEMA
-    if use_schema:
-        deck_examples = ANKI.get_card_examples(deck_name)
+    CONFIG.use_deck_schema = args.use_schema or CONFIG.use_deck_schema # --use-schema
+    if CONFIG.use_deck_schema:
+        deck_examples = ANKI.get_card_examples(CONFIG.deck)
         if deck_examples:
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     previous_fronts = []
-    if not args.query and args.notes and DEDUPLICATE_VIA_HISTORY:
+    if not args.query and args.notes and CONFIG.deduplicate_via_history:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
-    elif args.query and not args.notes and DEDUPLICATE_VIA_DECK:
+    elif args.query and not args.notes and CONFIG.deduplicate_via_deck:
         # For standalone query mode, use deck-based deduplication
-        deck_fronts = ANKI.get_card_fronts(deck_name)
+        deck_fronts = ANKI.get_card_fronts(CONFIG.deck)
         if deck_fronts:
-            console.print(f"[dim]Found {len(deck_fronts)} existing cards in deck '{deck_name}' for deduplication[/dim]")
+            console.print(f"[dim]Found {len(deck_fronts)} existing cards in deck '{CONFIG.deck}' for deduplication[/dim]")
         previous_fronts = [deck_fronts] * len(notes)  # Same fronts for all notes (just the query note)
 
     total_cards = 0
 
-    if use_batch_mode:
+    if CONFIG.upfront_batching:
         # PARALLEL MODE
         console.print(f"[cyan]INFO[/cyan]: Batch mode")
         console.print()
@@ -273,7 +258,7 @@ def preprocess(args):
             note.ensure_content()
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if APPROVE_NOTES:
+            if CONFIG.approve_notes:
                 try:
                     if not approve_note(note):
                         continue
@@ -301,7 +286,7 @@ def preprocess(args):
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
                         continue
 
-                    cards_added = postprocess(note, flashcards, deck_name, args)
+                    cards_added = postprocess(note, flashcards, CONFIG.deck)
                     total_cards += cards_added
 
                 except Exception as e:
@@ -310,14 +295,14 @@ def preprocess(args):
     else:
         # SEQUENTIAL: Process each note one by one
         for i, note in enumerate(notes, 1):
-            if total_cards >= max_cards:
+            if total_cards >= CONFIG.max_cards:
                 break
 
             note.ensure_content()
 
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if APPROVE_NOTES:
+            if CONFIG.approve_notes:
                 try:
                     if not approve_note(note):
                         continue
@@ -332,15 +317,15 @@ def preprocess(args):
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
                     continue
 
-                cards_added = postprocess(note, flashcards, deck_name, args)
+                cards_added = postprocess(note, flashcards, CONFIG.deck)
                 total_cards += cards_added
-                
+
             except KeyboardInterrupt:
                 console.print("\n[yellow]Operation cancelled by user[/yellow]")
                 return 0
 
     console.print("")
-    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{max_cards} flashcards to deck '{deck_name}'", style="green"))
+    console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{CONFIG.max_cards} flashcards to deck '{CONFIG.deck}'", style="green"))
     return 0
 
 

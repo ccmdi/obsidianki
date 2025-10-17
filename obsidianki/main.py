@@ -2,8 +2,8 @@ import argparse
 from rich.panel import Panel
 from rich.text import Text
 
-from cli.config import console, ENV_FILE, CONFIG_FILE
-from cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
+from obsidianki.cli.config import console, ENV_FILE, CONFIG_FILE
+from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -167,7 +167,7 @@ def main():
         return 0
 
     if args.edit:
-        from cli.handlers import edit_mode
+        from obsidianki.cli.handlers import edit_mode
         try:
             return edit_mode(args)
         except KeyboardInterrupt:
@@ -182,7 +182,7 @@ def main():
 
     if args.setup or needs_setup:
         try:
-            from cli.wizard import setup
+            from obsidianki.cli.wizard import setup
             setup(force_full_setup=args.setup)
         except KeyboardInterrupt:
             console.print("\n[yellow]Setup cancelled by user[/yellow]")
@@ -192,7 +192,7 @@ def main():
 
 
     # entrypoint for flashcard generation
-    from cli.processors import preprocess
+    from obsidianki.cli.processors import preprocess
     try:
         return preprocess(args)
     except KeyboardInterrupt:

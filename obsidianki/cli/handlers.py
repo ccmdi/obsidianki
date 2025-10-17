@@ -4,9 +4,9 @@ import json
 from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
-from cli.models import Note, Flashcard
+from obsidianki.cli.models import Note, Flashcard
 
-from cli.config import CONFIG_MANAGER, CONFIG_FILE, CONFIG_DIR, console
+from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console, CONFIG
 
 def show_command_help(title: str, commands: dict, command_prefix: str = "oki"):
     """Display help for a command group in consistent style"""
@@ -51,7 +51,6 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
-    #TODO add debugging for this
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
 
@@ -186,8 +185,8 @@ def handle_tag_command(args):
 
     if args.tag_action is None:
         # Default action: list tags (same as old 'list' command)
-        weights = CONFIG_MANAGER.get_tag_weights()
-        excluded = CONFIG_MANAGER.get_excluded_tags()
+        weights = CONFIG.get_tag_weights()
+        excluded = CONFIG.get_excluded_tags()
 
         if not weights and not excluded:
             console.print("[dim]No tag weights configured. Use 'oki tag add <tag> <weight>' to add tags.[/dim]")
@@ -208,13 +207,13 @@ def handle_tag_command(args):
 
     if args.tag_action == 'add':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if CONFIG_MANAGER.add_tag_weight(tag, args.weight):
+        if CONFIG.add_tag_weight(tag, args.weight):
             console.print(f"[green]✓[/green] Added tag [cyan]{tag}[/cyan] with weight [bold]{args.weight}[/bold]")
         return
 
     if args.tag_action == 'remove':
         tag = args.tag if args.tag.startswith('#') or args.tag == '_default' else f"#{args.tag}"
-        if CONFIG_MANAGER.remove_tag_weight(tag):
+        if CONFIG.remove_tag_weight(tag):
             console.print(f"[green]✓[/green] Removed tag [cyan]{tag}[/cyan] from weight list")
         else:
             console.print(f"[red]Tag '{tag}' not found.[/red]")
@@ -222,7 +221,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'exclude':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if CONFIG_MANAGER.add_excluded_tag(tag):
+        if CONFIG.add_excluded_tag(tag):
             console.print(f"[green]✓[/green] Added [cyan]{tag}[/cyan] to exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is already excluded[/yellow]")
@@ -230,7 +229,7 @@ def handle_tag_command(args):
 
     if args.tag_action == 'include':
         tag = args.tag if args.tag.startswith('#') else f"#{args.tag}"
-        if CONFIG_MANAGER.remove_excluded_tag(tag):
+        if CONFIG.remove_excluded_tag(tag):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
@@ -258,8 +257,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'clear':
-        from cli.config import CONFIG_MANAGER
-        history_file = CONFIG_MANAGER.processing_history_file
+        from obsidianki.cli.config import CONFIG
+        history_file = CONFIG.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found.[/yellow]")
@@ -335,8 +334,8 @@ def handle_history_command(args):
         return
 
     if args.history_action == 'stats':
-        from cli.config import CONFIG_MANAGER
-        history_file = CONFIG_MANAGER.processing_history_file
+        from obsidianki.cli.config import CONFIG
+        history_file = CONFIG.processing_history_file
 
         if not history_file.exists():
             console.print("[yellow]No processing history found[/yellow]")
@@ -725,7 +724,7 @@ def _create_card_selector(all_cards):
                         needs_update = True
                 elif key == 'enter':
                     if selected_indices:
-                        from cli.utils import strip_html
+                        from obsidianki.cli.utils import strip_html
                         selected_cards = []
                         for i in sorted(selected_indices):
                             card = all_cards[i].copy()
@@ -745,13 +744,12 @@ def edit_mode(args):
     """
     Entry point for interactive editing of existing flashcards.
     """
-    from cli.config import console, DECK, APPROVE_CARDS
-    from cli.models import Note, Flashcard
-    from cli.services import ANKI, AI
+    from obsidianki.cli.models import Note, Flashcard
+    from obsidianki.cli.services import ANKI, AI
     from rich.panel import Panel
     from rich.prompt import Prompt
 
-    deck_name = args.deck if args.deck else DECK
+    deck_name = args.deck if args.deck else CONFIG.deck
 
     console.print(Panel("ObsidianKi - Editing mode", style="bold blue"))
     console.print(f"[cyan]TARGET DECK:[/cyan] {deck_name}")
@@ -832,7 +830,7 @@ def edit_mode(args):
         console.print()
 
         # Convert to Flashcard object for approval if needed
-        if APPROVE_CARDS:
+        if CONFIG.approve_cards:
             dummy_note = Note(path="editing", filename="Card Editing", content="", tags=[], size=0)
             flashcard = Flashcard(
                 front=edited_card['front'],
@@ -876,7 +874,7 @@ def handle_deck_command(args):
         return
 
     # Import here to avoid circular imports and startup delays
-    from cli.services import ANKI
+    from obsidianki.cli.services import ANKI
 
     anki = ANKI
 
@@ -947,7 +945,7 @@ def handle_template_command(args):
         return
 
     if args.template_action is None:
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
 
         if not templates:
             console.print("[yellow]No templates saved[/yellow]")
@@ -963,7 +961,7 @@ def handle_template_command(args):
             console.print()
 
     elif args.template_action == 'add':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
         command = args.template_command
 
@@ -976,12 +974,12 @@ def handle_template_command(args):
 
         templates[name] = command
 
-        if CONFIG_MANAGER.save_templates(templates):
+        if CONFIG.save_templates(templates):
             console.print(f"[green]✓[/green] Saved template '[cyan]{name}[/cyan]'")
             console.print(f"[dim]Use with:[/dim] [cyan]oki template use {name}[/cyan]")
 
     elif args.template_action == 'use':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
 
         if name not in templates:
@@ -1019,7 +1017,7 @@ def handle_template_command(args):
             sys.argv = original_argv
 
     elif args.template_action == 'remove':
-        templates = CONFIG_MANAGER.load_templates()
+        templates = CONFIG.load_templates()
         name = args.name
 
         if name not in templates:
@@ -1031,7 +1029,7 @@ def handle_template_command(args):
 
         if Confirm.ask("   Are you sure?", default=False):
             del templates[name]
-            if CONFIG_MANAGER.save_templates(templates):
+            if CONFIG.save_templates(templates):
                 console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
         else:
             console.print("[yellow]Cancelled[/yellow]")

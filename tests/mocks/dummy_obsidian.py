@@ -1,7 +1,7 @@
 """Dummy Obsidian API implementation"""
 from typing import List
 from datetime import datetime, timedelta
-from cli.models import Note
+from obsidianki.cli.models import Note
 
 
 class DummyObsidianAPI:

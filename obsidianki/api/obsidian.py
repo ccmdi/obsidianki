@@ -3,9 +3,9 @@ import urllib3
 from datetime import datetime, timedelta
 from typing import List
 
-from cli.config import console, CONFIG_MANAGER
-from cli.models import Note
-from api.base import BaseAPI
+from obsidianki.cli.config import console, CONFIG
+from obsidianki.cli.models import Note
+from obsidianki.api.base import BaseAPI
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -34,8 +34,8 @@ class ObsidianAPI(BaseAPI):
             filters.append(f"({' OR '.join(folder_conditions)})")
 
         # Excluded tags filter
-        if CONFIG_MANAGER and hasattr(CONFIG_MANAGER, 'excluded_tags') and CONFIG_MANAGER.excluded_tags:
-            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG_MANAGER.excluded_tags]
+        if CONFIG and CONFIG.excluded_tags:
+            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG.excluded_tags]
             filters.append(f"({' AND '.join(exclude_conditions)})")
 
         return f"AND {' AND '.join(filters)}" if filters else ""
@@ -80,8 +80,7 @@ class ObsidianAPI(BaseAPI):
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d")
 
-        from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS)
+        filters = self._build_filters(CONFIG.search_folders)
 
         condition = f'file.mtime < date("{cutoff_str}") {filters}'
         query = self._build_base_query(condition)
@@ -94,8 +93,7 @@ class ObsidianAPI(BaseAPI):
     def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0) -> List[Note]:
         """Get notes with specific tags"""
         tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        from cli.config import SEARCH_FOLDERS
-        filters = self._build_filters(SEARCH_FOLDERS)
+        filters = self._build_filters(CONFIG.search_folders)
 
         condition = f'({tag_conditions})'
 
@@ -175,7 +173,7 @@ class ObsidianAPI(BaseAPI):
             return results
 
         # Apply sampling
-        if CONFIG_MANAGER: #TODO
+        if CONFIG: #TODO
             return self._weighted_sample(results, sample_size, bias_strength)
         else:
             import random

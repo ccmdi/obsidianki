@@ -2,7 +2,7 @@ import requests
 from typing import List, Dict
 import urllib.parse
 from rich.console import Console
-from api.base import BaseAPI
+from obsidianki.api.base import BaseAPI
 
 console = Console()
 

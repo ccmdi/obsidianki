@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from cli.models import Note
+    from obsidianki.cli.models import Note
 
 import json
 from pathlib import Path
@@ -19,7 +19,6 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 load_dotenv(ENV_FILE)
 
-# Default Configuration
 DEFAULT_CONFIG = {
     "MAX_CARDS": 6,
     "NOTES_TO_SAMPLE": 3,
@@ -40,44 +39,9 @@ DEFAULT_CONFIG = {
     "BATCH_CARD_LIMIT": 100  # Maximum total cards in batch mode
 }
 
-def load_config():
-    """Load configuration from global config.json, using defaults if it doesn't exist"""
-    config = DEFAULT_CONFIG.copy()
-
-    if CONFIG_FILE.exists():
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                local_config = json.load(f)
-                config.update(local_config)
-        except Exception as e:
-            console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
-            console.print("[cyan]Using default configuration[/cyan]")
-
-    return config
-
-# Load configuration
-_config = load_config()
-
-MAX_CARDS = _config["MAX_CARDS"]
-NOTES_TO_SAMPLE = _config["NOTES_TO_SAMPLE"]
-DAYS_OLD = _config["DAYS_OLD"]
-SAMPLING_MODE = _config["SAMPLING_MODE"]
-DENSITY_BIAS_STRENGTH = _config["DENSITY_BIAS_STRENGTH"]
-SEARCH_FOLDERS = _config["SEARCH_FOLDERS"]
-CARD_TYPE = _config["CARD_TYPE"]
-APPROVE_NOTES = _config["APPROVE_NOTES"]
-APPROVE_CARDS = _config["APPROVE_CARDS"]
-DEDUPLICATE_VIA_HISTORY = _config["DEDUPLICATE_VIA_HISTORY"]
-DEDUPLICATE_VIA_DECK = _config["DEDUPLICATE_VIA_DECK"]
-USE_DECK_SCHEMA = _config["USE_DECK_SCHEMA"]
-DECK = _config["DECK"]
-SYNTAX_HIGHLIGHTING = _config["SYNTAX_HIGHLIGHTING"]
-UPFRONT_BATCHING = _config["UPFRONT_BATCHING"]
-BATCH_SIZE_LIMIT = _config["BATCH_SIZE_LIMIT"]
-BATCH_CARD_LIMIT = _config["BATCH_CARD_LIMIT"]
-
-class ConfigManager:
+class Config:
     def __init__(self):
+        self._config = self.load()
         self.tag_weights = {}
         self.excluded_tags = []
         self.processing_history = {}
@@ -86,6 +50,54 @@ class ConfigManager:
         self.templates_file = CONFIG_DIR / "templates.json"
         self.load_or_create_tag_schema()
         self.load_processing_history()
+
+    def __getattr__(self, name):
+        """Dynamically expose config dict values as attributes (lowercase or uppercase)"""
+        upper_name = name.upper()
+        if upper_name in self._config:
+            return self._config[upper_name]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """Allow setting config values dynamically (lowercase or uppercase)"""
+        try:
+            _config = object.__getattribute__(self, '_config')
+            upper_name = name.upper()
+            if upper_name in _config:
+                _config[upper_name] = value
+                return
+        except AttributeError:
+            pass
+        # Normal attribute assignment
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        """Allow deleting config values (needed for patch cleanup)"""
+        if hasattr(self, '_config'):
+            upper_name = name.upper()
+            if upper_name in self._config:
+                pass
+                return
+        object.__delattr__(self, name)
+    
+    def save(self, config_dict):
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config_dict, f, indent=2)
+    
+    def load(self):
+        config = DEFAULT_CONFIG.copy()
+
+        if CONFIG_FILE.exists():
+            try:
+                with open(CONFIG_FILE, "r") as f:
+                    local_config = json.load(f)
+                    config.update(local_config)
+            except Exception as e:
+                console.print(f"[yellow]WARNING:[/yellow] Error loading config.json: {e}")
+                console.print("[cyan]Using default configuration[/cyan]")
+
+        return config
 
     def load_or_create_tag_schema(self):
         """Load existing tag schema"""
@@ -105,7 +117,7 @@ class ConfigManager:
                 self.excluded_tags = []
 
             # Validate required keys for weighted sampling
-            if SAMPLING_MODE == "weighted":
+            if self.SAMPLING_MODE == "weighted":
                 if "_default" not in self.tag_weights:
                     self.tag_weights["_default"] = 1
 
@@ -119,7 +131,6 @@ class ConfigManager:
     def save_tag_schema(self):
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
         schema = self.tag_weights.copy()
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags
@@ -278,7 +289,7 @@ class ConfigManager:
         # Apply bias - higher density = lower weight
         # bias_strength = 1: guaranteed zero probability for any processed notes
         # bias_strength = 0: no penalty for processed notes
-        effective_bias = bias_strength if bias_strength is not None else DENSITY_BIAS_STRENGTH
+        effective_bias = bias_strength if bias_strength is not None else self.DENSITY_BIAS_STRENGTH
         bias_factor = (1.0 - effective_bias) ** (density * 1000)
 
         return bias_factor
@@ -287,7 +298,7 @@ class ConfigManager:
     def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
         """Calculate total sampling weight for a Note object"""
         tag_weight = 1.0
-        if SAMPLING_MODE == "weighted" and self.tag_weights:
+        if self.SAMPLING_MODE == "weighted" and self.tag_weights:
             relevant_tags = [tag for tag in note.tags if tag in self.tag_weights and tag != "_default"]
 
             if not relevant_tags:
@@ -301,5 +312,5 @@ class ConfigManager:
         return final_weight
 
 
-# Global config manager instance
-CONFIG_MANAGER = ConfigManager()
+# Global config instance
+CONFIG = Config()
