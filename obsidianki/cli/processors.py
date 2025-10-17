@@ -4,13 +4,15 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 import argparse
-from typing import List
+from typing import List, Dict
 from obsidianki.cli.handlers import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 
-
-def process(note: Note, args: argparse.Namespace, deck_examples: List[Flashcard], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
+#TODO
+# deck_examples -> List[Flashcard]
+# previous_fronts -> List[Flashcard]?
+def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: list[List[str]]) -> List[Flashcard]:
     from obsidianki.cli.config import console
     note.ensure_content()
 
@@ -168,7 +170,7 @@ def preprocess(args: argparse.Namespace):
             for note_pattern in args.notes:
                 if '*' in note_pattern or '/' in note_pattern:
                     # Pattern matching with optional sampling
-                    sample_size = None
+                    sample_size = 0
                     if ':' in note_pattern and not note_pattern.endswith('/'):
                         parts = note_pattern.rsplit(':', 1)
                         if parts[1].isdigit():

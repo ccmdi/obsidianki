@@ -1,5 +1,5 @@
 import requests
-from typing import List, Dict
+from typing import List, Dict, Any
 import urllib.parse
 from rich.console import Console
 from obsidianki.api.base import BaseAPI
@@ -14,7 +14,7 @@ class AnkiAPI(BaseAPI):
         super().__init__(url)
         self.url = url  # Keep for backward compatibility
 
-    def _request(self, action: str, params: dict = None) -> dict:
+    def _request(self, action: str, params: dict = {}) -> dict:
         """Make a request to AnkiConnect"""
         payload = {
             "action": action,
@@ -295,7 +295,7 @@ class AnkiAPI(BaseAPI):
             console.print(f"[red]ERROR:[/red] Failed to rename deck: {e}")
             return False
 
-    def get_cards_for_editing(self, deck_name: str = "Obsidian", limit: int = None) -> List[Dict[str, str]]:
+    def get_cards_for_editing(self, deck_name: str = "Obsidian", limit: int = 0) -> List[Dict[str, str]]:
         """Get cards from deck with their note IDs for editing"""
         try:
             query = f"deck:\"{deck_name}\" -is:suspended -is:buried"
@@ -337,7 +337,7 @@ class AnkiAPI(BaseAPI):
             console.print(f"[yellow]WARNING:[/yellow] Could not get cards for editing: {e}")
             return []
 
-    def update_note(self, note_id: int, front: str, back: str, origin: str = None) -> bool:
+    def update_note(self, note_id: int, front: str, back: str, origin: str = "") -> bool:
         """Update an existing note's fields"""
         try:
             fields = {"Front": front, "Back": back}
@@ -364,6 +364,8 @@ class AnkiAPI(BaseAPI):
         """Test if AnkiConnect is running"""
         try:
             version = self._request("version")
+            if not version:
+                return False
             return version >= 5
         except Exception:
             return False

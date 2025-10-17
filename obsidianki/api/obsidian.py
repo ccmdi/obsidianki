@@ -182,8 +182,7 @@ class ObsidianAPI(BaseAPI):
         if not sample_size or len(results) <= sample_size:
             return results
 
-        # Apply sampling
-        if CONFIG: #TODO
+        if CONFIG.sampling_mode == "weighted":
             return self._weighted_sample(results, sample_size, bias_strength)
         else:
             import random

@@ -284,7 +284,7 @@ class Config:
 
         return self.processing_history[note.path].get("flashcard_fronts", [])
 
-    def get_density_bias_for_note(self, note: Note, bias_strength: float = None) -> float:
+    def get_density_bias_for_note(self, note: Note, bias_strength: float = 0.0) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
         if note.path not in self.processing_history:
             return 1.0  # No bias for unprocessed notes
@@ -306,7 +306,7 @@ class Config:
         return bias_factor
 
 
-    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
+    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = 0.0) -> float:
         """Calculate total sampling weight for a Note object"""
         tag_weight = 1.0
         if self.SAMPLING_MODE == "weighted" and self.tag_weights:

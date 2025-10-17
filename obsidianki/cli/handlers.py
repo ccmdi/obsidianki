@@ -865,7 +865,7 @@ def edit_mode(args):
             original_card['noteId'],
             edited_card['front'],
             edited_card['back'],
-            edited_card.get('origin', original_card.get('origin', ''))
+            edited_card['origin'] or original_card['origin'] or ''
         ):
             console.print("  [green]✓ Card updated successfully[/green]")
             total_updated += 1

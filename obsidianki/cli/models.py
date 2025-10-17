@@ -27,11 +27,11 @@ class Note:
         """Clean title without file extension."""
         return self.filename.rsplit('.md', 1)[0] if self.filename.endswith('.md') else self.filename
 
-    def get_sampling_weight(self, bias_strength: float = None) -> float:
+    def get_sampling_weight(self, bias_strength: float = 0.0) -> float:
         """Calculate total sampling weight based on tags and processing history."""
         return CONFIG.get_sampling_weight_for_note_object(self, bias_strength)
 
-    def get_density_bias(self, bias_strength: float = None) -> float:
+    def get_density_bias(self, bias_strength: float = 0.0) -> float:
         """Get density bias factor for this note."""
         return CONFIG.get_density_bias_for_note(self, bias_strength)
 
@@ -54,7 +54,7 @@ class Note:
             self.content = OBSIDIAN.get_note_content(self.path)
 
     @classmethod
-    def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = None) -> 'Note':
+    def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = "") -> 'Note':
         """Create Note from Obsidian API result format."""
         result = obsidian_result.get('result', obsidian_result)
         return cls(
