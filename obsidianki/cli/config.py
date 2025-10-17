@@ -5,7 +5,7 @@ if TYPE_CHECKING:
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union, Mapping, cast
 from dotenv import load_dotenv
 from rich.console import Console
 
@@ -42,8 +42,8 @@ DEFAULT_CONFIG = {
 class Config:
     def __init__(self):
         self._config = self.load()
-        self.tag_weights = {}
-        self.excluded_tags = []
+        self.tag_weights: dict[str, float] = {}
+        self.excluded_tags: List[str] = []
         self.processing_history = {}
         self.tag_schema_file = CONFIG_DIR / "tags.json"
         self.processing_history_file = CONFIG_DIR / "processing_history.json"
@@ -131,15 +131,14 @@ class Config:
     def save_tag_schema(self):
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        schema = self.tag_weights.copy()
+        schema: dict[str, float | list[str]] = cast(dict[str, float | list[str]], self.tag_weights.copy())
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags
 
         with open(self.tag_schema_file, 'w') as f:
             json.dump(schema, f, indent=2)
-        # console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
-    def get_tag_weights(self) -> Dict[str, float]:
+    def get_tag_weights(self) -> dict[str, float]:
         """Get current tag weights"""
         return self.tag_weights.copy()
 

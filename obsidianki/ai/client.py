@@ -1,10 +1,11 @@
 import os
 from anthropic import Anthropic
-from typing import List, Dict
+from typing import List, Dict, Iterable, cast, Union
 
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
+from anthropic.types import ToolChoiceParam
 from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from obsidianki.ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -62,7 +63,7 @@ class FlashcardAI:
 
         return schema_context
 
-    def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
         """Generate flashcards from a Note object using Claude"""
 
         card_instruction = self._build_card_instruction(target_cards)
@@ -91,7 +92,7 @@ class FlashcardAI:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_input = content_block.input
-                        flashcard_dicts = tool_input.get("flashcards", [])
+                        flashcard_dicts = tool_input['flashcards']
 
                         flashcard_objects = []
                         for card in flashcard_dicts:
@@ -119,7 +120,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards: {e}")
             return []
 
-    def generate_from_query(self, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_from_query(self, query: str, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
 
         card_instruction = self._build_card_instruction(target_cards)
@@ -271,10 +272,10 @@ class FlashcardAI:
             try:
                 if not has_dql_results:
                     available_tools = [DQL_EXECUTION_TOOL]
-                    tool_choice = {"type": "tool", "name": "execute_dql_query"}
+                    tool_choice: ToolChoiceParam = {"type": "tool", "name": "execute_dql_query"}
                 else:
                     available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
-                    tool_choice = {"type": "any"}
+                    tool_choice: ToolChoiceParam = {"type": "any"}
 
                 response = self.client.messages.create(
                     model="claude-4-sonnet-20250514",
@@ -313,14 +314,8 @@ class FlashcardAI:
                                 # Apply filtering (folders, excluded tags)
                                 filtered_results = []
                                 for result in results:
-                                    # Handle Note objects directly
-                                    if hasattr(result, 'path'):
-                                        note_path = result.path
-                                        note_tags = result.tags or []
-                                    else: #TODO
-                                        # Fallback for dict format
-                                        note_path = result.get('result', {}).get('path', '')
-                                        note_tags = result.get('result', {}).get('tags', []) or []
+                                    note_path = result.path
+                                    note_tags = result.tags or []
 
                                     # Apply search_folders filtering
                                     if CONFIG.search_folders:

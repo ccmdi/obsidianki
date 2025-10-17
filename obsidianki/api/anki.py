@@ -1,5 +1,5 @@
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, overload, Literal
 import urllib.parse
 from rich.console import Console
 from obsidianki.api.base import BaseAPI
@@ -14,7 +14,43 @@ class AnkiAPI(BaseAPI):
         super().__init__(url)
         self.url = url  # Keep for backward compatibility
 
-    def _request(self, action: str, params: dict = {}) -> dict:
+    @overload
+    def _request(self, action: Literal["deckNames"], params: None = None) -> list[str]: ...
+
+    @overload
+    def _request(self, action: Literal["modelNames"], params: None = None) -> list[str]: ...
+
+    @overload
+    def _request(self, action: Literal["findCards"], params: dict[str, Any]) -> list[int]: ...
+
+    @overload
+    def _request(self, action: Literal["cardsInfo"], params: dict[str, Any]) -> list[dict[str, Any]]: ...
+
+    @overload
+    def _request(self, action: Literal["addNote"], params: dict[str, Any]) -> int: ...
+
+    @overload
+    def _request(self, action: Literal["addNotes"], params: dict[str, Any]) -> list[int]: ...
+
+    @overload
+    def _request(self, action: Literal["deleteNotes"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["updateNoteFields"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["changeDeck"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["deleteDecks"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["createModel"], params: dict[str, Any]) -> str: ...
+
+    @overload
+    def _request(self, action: Literal["version"], params: None = None) -> int: ...
+
+    def _request(self, action: str, params: dict[str, Any] | None = None) -> Any:
         """Make a request to AnkiConnect"""
         payload = {
             "action": action,
@@ -31,7 +67,7 @@ class AnkiAPI(BaseAPI):
             error_str = str(error_msg).lower()
             if 'duplicate' in error_str:
                 console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
-                return None
+                return {}
             else:
                 raise Exception(f"AnkiConnect error: {error_msg}")
 
