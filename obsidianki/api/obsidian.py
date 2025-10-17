@@ -135,14 +135,25 @@ class ObsidianAPI(BaseAPI):
         """Perform weighted sampling based on note tags and processing history"""
         import random
 
-        # Calculate weights for each note
         weights = []
         for note in notes:
             weight = note.get_sampling_weight(bias_strength)
             weights.append(weight)
 
-        # Weighted random selection
-        return random.choices(notes, weights=weights, k=limit)
+        sampled_notes = []
+        available_notes = list(notes)
+        available_weights = list(weights)
+
+        for _ in range(min(limit, len(available_notes))):
+            chosen = random.choices(available_notes, weights=available_weights, k=1)[0]
+            chosen_idx = available_notes.index(chosen)
+
+            sampled_notes.append(chosen)
+            
+            available_notes.pop(chosen_idx)
+            available_weights.pop(chosen_idx)
+
+        return sampled_notes
 
     def find_by_pattern(self, pattern: str, sample_size: int = None, bias_strength: float = None, search_folders: List[str] = None) -> List[Note]:
         """Find notes by pattern"""
