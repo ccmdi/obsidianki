@@ -239,8 +239,18 @@ class AnkiAPI(BaseAPI):
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card fronts: {e}")
             return []
 
-    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE) -> List[Dict[str, str]]:
-        """Sample existing cards from deck to use as formatting/style examples"""
+    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE, note_paths: List[str] = []) -> List[Dict[str, str]]:
+        """
+        Sample existing cards from deck to use as formatting/style examples.
+
+        Args:
+            deck_name: Name of the Anki deck
+            sample_size: Number of cards to sample
+            note_paths: Optional list of note paths to filter cards by origin
+
+        Returns:
+            List of card examples with 'front' and 'back' fields
+        """
         try:
             # important: ignores suspended/buried
             card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\" -is:suspended -is:buried"})
@@ -248,11 +258,7 @@ class AnkiAPI(BaseAPI):
             if not card_ids:
                 return []
 
-            import random
-            if len(card_ids) > sample_size:
-                card_ids = random.sample(card_ids, sample_size)
-
-            # Get card info for sampled cards
+            # Get card info for all cards
             cards_info = self._request("cardsInfo", {"cards": card_ids})
 
             if not cards_info:
@@ -264,12 +270,29 @@ class AnkiAPI(BaseAPI):
                 fields = card.get("fields", {})
                 front = fields.get("Front", {}).get("value", "")
                 back = fields.get("Back", {}).get("value", "")
+                origin = fields.get("Origin", {}).get("value", "")
 
-                if front and back:
-                    examples.append({
-                        "front": front,
-                        "back": back
-                    })
+                if not (front and back):
+                    continue
+
+                if note_paths:
+                    matches = False
+                    for note_path in note_paths:
+                        if note_path in origin:
+                            matches = True
+                            break
+
+                    if not matches:
+                        continue
+
+                examples.append({
+                    "front": front,
+                    "back": back
+                })
+
+            import random
+            if len(examples) > sample_size:
+                examples = random.sample(examples, sample_size)
 
             return examples
 

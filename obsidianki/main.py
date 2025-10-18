@@ -28,7 +28,7 @@ def show_main_help():
     console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
     console.print("  [cyan]-b, --bias <float>[/cyan]     Bias against over-processed notes (0-1)")
     console.print("  [cyan]-w, --allow <folders>[/cyan]  Temporarily expand search to additional folders")
-    console.print("  [cyan]-u, --use-schema[/cyan]       Match existing deck card formatting")
+    console.print("  [cyan]-u, --use-schema [pattern][/cyan] Match existing deck card formatting (optionally from specific notes)")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -52,7 +52,7 @@ def main():
     parser.add_argument("-d", "--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
-    parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
+    parser.add_argument("-u", "--use-schema", nargs='?', const=True, default=False, metavar="PATTERN", help="Sample existing cards from deck to enforce consistent formatting/style. Optionally provide a note pattern to filter cards (e.g., --use-schema \"docs/*\")")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
 
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode

@@ -8,6 +8,7 @@ from typing import List, Dict
 from obsidianki.cli.handlers import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
+from obsidianki.cli.utils import encode_path
 
 #TODO
 # deck_examples -> List[Flashcard]
@@ -172,7 +173,7 @@ def preprocess(args: argparse.Namespace):
 
             if pattern_notes:
                 notes.extend(pattern_notes)
-                
+
                 if pattern.sample_size and len(pattern_notes) == pattern.sample_size:
                     console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{pattern_str}'")
                 elif pattern.is_wildcard:
@@ -218,9 +219,26 @@ def preprocess(args: argparse.Namespace):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    CONFIG.use_deck_schema = args.use_schema or CONFIG.use_deck_schema # --use-schema
+    use_schema_value = args.use_schema
+    CONFIG.use_deck_schema = bool(use_schema_value) or CONFIG.use_deck_schema
+
     if CONFIG.use_deck_schema:
-        deck_examples = ANKI.get_card_examples(CONFIG.deck)
+        # If use_schema is a string (pattern), resolve it to note paths
+        note_paths = []
+        if isinstance(use_schema_value, str):
+            pattern = NotePattern(
+                use_schema_value,
+                bias_strength=CONFIG.density_bias_strength,
+                search_folders=CONFIG.search_folders
+            )
+            schema_notes = pattern.resolve()
+            if schema_notes:
+                # we encode because we compare with the messy "origin" field
+                note_paths = [encode_path(note.path) for note in schema_notes]
+            else:
+                console.print(f"[yellow]WARNING:[/yellow] No notes found for schema pattern '{use_schema_value}', using entire deck")
+
+        deck_examples = ANKI.get_card_examples(CONFIG.deck, note_paths=note_paths)
         if deck_examples:
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 

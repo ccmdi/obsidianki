@@ -50,7 +50,7 @@ class DummyAnkiAPI:
             return []
         return [card["front"] for card in self.cards[deck_name]]
 
-    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = 5) -> List[Dict[str, str]]:
+    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = 5, note_paths: List[str] = []) -> List[Dict[str, str]]:
         """Return example cards"""
         return [
             {"front": "Example Question 1", "back": "Example Answer 1"},
