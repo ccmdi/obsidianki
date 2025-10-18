@@ -29,6 +29,7 @@ def show_main_help():
     console.print("  [cyan]-b, --bias <float>[/cyan]     Bias against over-processed notes (0-1)")
     console.print("  [cyan]-w, --allow <folders>[/cyan]  Temporarily expand search to additional folders")
     console.print("  [cyan]-u, --use-schema [pattern][/cyan] Match existing deck card formatting (optionally from specific notes)")
+    console.print("  [cyan]-x, --extrapolate[/cyan]      Allow the model to extrapolate with its pre-existing knowledge")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -54,6 +55,7 @@ def main():
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", nargs='?', const=True, default=False, metavar="PATTERN", help="Sample existing cards from deck to enforce consistent formatting/style. Optionally provide a note pattern to filter cards (e.g., --use-schema \"docs/*\")")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
+    parser.add_argument("-x", "--extrapolate", action="store_true", help="Allow extrapolation of knowledge from pre-existing notes")
 
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
 

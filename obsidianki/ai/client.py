@@ -19,7 +19,10 @@ class FlashcardAI:
             raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
     
     def _build_card_instruction(self, target_cards: int) -> str:
-        return f"create approximately {target_cards} flashcards"
+        context = f"create approximately {target_cards} flashcards."
+        if CONFIG.use_extrapolation:
+            context += " IMPORTANT: You are allowed to extrapolate with your pre-existing knowledge somewhat if you feel it is directly relevant to note substance, but is not written in the note itself."
+        return context
     
     def _build_dedup_context(self, previous_fronts: List[str]) -> str:
         if not previous_fronts:
