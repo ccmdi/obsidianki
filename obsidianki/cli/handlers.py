@@ -1068,7 +1068,7 @@ def handle_template_command(args):
         # Parse the command and re-invoke main with those arguments
         try:
             # Import main from this module's parent
-            from main import main
+            from obsidianki.main import main
 
             # Parse the command string into arguments
             cmd_args = shlex.split(command)
