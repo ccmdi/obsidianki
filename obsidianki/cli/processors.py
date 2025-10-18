@@ -6,7 +6,7 @@ import concurrent.futures
 import argparse
 from typing import List, Dict
 from obsidianki.cli.handlers import approve_note, approve_flashcard
-from obsidianki.cli.models import Note, Flashcard
+from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 
 #TODO
@@ -160,36 +160,26 @@ def preprocess(args: argparse.Namespace):
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            notes = OBSIDIAN.sample_old_notes(days=CONFIG.days_old, limit=note_count, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
-        else:
-            # User specified note names/patterns: --notes "React" "JS"
-            notes = []
-            for note_pattern in args.notes:
-                if '*' in note_pattern or '/' in note_pattern:
-                    # Pattern matching with optional sampling
-                    sample_size = 0
-                    if ':' in note_pattern and not note_pattern.endswith('/'):
-                        parts = note_pattern.rsplit(':', 1)
-                        if parts[1].isdigit():
-                            note_pattern = parts[0]
-                            sample_size = int(parts[1])
 
-                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
-                    if pattern_notes:
-                        notes.extend(pattern_notes)
-                        if sample_size and len(pattern_notes) == sample_size:
-                            console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                        else:
-                            console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                    else:
-                        console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
-                else:
-                    specific_note = OBSIDIAN.find_by_name(note_pattern, search_folders=CONFIG.search_folders)
-                    if specific_note:
-                        notes.append(specific_note)
-                    else:
-                        console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
-        
+        notes = []
+        for pattern_str in args.notes:
+            pattern = NotePattern(
+                pattern_str,
+                bias_strength=CONFIG.density_bias_strength,
+                search_folders=CONFIG.search_folders
+            )
+            pattern_notes = pattern.resolve()
+
+            if pattern_notes:
+                notes.extend(pattern_notes)
+                
+                if pattern.sample_size and len(pattern_notes) == pattern.sample_size:
+                    console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{pattern_str}'")
+                elif pattern.is_wildcard:
+                    console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{pattern_str}'")
+            else:
+                console.print(f"[red]ERROR:[/red] No notes found for pattern: '{pattern_str}'")
+
         if not notes:
             console.print("[red]ERROR:[/red] No notes found")
             return 1
@@ -251,7 +241,6 @@ def preprocess(args: argparse.Namespace):
         console.print(f"[cyan]INFO[/cyan]: Batch mode")
         console.print()
 
-        # Filter notes with approval upfront
         valid_notes = []
         for note in notes:
             note.ensure_content()
