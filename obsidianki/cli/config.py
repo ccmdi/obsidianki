@@ -321,6 +321,40 @@ class Config:
 
         return final_weight
 
+    def is_note_hidden(self, note_path: str) -> bool:
+        """Check if a note is hidden"""
+        if note_path not in self.processing_history:
+            return False
+        return self.processing_history[note_path].get("hidden", False)
+
+    def hide_note(self, note_path: str):
+        """Mark a note as hidden"""
+        if note_path not in self.processing_history:
+            self.processing_history[note_path] = {
+                "size": 0,
+                "total_flashcards": 0,
+                "sessions": [],
+                "flashcard_fronts": [],
+                "decks": {},
+                "hidden": True
+            }
+        else:
+            self.processing_history[note_path]["hidden"] = True
+        self.save_processing_history()
+
+    def unhide_note(self, note_path: str) -> bool:
+        """Unmark a note as hidden"""
+        if note_path in self.processing_history:
+            self.processing_history[note_path]["hidden"] = False
+            self.save_processing_history()
+            return True
+        return False
+
+    def get_hidden_notes(self) -> List[str]:
+        """Get list of all hidden note paths"""
+        return [path for path, data in self.processing_history.items()
+                if data.get("hidden", False)]
+
 
 # Global config instance
 CONFIG = Config()

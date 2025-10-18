@@ -124,6 +124,11 @@ class ObsidianAPI(BaseAPI):
         if not all_notes:
             return []
 
+        all_notes = [note for note in all_notes if not CONFIG.is_note_hidden(note.path)]
+
+        if not all_notes:
+            return []
+
         if not limit or len(all_notes) <= limit:
             return all_notes
 
@@ -175,6 +180,11 @@ class ObsidianAPI(BaseAPI):
 
         full_condition = f'{condition} AND file.size > 100 {filters}'
         results = self.dql(self._build_base_query(full_condition))
+
+        if not results:
+            return []
+
+        results = [note for note in results if not CONFIG.is_note_hidden(note.path)]
 
         if not results:
             return []

@@ -3,7 +3,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from obsidianki.cli.config import console, ENV_FILE, CONFIG_FILE
-from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
+from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command, handle_hide_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -37,6 +37,7 @@ def show_main_help():
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
     console.print("  [cyan]template[/cyan]              Manage command templates")
+    console.print("  [cyan]hide[/cyan]                  Manage hidden notes")
     console.print()
 
 
@@ -143,6 +144,15 @@ def main():
     remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')
     remove_template_parser.add_argument('name', help='Template name')
 
+    # Hide management
+    hide_parser = subparsers.add_parser('hide', help='Manage hidden notes', add_help=False)
+    hide_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    hide_subparsers = hide_parser.add_subparsers(dest='hide_action', help='Hide actions')
+
+    # hide unhide <note_path>
+    unhide_parser = hide_subparsers.add_parser('unhide', help='Unhide a specific note')
+    unhide_parser.add_argument('note_path', help='Path to note to unhide')
+
     args = parser.parse_args()
 
     if args.help and not args.command:
@@ -164,6 +174,9 @@ def main():
         return 0
     elif args.command in ['template', 'templates']:
         handle_template_command(args)
+        return 0
+    elif args.command == 'hide':
+        handle_hide_command(args)
         return 0
 
     if args.edit:
