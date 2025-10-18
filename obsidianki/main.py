@@ -3,7 +3,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from obsidianki.cli.config import console, ENV_FILE, CONFIG_FILE
-from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command
+from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command, handle_hide_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -28,7 +28,8 @@ def show_main_help():
     console.print("  [cyan]-d, --deck <name>[/cyan]      Anki deck to add cards to")
     console.print("  [cyan]-b, --bias <float>[/cyan]     Bias against over-processed notes (0-1)")
     console.print("  [cyan]-w, --allow <folders>[/cyan]  Temporarily expand search to additional folders")
-    console.print("  [cyan]-u, --use-schema[/cyan]       Match existing deck card formatting")
+    console.print("  [cyan]-u, --use-schema [pattern][/cyan] Match existing deck card formatting (optionally from specific notes)")
+    console.print("  [cyan]-x, --extrapolate[/cyan]      Allow the model to extrapolate with its pre-existing knowledge")
     console.print()
 
     console.print("[bold blue]Commands[/bold blue]")
@@ -37,6 +38,7 @@ def show_main_help():
     console.print("  [cyan]history[/cyan]               Manage processing history")
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
     console.print("  [cyan]template[/cyan]              Manage command templates")
+    console.print("  [cyan]hide[/cyan]                  Manage hidden notes")
     console.print()
 
 
@@ -51,8 +53,9 @@ def main():
     parser.add_argument("-d", "--deck", type=str, help="Anki deck to add cards to")
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
-    parser.add_argument("-u", "--use-schema", action="store_true", help="Sample existing cards from deck to enforce consistent formatting/style")
+    parser.add_argument("-u", "--use-schema", nargs='?', const=True, default=False, metavar="PATTERN", help="Sample existing cards from deck to enforce consistent formatting/style. Optionally provide a note pattern to filter cards (e.g., --use-schema \"docs/*\")")
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
+    parser.add_argument("-x", "--extrapolate", action="store_true", help="Allow extrapolation of knowledge from pre-existing notes")
 
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
 
@@ -143,6 +146,15 @@ def main():
     remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')
     remove_template_parser.add_argument('name', help='Template name')
 
+    # Hide management
+    hide_parser = subparsers.add_parser('hide', help='Manage hidden notes', add_help=False)
+    hide_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    hide_subparsers = hide_parser.add_subparsers(dest='hide_action', help='Hide actions')
+
+    # hide unhide <note_path>
+    unhide_parser = hide_subparsers.add_parser('unhide', help='Unhide a specific note')
+    unhide_parser.add_argument('note_path', help='Path to note to unhide')
+
     args = parser.parse_args()
 
     if args.help and not args.command:
@@ -164,6 +176,9 @@ def main():
         return 0
     elif args.command in ['template', 'templates']:
         handle_template_command(args)
+        return 0
+    elif args.command == 'hide':
+        handle_hide_command(args)
         return 0
 
     if args.edit:

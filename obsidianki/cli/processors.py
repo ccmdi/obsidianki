@@ -4,13 +4,16 @@ Note processing functions for ObsidianKi.
 
 import concurrent.futures
 import argparse
-from typing import List
+from typing import List, Dict
 from obsidianki.cli.handlers import approve_note, approve_flashcard
-from obsidianki.cli.models import Note, Flashcard
+from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
+from obsidianki.cli.utils import encode_path
 
-
-def process(note: Note, args: argparse.Namespace, deck_examples: List[Flashcard], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
+#TODO
+# deck_examples -> List[Flashcard]
+# previous_fronts -> List[Flashcard]?
+def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: list[List[str]]) -> List[Flashcard]:
     from obsidianki.cli.config import console
     note.ensure_content()
 
@@ -40,16 +43,13 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
     """Handle flashcard approval and Anki addition"""
     from obsidianki.cli.config import console, CONFIG
 
-    console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
-
     # Flashcard approval
     cards_to_add = flashcards
     if CONFIG.approve_cards or CONFIG.print_cards:
         approved_flashcards = []
         try:
-            console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
-                if CONFIG.approve_cards and approve_flashcard(flashcard, note):
+                if CONFIG.approve_cards and approve_flashcard(flashcard):
                     approved_flashcards.append(flashcard)
                 elif CONFIG.print_cards:
                     console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")
@@ -97,6 +97,7 @@ def preprocess(args: argparse.Namespace):
 
     CONFIG.deck = args.deck or CONFIG.deck # --deck
     CONFIG.density_bias_strength = args.bias or CONFIG.density_bias_strength # --bias
+    CONFIG.use_extrapolation = args.extrapolate # --extrapolate
 
     if args.notes:
         # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)
@@ -161,36 +162,26 @@ def preprocess(args: argparse.Namespace):
             # User specified a count: --notes 5
             note_count = int(args.notes[0])
             console.print(f"[cyan]INFO:[/cyan] Sampling {note_count} random notes")
-            notes = OBSIDIAN.sample_old_notes(days=CONFIG.days_old, limit=note_count, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
-        else:
-            # User specified note names/patterns: --notes "React" "JS"
-            notes = []
-            for note_pattern in args.notes:
-                if '*' in note_pattern or '/' in note_pattern:
-                    # Pattern matching with optional sampling
-                    sample_size = None
-                    if ':' in note_pattern and not note_pattern.endswith('/'):
-                        parts = note_pattern.rsplit(':', 1)
-                        if parts[1].isdigit():
-                            note_pattern = parts[0]
-                            sample_size = int(parts[1])
 
-                    pattern_notes = OBSIDIAN.find_by_pattern(note_pattern, sample_size=sample_size, bias_strength=CONFIG.density_bias_strength, search_folders=CONFIG.search_folders)
-                    if pattern_notes:
-                        notes.extend(pattern_notes)
-                        if sample_size and len(pattern_notes) == sample_size:
-                            console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                        else:
-                            console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{note_pattern}'")
-                    else:
-                        console.print(f"[red]ERROR:[/red] No notes found for pattern: '{note_pattern}'")
-                else:
-                    specific_note = OBSIDIAN.find_by_name(note_pattern, search_folders=CONFIG.search_folders)
-                    if specific_note:
-                        notes.append(specific_note)
-                    else:
-                        console.print(f"[red]ERROR:[/red] Not found: '{note_pattern}'")
-        
+        notes = []
+        for pattern_str in args.notes:
+            pattern = NotePattern(
+                pattern_str,
+                bias_strength=CONFIG.density_bias_strength,
+                search_folders=CONFIG.search_folders
+            )
+            pattern_notes = pattern.resolve()
+
+            if pattern_notes:
+                notes.extend(pattern_notes)
+
+                if pattern.sample_size and len(pattern_notes) == pattern.sample_size:
+                    console.print(f"[cyan]INFO:[/cyan] Sampled {len(pattern_notes)} notes from pattern: '{pattern_str}'")
+                elif pattern.is_wildcard:
+                    console.print(f"[cyan]INFO:[/cyan] Found {len(pattern_notes)} notes from pattern: '{pattern_str}'")
+            else:
+                console.print(f"[red]ERROR:[/red] No notes found for pattern: '{pattern_str}'")
+
         if not notes:
             console.print("[red]ERROR:[/red] No notes found")
             return 1
@@ -229,9 +220,26 @@ def preprocess(args: argparse.Namespace):
 
     # === PROCESS NOTES ===
     deck_examples = []
-    CONFIG.use_deck_schema = args.use_schema or CONFIG.use_deck_schema # --use-schema
+    use_schema_value = args.use_schema
+    CONFIG.use_deck_schema = bool(use_schema_value) or CONFIG.use_deck_schema
+
     if CONFIG.use_deck_schema:
-        deck_examples = ANKI.get_card_examples(CONFIG.deck)
+        # If use_schema is a string (pattern), resolve it to note paths
+        note_paths = []
+        if isinstance(use_schema_value, str):
+            pattern = NotePattern(
+                use_schema_value,
+                bias_strength=CONFIG.density_bias_strength,
+                search_folders=CONFIG.search_folders
+            )
+            schema_notes = pattern.resolve()
+            if schema_notes:
+                # we encode because we compare with the messy "origin" field
+                note_paths = [encode_path(note.path) for note in schema_notes]
+            else:
+                console.print(f"[yellow]WARNING:[/yellow] No notes found for schema pattern '{use_schema_value}', using entire deck")
+
+        deck_examples = ANKI.get_card_examples(CONFIG.deck, note_paths=note_paths)
         if deck_examples:
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
@@ -252,7 +260,6 @@ def preprocess(args: argparse.Namespace):
         console.print(f"[cyan]INFO[/cyan]: Batch mode")
         console.print()
 
-        # Filter notes with approval upfront
         valid_notes = []
         for note in notes:
             note.ensure_content()
@@ -264,6 +271,8 @@ def preprocess(args: argparse.Namespace):
                         continue
                 except KeyboardInterrupt:
                     raise
+
+            console.print("   ", end="")  # Indent cursor position
             valid_notes.append(note)
         
         if not valid_notes:
@@ -281,6 +290,7 @@ def preprocess(args: argparse.Namespace):
 
                 try:
                     flashcards = future.result()
+                    console.print()  # Clear the indented cursor line
 
                     if not flashcards:
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
@@ -309,9 +319,11 @@ def preprocess(args: argparse.Namespace):
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return 0
-            
+
+            console.print("   ", end="")  # Indent cursor position
             try:
                 flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
+                console.print()  # Clear the indented cursor line
 
                 if not flashcards:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")

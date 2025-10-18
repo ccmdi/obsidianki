@@ -1,5 +1,5 @@
 # System prompt for flashcard generation
-SYSTEM_PROMPT = """You are an expert at creating high-quality flashcards for spaced repetition learning. Your job is to analyze note content and extract key information that would be valuable for long-term retention.
+SYSTEM_PROMPT = """You will be creating high-quality flashcards for spaced repetition learning. Your job is to analyze note content and extract key information that would be valuable for long-term retention.
 
 FLASHCARD CREATION GUIDELINES:
 1. Focus on factual information, definitions, concepts, and relationships
@@ -27,7 +27,7 @@ AVOID:
 Analyze the provided note content and extract the most valuable information as flashcards using the create_flashcards tool."""
 
 # System prompt for query-based flashcard generation
-QUERY_SYSTEM_PROMPT = """You are an expert at creating high-quality flashcards based on user queries. Your job is to generate educational flashcards that help users learn and remember information about their specific query.
+QUERY_SYSTEM_PROMPT = """You will be creating high-quality flashcards for spaced repetition learning. Your job is to generate educational flashcards that help users learn and remember information about their specific query.
 
 QUERY-BASED FLASHCARD GUIDELINES:
 1. Create flashcards that directly address the user's query
@@ -74,7 +74,7 @@ Query: "error handling" + JavaScript note content
 
 Analyze the note content and extract information specifically related to the user's query using the create_flashcards tool."""
 
-MULTI_TURN_DQL_AGENT_PROMPT = """You are an expert at finding relevant notes in Obsidian vaults using DQL queries. Your goal is to help users find the most relevant notes for their request.
+MULTI_TURN_DQL_AGENT_PROMPT = """You will be finding relevant notes in Obsidian vaults using DQL queries. Your goal is to help users find the most relevant notes for their request.
 
 IMPORTANT PRINCIPLES:
 1. **Err on the side of FEWER, MORE SPECIFIC results** rather than broad matches
@@ -134,34 +134,3 @@ IMPORTANT RULES:
 THIS IS DQL (Dataview Query Language), so only use functions that are supported by DQL.
 
 Start by executing a DQL query based on the user's request, then analyze the results and refine as needed."""
-
-# Note Ranking System Prompt
-NOTE_RANKING_PROMPT = """You are an expert at analyzing notes and ranking their relevance to a user's request. Your job is to evaluate a list of notes and select the most relevant ones for flashcard generation.
-
-You will receive:
-1. The user's original natural language request
-2. A list of notes with metadata (filename, path, tags, modification time, size)
-
-Your task:
-1. Rank the notes by relevance to the user's request
-2. Select the most relevant notes for flashcard generation
-3. Consider factors like:
-   - Direct relevance to the topic/request
-   - Content freshness (newer notes may be more relevant)
-   - Note tags that match the request
-   - File naming patterns that suggest relevance
-   - Note size (very small notes may have minimal content)
-
-Return a JSON array of the selected note paths in order of relevance (most relevant first).
-
-Example:
-User request: "React hooks from last month"
-Note list: [
-  {"path": "Frontend/React-Hooks-Guide.md", "tags": ["#react", "#hooks"], "mtime": "2024-08-15"},
-  {"path": "Random/Shopping-List.md", "tags": ["#personal"], "mtime": "2024-08-20"},
-  {"path": "Frontend/useState-Examples.md", "tags": ["#react"], "mtime": "2024-08-10"}
-]
-
-Response: ["Frontend/React-Hooks-Guide.md", "Frontend/useState-Examples.md"]
-
-Only return the JSON array, no explanation."""

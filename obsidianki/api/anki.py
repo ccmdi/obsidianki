@@ -1,5 +1,5 @@
 import requests
-from typing import List, Dict
+from typing import List, Dict, Any, overload, Literal
 import urllib.parse
 from rich.console import Console
 from obsidianki.api.base import BaseAPI
@@ -14,7 +14,43 @@ class AnkiAPI(BaseAPI):
         super().__init__(url)
         self.url = url  # Keep for backward compatibility
 
-    def _request(self, action: str, params: dict = None) -> dict:
+    @overload
+    def _request(self, action: Literal["deckNames"], params: None = None) -> list[str]: ...
+
+    @overload
+    def _request(self, action: Literal["modelNames"], params: None = None) -> list[str]: ...
+
+    @overload
+    def _request(self, action: Literal["findCards"], params: dict[str, Any]) -> list[int]: ...
+
+    @overload
+    def _request(self, action: Literal["cardsInfo"], params: dict[str, Any]) -> list[dict[str, Any]]: ...
+
+    @overload
+    def _request(self, action: Literal["addNote"], params: dict[str, Any]) -> int: ...
+
+    @overload
+    def _request(self, action: Literal["addNotes"], params: dict[str, Any]) -> list[int]: ...
+
+    @overload
+    def _request(self, action: Literal["deleteNotes"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["updateNoteFields"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["changeDeck"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["deleteDecks"], params: dict[str, Any]) -> None: ...
+
+    @overload
+    def _request(self, action: Literal["createModel"], params: dict[str, Any]) -> str: ...
+
+    @overload
+    def _request(self, action: Literal["version"], params: None = None) -> int: ...
+
+    def _request(self, action: str, params: dict[str, Any] | None = None) -> Any:
         """Make a request to AnkiConnect"""
         payload = {
             "action": action,
@@ -31,7 +67,7 @@ class AnkiAPI(BaseAPI):
             error_str = str(error_msg).lower()
             if 'duplicate' in error_str:
                 console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
-                return None
+                return {}
             else:
                 raise Exception(f"AnkiConnect error: {error_msg}")
 
@@ -203,8 +239,18 @@ class AnkiAPI(BaseAPI):
             console.print(f"[yellow]WARNING:[/yellow] Could not get deck card fronts: {e}")
             return []
 
-    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE) -> List[Dict[str, str]]:
-        """Sample existing cards from deck to use as formatting/style examples"""
+    def get_card_examples(self, deck_name: str = "Obsidian", sample_size: int = ANKI_DEFAULT_SAMPLE_SIZE, note_paths: List[str] = []) -> List[Dict[str, str]]:
+        """
+        Sample existing cards from deck to use as formatting/style examples.
+
+        Args:
+            deck_name: Name of the Anki deck
+            sample_size: Number of cards to sample
+            note_paths: Optional list of note paths to filter cards by origin
+
+        Returns:
+            List of card examples with 'front' and 'back' fields
+        """
         try:
             # important: ignores suspended/buried
             card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\" -is:suspended -is:buried"})
@@ -212,11 +258,7 @@ class AnkiAPI(BaseAPI):
             if not card_ids:
                 return []
 
-            import random
-            if len(card_ids) > sample_size:
-                card_ids = random.sample(card_ids, sample_size)
-
-            # Get card info for sampled cards
+            # Get card info for all cards
             cards_info = self._request("cardsInfo", {"cards": card_ids})
 
             if not cards_info:
@@ -228,12 +270,29 @@ class AnkiAPI(BaseAPI):
                 fields = card.get("fields", {})
                 front = fields.get("Front", {}).get("value", "")
                 back = fields.get("Back", {}).get("value", "")
+                origin = fields.get("Origin", {}).get("value", "")
 
-                if front and back:
-                    examples.append({
-                        "front": front,
-                        "back": back
-                    })
+                if not (front and back):
+                    continue
+
+                if note_paths:
+                    matches = False
+                    for note_path in note_paths:
+                        if note_path in origin:
+                            matches = True
+                            break
+
+                    if not matches:
+                        continue
+
+                examples.append({
+                    "front": front,
+                    "back": back
+                })
+
+            import random
+            if len(examples) > sample_size:
+                examples = random.sample(examples, sample_size)
 
             return examples
 
@@ -295,7 +354,7 @@ class AnkiAPI(BaseAPI):
             console.print(f"[red]ERROR:[/red] Failed to rename deck: {e}")
             return False
 
-    def get_cards_for_editing(self, deck_name: str = "Obsidian", limit: int = None) -> List[Dict[str, str]]:
+    def get_cards_for_editing(self, deck_name: str = "Obsidian", limit: int = 0) -> List[Dict[str, str]]:
         """Get cards from deck with their note IDs for editing"""
         try:
             query = f"deck:\"{deck_name}\" -is:suspended -is:buried"
@@ -337,7 +396,7 @@ class AnkiAPI(BaseAPI):
             console.print(f"[yellow]WARNING:[/yellow] Could not get cards for editing: {e}")
             return []
 
-    def update_note(self, note_id: int, front: str, back: str, origin: str = None) -> bool:
+    def update_note(self, note_id: int, front: str, back: str, origin: str = "") -> bool:
         """Update an existing note's fields"""
         try:
             fields = {"Front": front, "Back": back}
@@ -364,6 +423,8 @@ class AnkiAPI(BaseAPI):
         """Test if AnkiConnect is running"""
         try:
             version = self._request("version")
+            if not version:
+                return False
             return version >= 5
         except Exception:
             return False

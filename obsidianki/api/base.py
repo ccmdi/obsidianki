@@ -14,10 +14,6 @@ class BaseAPI(ABC):
         self.timeout = timeout
         self.headers = {}
 
-    def _handle_request_error(self, error: Exception, operation: str = "API request") -> None:
-        """Common error handling for API requests"""
-        console.print(f"[red]ERROR:[/red] {operation} failed: {error}")
-
     def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
         """Make HTTP request with common error handling"""
         try:
@@ -29,7 +25,6 @@ class BaseAPI(ABC):
             return response
 
         except requests.exceptions.RequestException as e:
-            self._handle_request_error(e, f"{method} {url}")
             raise
 
     def _parse_response(self, response: requests.Response, default: Any = None) -> Any:

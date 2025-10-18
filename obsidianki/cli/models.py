@@ -2,7 +2,7 @@
 Clean data models for ObsidianKi to replace scattered dictionaries and parameter hell.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Iterator
 from dataclasses import dataclass
 from obsidianki.cli.config import CONFIG
 
@@ -27,11 +27,11 @@ class Note:
         """Clean title without file extension."""
         return self.filename.rsplit('.md', 1)[0] if self.filename.endswith('.md') else self.filename
 
-    def get_sampling_weight(self, bias_strength: float = None) -> float:
+    def get_sampling_weight(self, bias_strength: float = 0.0) -> float:
         """Calculate total sampling weight based on tags and processing history."""
         return CONFIG.get_sampling_weight_for_note_object(self, bias_strength)
 
-    def get_density_bias(self, bias_strength: float = None) -> float:
+    def get_density_bias(self, bias_strength: float = 0.0) -> float:
         """Get density bias factor for this note."""
         return CONFIG.get_density_bias_for_note(self, bias_strength)
 
@@ -54,7 +54,7 @@ class Note:
             self.content = OBSIDIAN.get_note_content(self.path)
 
     @classmethod
-    def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = None) -> 'Note':
+    def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = "") -> 'Note':
         """Create Note from Obsidian API result format."""
         result = obsidian_result.get('result', obsidian_result)
         return cls(
@@ -64,6 +64,92 @@ class Note:
             tags=result.get('tags', []),
             size=result.get('size', 0)
         )
+
+
+class NotePattern:
+    """
+    A pattern matcher for notes that can be directly iterated to get matching notes.
+
+    Handles various pattern formats:
+    - Simple count: "5" -> sample 5 notes
+    - Exact name: "React" -> find notes matching "React"
+    - Wildcard patterns: "docs/*", "*React*", etc.
+    - Patterns with sampling: "docs/*:5" -> sample 5 notes from pattern
+
+    Usage:
+        pattern = NotePattern("docs/*:5")
+        notes = list(pattern)  # Get matching notes
+
+        # Or iterate directly:
+        for note in NotePattern("docs/*"):
+            print(note.filename)
+    """
+
+    def __init__(self, pattern: str, bias_strength: float = 0.0, search_folders: List[str] = []):
+        """
+        Initialize a note pattern.
+
+        Args:
+            pattern: Pattern string (e.g., "5", "React", "docs/*", "docs/*:5")
+            bias_strength: Density bias strength for sampling (0.0-1.0)
+            search_folders: Folders to search in (defaults to CONFIG.search_folders)
+        """
+        self.original_pattern = pattern
+        self.bias_strength = bias_strength
+        self.search_folders = search_folders or (CONFIG.search_folders if CONFIG else [])
+
+        # Parse the pattern
+        self.pattern = pattern
+        self.sample_size = 0
+
+        # Check if pattern has sampling suffix (e.g., "docs/*:5")
+        if ':' in pattern and not pattern.endswith('/'):
+            parts = pattern.rsplit(':', 1)
+            if parts[1].isdigit():
+                self.pattern = parts[0]
+                self.sample_size = int(parts[1])
+
+        # Determine pattern type
+        self.is_count = self.pattern.isdigit()
+        self.is_wildcard = '*' in self.pattern or '/' in self.pattern
+
+    def __iter__(self) -> Iterator[Note]:
+        """Make NotePattern directly iterable."""
+        return iter(self.resolve())
+
+    def resolve(self) -> List[Note]:
+        """
+        Resolve the pattern to a list of notes.
+
+        Returns:
+            List[Note]: List of notes matching the pattern
+        """
+        from obsidianki.cli.services import OBSIDIAN
+
+        if self.is_count:
+            # Simple count pattern: sample N random notes
+            count = int(self.pattern)
+            return OBSIDIAN.sample_old_notes(
+                days=CONFIG.days_old if CONFIG else 7,
+                limit=count,
+                bias_strength=self.bias_strength,
+                search_folders=self.search_folders
+            )
+        elif self.is_wildcard:
+            # Wildcard pattern matching
+            return OBSIDIAN.find_by_pattern(
+                self.pattern,
+                sample_size=self.sample_size,
+                bias_strength=self.bias_strength,
+                search_folders=self.search_folders
+            )
+        else:
+            # Exact name matching
+            note = OBSIDIAN.find_by_name(self.pattern, search_folders=self.search_folders)
+            return [note] if note else []
+
+    def __repr__(self) -> str:
+        return f"NotePattern('{self.original_pattern}')"
 
 
 @dataclass

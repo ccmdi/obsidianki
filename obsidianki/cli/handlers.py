@@ -5,6 +5,7 @@ from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
 from obsidianki.cli.models import Note, Flashcard
+from obsidianki.cli.utils import create_obsidian_link
 
 from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console, CONFIG
 
@@ -32,34 +33,67 @@ def show_simple_help(title: str, commands: dict):
     console.print()
 
 def approve_note(note: Note) -> bool:
-    """Ask user to approve note processing"""
-    console.print(f"   [dim]Path: {note.path}[/dim]")
+    """Ask user to approve note processing.
+    
+    Returns:
+        bool: True if note should be processed, False if skipped or hidden.
+    """
+    from rich.prompt import Prompt
 
-    if note is not None:
-        weight = note.get_sampling_weight()
-        if weight == 0:
-            console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
+    weight = note.get_sampling_weight()
+    total_cards = 0
+    deck_cards = 0
+
+    if note.path in CONFIG.processing_history:
+        history = CONFIG.processing_history[note.path]
+        total_cards = history.get("total_flashcards", 0)
+
+        if CONFIG.DECK and "decks" in history:
+            deck_cards = history["decks"].get(CONFIG.DECK, 0)
+
+    if deck_cards > 0:
+        metadata = f"[dim](W {weight:.2f} | D {deck_cards} | T {total_cards})[/dim]"
+    else:
+        metadata = f"[dim](W {weight:.2f} | T {total_cards})[/dim]"
+
+    # Format: NOTE TITLE (W <weight> | D <deck> | T <total>)
+    console.print(f"   [dim]Path: {create_obsidian_link(note)} {metadata}[/dim]")
+
+    if weight == 0:
+        console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
 
     try:
-        result = Confirm.ask("   Process this note?", default=True)
+        choice = Prompt.ask(f"   Process this note? [magenta](y/n/hide)[/magenta]",
+                           choices=["y", "n", "hide"],
+                           default="y",
+                           show_choices=False)
         console.print()
-        return result
+
+        if choice == "hide":
+            CONFIG.hide_note(note.path)
+            console.print(f"   [yellow]Note hidden permanently[/yellow]")
+            return False
+
+        return choice == "y"
     except KeyboardInterrupt:
         raise
-    except Exception as e:
+    except Exception:
         raise
 
-def approve_flashcard(flashcard: Flashcard, note: Note) -> bool:
+def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
+    from rich.padding import Padding
+
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
 
-    console.print(f"   [cyan]Front:[/cyan] {front_clean}")
-    console.print(f"   [cyan]Back:[/cyan] {back_clean}")
+    # Print with padding to maintain indentation on newlines
+    console.print(Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3)))
+    console.print(Padding(f"[cyan]Back:[/cyan] {back_clean}", (0, 0, 0, 3)))
     console.print()
 
     try:
-        result = Confirm.ask("   Add this card to Anki?", default=True)
+        result = Confirm.ask("   Add this card to Anki?", default=True, console=console)
         console.print()
         return result
     except KeyboardInterrupt:
@@ -233,6 +267,46 @@ def handle_tag_command(args):
             console.print(f"[green]✓[/green] Removed [cyan]{tag}[/cyan] from exclusion list")
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
+        return
+
+
+def handle_hide_command(args):
+    """Handle hidden notes management commands"""
+    from pathlib import Path
+
+    # Handle help request
+    if args.help:
+        show_simple_help("Hidden Notes Management", {
+            "hide": "List all hidden notes",
+            "hide unhide <note_path>": "Unhide a specific note"
+        })
+        return
+
+    if args.hide_action is None:
+        # Default action: list hidden notes
+        hidden_notes = CONFIG.get_hidden_notes()
+
+        if not hidden_notes:
+            console.print("[dim]No hidden notes[/dim]")
+            return
+
+        console.print("[bold blue]Hidden Notes[/bold blue]")
+        console.print()
+        for note_path in sorted(hidden_notes):
+            note_name = Path(note_path).name
+            console.print(f"  [red]{note_name}[/red]")
+            console.print(f"    [dim]{note_path}[/dim]")
+        console.print()
+        console.print(f"[dim]Total: {len(hidden_notes)} hidden notes[/dim]")
+        return
+
+    if args.hide_action == 'unhide':
+        note_path = args.note_path
+
+        if CONFIG.unhide_note(note_path):
+            console.print(f"[green]✓[/green] Unhidden note: [cyan]{note_path}[/cyan]")
+        else:
+            console.print(f"[red]Note not found in hidden list:[/red] {note_path}")
         return
 
 
@@ -840,7 +914,7 @@ def edit_mode(args):
                 note=dummy_note
             )
 
-            if not approve_flashcard(flashcard, dummy_note):
+            if not approve_flashcard(flashcard):
                 console.print("  [yellow]Skipping this card[/yellow]")
                 continue
 
@@ -849,7 +923,7 @@ def edit_mode(args):
             original_card['noteId'],
             edited_card['front'],
             edited_card['back'],
-            edited_card.get('origin', original_card.get('origin', ''))
+            edited_card['origin'] or original_card['origin'] or ''
         ):
             console.print("  [green]✓ Card updated successfully[/green]")
             total_updated += 1
@@ -994,7 +1068,7 @@ def handle_template_command(args):
         # Parse the command and re-invoke main with those arguments
         try:
             # Import main from this module's parent
-            from main import main
+            from obsidianki.main import main
 
             # Parse the command string into arguments
             cmd_args = shlex.split(command)

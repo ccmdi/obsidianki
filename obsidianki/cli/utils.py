@@ -1,3 +1,7 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from obsidianki.cli.models import Note
 import re
 
 def strip_html(text: str) -> str:
@@ -51,3 +55,15 @@ def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> s
     except ImportError:
         text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
         return text
+
+def create_obsidian_link(note: Note) -> str:
+    """Create a clickable Obsidian URI link for a Note object"""
+    import urllib.parse
+    encoded_path = urllib.parse.quote(note.path, safe='')
+    obsidian_link = f"obsidian://open?file={encoded_path}"
+    return f"[link={obsidian_link}]{note.path}[/link]"
+
+def encode_path(path: str) -> str:
+    """Encode a path for use in an Obsidian URI"""
+    import urllib.parse
+    return urllib.parse.quote(path, safe='')

@@ -5,7 +5,7 @@ if TYPE_CHECKING:
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union, Mapping, cast
 from dotenv import load_dotenv
 from rich.console import Console
 
@@ -42,8 +42,8 @@ DEFAULT_CONFIG = {
 class Config:
     def __init__(self):
         self._config = self.load()
-        self.tag_weights = {}
-        self.excluded_tags = []
+        self.tag_weights: dict[str, float] = {}
+        self.excluded_tags: List[str] = []
         self.processing_history = {}
         self.tag_schema_file = CONFIG_DIR / "tags.json"
         self.processing_history_file = CONFIG_DIR / "processing_history.json"
@@ -131,15 +131,14 @@ class Config:
     def save_tag_schema(self):
         """Save current tag weights and excluded tags to file"""
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        schema = self.tag_weights.copy()
+        schema: dict[str, float | list[str]] = cast(dict[str, float | list[str]], self.tag_weights.copy())
         if self.excluded_tags:
             schema["_exclude"] = self.excluded_tags
 
         with open(self.tag_schema_file, 'w') as f:
             json.dump(schema, f, indent=2)
-        # console.print(f"[green]SUCCESS:[/green] Saved tag schema to {self.tag_schema_file}")
 
-    def get_tag_weights(self) -> Dict[str, float]:
+    def get_tag_weights(self) -> dict[str, float]:
         """Get current tag weights"""
         return self.tag_weights.copy()
 
@@ -239,19 +238,29 @@ class Config:
             console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
             return False
 
-    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = None):
+    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = []):
         """Record that we created flashcards for a note"""
         if note.path not in self.processing_history:
             self.processing_history[note.path] = {
                 "size": note.size,
                 "total_flashcards": 0,
                 "sessions": [],
-                "flashcard_fronts": []  # Track all flashcard questions ever created
+                "flashcard_fronts": [],  # Track all flashcard questions ever created
+                "decks": {}  # Track per deck flashcard counts
             }
 
         # Update totals
         self.processing_history[note.path]["total_flashcards"] += flashcard_count
         self.processing_history[note.path]["size"] = note.size  # Update in case note changed
+
+        if CONFIG.deck:
+            if "decks" not in self.processing_history[note.path]:
+                self.processing_history[note.path]["decks"] = {}
+
+            if CONFIG.deck not in self.processing_history[note.path]["decks"]:
+                self.processing_history[note.path]["decks"][CONFIG.deck] = 0
+
+            self.processing_history[note.path]["decks"][CONFIG.deck] += flashcard_count
 
         # Add flashcard fronts to history if provided
         if flashcard_fronts:
@@ -261,7 +270,8 @@ class Config:
 
         self.processing_history[note.path]["sessions"].append({
             "date": __import__('time').time(),
-            "flashcards": flashcard_count
+            "flashcards": flashcard_count,
+            "deck": CONFIG.deck
         })
 
         self.save_processing_history()
@@ -273,7 +283,7 @@ class Config:
 
         return self.processing_history[note.path].get("flashcard_fronts", [])
 
-    def get_density_bias_for_note(self, note: Note, bias_strength: float = None) -> float:
+    def get_density_bias_for_note(self, note: Note, bias_strength: float = 0.0) -> float:
         """Calculate density bias for a note (lower = more processed relative to size)"""
         if note.path not in self.processing_history:
             return 1.0  # No bias for unprocessed notes
@@ -295,7 +305,7 @@ class Config:
         return bias_factor
 
 
-    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = None) -> float:
+    def get_sampling_weight_for_note_object(self, note: Note, bias_strength: float = 0.0) -> float:
         """Calculate total sampling weight for a Note object"""
         tag_weight = 1.0
         if self.SAMPLING_MODE == "weighted" and self.tag_weights:
@@ -310,6 +320,40 @@ class Config:
         final_weight = tag_weight * density_bias
 
         return final_weight
+
+    def is_note_hidden(self, note_path: str) -> bool:
+        """Check if a note is hidden"""
+        if note_path not in self.processing_history:
+            return False
+        return self.processing_history[note_path].get("hidden", False)
+
+    def hide_note(self, note_path: str):
+        """Mark a note as hidden"""
+        if note_path not in self.processing_history:
+            self.processing_history[note_path] = {
+                "size": 0,
+                "total_flashcards": 0,
+                "sessions": [],
+                "flashcard_fronts": [],
+                "decks": {},
+                "hidden": True
+            }
+        else:
+            self.processing_history[note_path]["hidden"] = True
+        self.save_processing_history()
+
+    def unhide_note(self, note_path: str) -> bool:
+        """Unmark a note as hidden"""
+        if note_path in self.processing_history:
+            self.processing_history[note_path]["hidden"] = False
+            self.save_processing_history()
+            return True
+        return False
+
+    def get_hidden_notes(self) -> List[str]:
+        """Get list of all hidden note paths"""
+        return [path for path, data in self.processing_history.items()
+                if data.get("hidden", False)]
 
 
 # Global config instance
