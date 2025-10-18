@@ -238,7 +238,7 @@ class Config:
             console.print(f"[red]ERROR:[/red] Failed to save templates: {e}")
             return False
 
-    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = [], deck_name: str = ""):
+    def record_flashcards_created(self, note: Note, flashcard_count: int, flashcard_fronts: list = []):
         """Record that we created flashcards for a note"""
         if note.path not in self.processing_history:
             self.processing_history[note.path] = {
@@ -253,14 +253,14 @@ class Config:
         self.processing_history[note.path]["total_flashcards"] += flashcard_count
         self.processing_history[note.path]["size"] = note.size  # Update in case note changed
 
-        if deck_name:
+        if CONFIG.deck:
             if "decks" not in self.processing_history[note.path]:
                 self.processing_history[note.path]["decks"] = {}
 
-            if deck_name not in self.processing_history[note.path]["decks"]:
-                self.processing_history[note.path]["decks"][deck_name] = 0
+            if CONFIG.deck not in self.processing_history[note.path]["decks"]:
+                self.processing_history[note.path]["decks"][CONFIG.deck] = 0
 
-            self.processing_history[note.path]["decks"][deck_name] += flashcard_count
+            self.processing_history[note.path]["decks"][CONFIG.deck] += flashcard_count
 
         # Add flashcard fronts to history if provided
         if flashcard_fronts:
@@ -271,7 +271,7 @@ class Config:
         self.processing_history[note.path]["sessions"].append({
             "date": __import__('time').time(),
             "flashcards": flashcard_count,
-            "deck": deck_name
+            "deck": CONFIG.deck
         })
 
         self.save_processing_history()
