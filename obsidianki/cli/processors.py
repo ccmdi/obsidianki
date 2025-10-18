@@ -42,14 +42,11 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
     """Handle flashcard approval and Anki addition"""
     from obsidianki.cli.config import console, CONFIG
 
-    console.print(f"[green]Generated {len(flashcards)} flashcards for {note.filename}[/green]")
-
     # Flashcard approval
     cards_to_add = flashcards
     if CONFIG.approve_cards or CONFIG.print_cards:
         approved_flashcards = []
         try:
-            console.print(f"\n[blue]Reviewing cards for:[/blue] [bold]{note.filename}[/bold]")
             for flashcard in flashcards:
                 if CONFIG.approve_cards and approve_flashcard(flashcard):
                     approved_flashcards.append(flashcard)
@@ -266,6 +263,8 @@ def preprocess(args: argparse.Namespace):
                         continue
                 except KeyboardInterrupt:
                     raise
+
+            console.print("   ", end="")  # Indent cursor position
             valid_notes.append(note)
         
         if not valid_notes:
@@ -283,6 +282,7 @@ def preprocess(args: argparse.Namespace):
 
                 try:
                     flashcards = future.result()
+                    console.print()  # Clear the indented cursor line
 
                     if not flashcards:
                         console.print(f"[yellow]WARNING:[/yellow] No flashcards generated for {note.filename}")
@@ -311,9 +311,11 @@ def preprocess(args: argparse.Namespace):
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return 0
-            
+
+            console.print("   ", end="")  # Indent cursor position
             try:
                 flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
+                console.print()  # Clear the indented cursor line
 
                 if not flashcards:
                     console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")

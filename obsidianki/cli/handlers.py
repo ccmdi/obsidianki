@@ -82,15 +82,18 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
+    from rich.padding import Padding
+
     front_clean = flashcard.front_original or flashcard.front
     back_clean = flashcard.back_original or flashcard.back
 
-    console.print(f"   [cyan]Front:[/cyan] {front_clean}")
-    console.print(f"   [cyan]Back:[/cyan] {back_clean}")
+    # Print with padding to maintain indentation on newlines
+    console.print(Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3)))
+    console.print(Padding(f"[cyan]Back:[/cyan] {back_clean}", (0, 0, 0, 3)))
     console.print()
 
     try:
-        result = Confirm.ask("   Add this card to Anki?", default=True)
+        result = Confirm.ask("   Add this card to Anki?", default=True, console=console)
         console.print()
         return result
     except KeyboardInterrupt:
