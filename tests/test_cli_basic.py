@@ -147,11 +147,6 @@ class TestConfigCommands:
 
         from obsidianki.main import main
 
-        # Reload config module to pick up patched paths
-        import obsidianki.cli.config
-        import importlib
-        importlib.reload(obsidianki.cli.config)
-
         result = main()
         assert result == 0
 
