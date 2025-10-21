@@ -1,11 +1,11 @@
 import os
 from anthropic import Anthropic
-from typing import List, Dict, Iterable, cast, Union
+from typing import List, Dict, cast, Any
 
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
-from anthropic.types import ToolChoiceParam
+from anthropic.types import ToolChoiceParam, MessageParam
 from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from obsidianki.ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -94,7 +94,7 @@ class FlashcardAI:
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
-                        tool_input = content_block.input
+                        tool_input = cast(Dict[str, Any], content_block.input)
                         flashcard_dicts = tool_input['flashcards']
 
                         flashcard_objects = []
@@ -148,7 +148,7 @@ class FlashcardAI:
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
-                        tool_input = content_block.input
+                        tool_input = cast(Dict[str, Any], content_block.input)
                         flashcard_dicts = tool_input.get("flashcards", [])
 
                         # Create virtual Note object for query-based flashcards
@@ -188,8 +188,12 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating flashcards from query: {e}")
             return []
 
-    def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: list = None, deck_examples: list = None) -> List[Flashcard]:
+    def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: List[str] | None = None, deck_examples: List[Dict[str, str]] | None = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
+        if previous_fronts is None:
+            previous_fronts = []
+        if deck_examples is None:
+            deck_examples = []
 
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
@@ -217,7 +221,7 @@ class FlashcardAI:
             if response.content and len(response.content) > 0:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
-                        tool_input = content_block.input
+                        tool_input = cast(Dict[str, Any], content_block.input)
                         flashcard_dicts = tool_input.get("flashcards", [])
 
                         flashcard_objects = []
@@ -248,7 +252,7 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Error generating targeted flashcards: {e}")
             return []
 
-    def find_with_agent(self, natural_request: str, sample_size: int = None, bias_strength: float = None) -> List[Note]:
+    def find_with_agent(self, natural_request: str, sample_size: int | None = None, bias_strength: float | None = None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
         from datetime import datetime
         today = datetime.now()
@@ -264,21 +268,22 @@ class FlashcardAI:
         Find the most relevant notes for this request using DQL queries. Start with an initial query, analyze the results, and refine as needed."""
 
         # Multi-turn conversation with tool calling
-        messages = [{"role": "user", "content": user_prompt}]
+        messages: List[MessageParam] = [{"role": "user", "content": user_prompt}]
         max_turns = 8
         selected_notes = []
         last_results = []  # Keep track of last query results
         all_results = {}  # Accumulate all results by path for validation
         has_dql_results = False  # Track if we've gotten at least one DQL result
 
-        for turn in range(max_turns):
+        for _ in range(max_turns):
             try:
+                tool_choice_param: ToolChoiceParam
                 if not has_dql_results:
                     available_tools = [DQL_EXECUTION_TOOL]
-                    tool_choice: ToolChoiceParam = {"type": "tool", "name": "execute_dql_query"}
+                    tool_choice_param = {"type": "tool", "name": "execute_dql_query"}
                 else:
                     available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
-                    tool_choice: ToolChoiceParam = {"type": "any"}
+                    tool_choice_param = {"type": "any"}
 
                 response = self.client.messages.create(
                     model="claude-4-sonnet-20250514",
@@ -286,7 +291,7 @@ class FlashcardAI:
                     system=MULTI_TURN_DQL_AGENT_PROMPT,
                     messages=messages,
                     tools=available_tools,
-                    tool_choice=tool_choice
+                    tool_choice=tool_choice_param
                 )
 
                 messages.append({"role": "assistant", "content": response.content})
@@ -297,7 +302,7 @@ class FlashcardAI:
                 for content_block in response.content:
                     if content_block.type == "tool_use":
                         tool_name = content_block.name
-                        tool_input = content_block.input
+                        tool_input = cast(Dict[str, Any], content_block.input)
 
                         if tool_name == "execute_dql_query":
                             dql_query = tool_input["query"]
@@ -455,7 +460,7 @@ class FlashcardAI:
                     # Process the forced finalization
                     for content_block in response.content:
                         if content_block.type == "tool_use" and content_block.name == "finalize_note_selection":
-                            tool_input = content_block.input
+                            tool_input = cast(Dict[str, Any], content_block.input)
                             selected_paths = tool_input["selected_paths"]
                             reasoning = tool_input["reasoning"]
 
@@ -490,7 +495,8 @@ class FlashcardAI:
         # Apply weighted sampling to final selection if needed
         target_count = sample_size if sample_size else len(selected_notes)
         if target_count < len(selected_notes):
-            sampled_notes = OBSIDIAN._weighted_sample(selected_notes, target_count, bias_strength)
+            bias = bias_strength if bias_strength is not None else 1.0
+            sampled_notes = OBSIDIAN._weighted_sample(selected_notes, target_count, bias)
         else:
             sampled_notes = selected_notes
 
@@ -554,7 +560,7 @@ IMPORTANT:
 
             for content_block in response.content:
                 if content_block.type == "tool_use" and content_block.name == "create_flashcards":
-                    tool_input = content_block.input
+                    tool_input = cast(Dict[str, Any], content_block.input)
                     if "flashcards" in tool_input:
                         for flashcard_data in tool_input["flashcards"]:
                             if "front" in flashcard_data and "back" in flashcard_data:

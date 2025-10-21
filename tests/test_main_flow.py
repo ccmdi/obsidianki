@@ -218,43 +218,133 @@ class TestDeckFlag:
 
     def test_deck_with_spaces(self, mock_services, mock_config):
         """Test: oki -d "My Special Deck" (deck name with spaces)"""
-        sys.argv = ['oki', '-d', 'My Special Deck']
+        sys.argv = ['oki', '-d', 'My Special Deck', '-n', '1']
 
         from obsidianki.main import main
-        result = main()
+        import obsidianki.cli.services
 
+        result = main()
         assert result == 0, "Should handle deck names with spaces"
+
+        # Verify cards were actually added to the deck with spaces in the name
+        anki = obsidianki.cli.services.ANKI
+        assert 'My Special Deck' in anki.decks, "Deck with spaces should be created"
+        assert len(anki.cards.get('My Special Deck', [])) > 0, "Cards should be added to deck with spaces"
 
 
 class TestBiasFlag:
     """Test -b/--bias flag behavior"""
 
     def test_bias_zero(self, mock_services, mock_config):
-        """Test: oki -b 0.0 (no bias)"""
-        sys.argv = ['oki', '-b', '0.0']
+        """Test: oki -b 0.0 (no bias) - weights are equal regardless of processing history"""
+        import obsidianki.cli.config
+        from obsidianki.cli.models import Note
 
-        from obsidianki.main import main
-        result = main()
+        # Create notes with different processing history
+        heavily_processed = Note(
+            path="heavy.md", filename="Heavy", content="x"*100, tags=[], size=100
+        )
+        lightly_processed = Note(
+            path="light.md", filename="Light", content="x"*100, tags=[], size=100
+        )
 
-        assert result == 0, "Should work with zero bias"
+        # Set up history
+        history = {
+            "heavy.md": {"size": 100, "total_flashcards": 50, "sessions": [], "flashcard_fronts": []},
+            "light.md": {"size": 100, "total_flashcards": 5, "sessions": [], "flashcard_fronts": []},
+        }
+        obsidianki.cli.config.CONFIG.processing_history = history
+
+        # Test bias=0 (no bias)
+        weight_heavy = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            heavily_processed, bias_strength=0.0
+        )
+        weight_light = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            lightly_processed, bias_strength=0.0
+        )
+
+        # With no bias, weights should be equal (both use default tag weight)
+        assert weight_heavy == weight_light, "Bias=0 should give equal weights regardless of processing history"
 
     def test_bias_max(self, mock_services, mock_config):
-        """Test: oki -b 1.0 (maximum bias)"""
-        sys.argv = ['oki', '-b', '1.0']
+        """Test: oki -b 1.0 (maximum bias) - heavily processed notes strongly penalized"""
+        import obsidianki.cli.config
+        from obsidianki.cli.models import Note
 
-        from obsidianki.main import main
-        result = main()
+        # Create notes with different processing history
+        heavily_processed = Note(
+            path="heavy.md", filename="Heavy", content="x"*1000, tags=[], size=1000
+        )
+        lightly_processed = Note(
+            path="light.md", filename="Light", content="x"*1000, tags=[], size=1000
+        )
 
-        assert result == 0, "Should work with maximum bias"
+        # Set up history - heavy note has more flashcards
+        history = {
+            "heavy.md": {"size": 1000, "total_flashcards": 10, "sessions": [], "flashcard_fronts": []},
+            "light.md": {"size": 1000, "total_flashcards": 2, "sessions": [], "flashcard_fronts": []},
+        }
+        obsidianki.cli.config.CONFIG.processing_history = history
+
+        # Test bias=1.0 (maximum bias)
+        # Note: bias=1.0 makes (1-bias)^(density*1000) = 0^anything = 0 for ANY processed note
+        # This is by design - bias=1.0 means processed notes get zero weight
+        weight_heavy = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            heavily_processed, bias_strength=1.0
+        )
+        weight_light = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            lightly_processed, bias_strength=1.0
+        )
+
+        # With bias=1.0, both processed notes should have zero weight (by design)
+        assert weight_heavy == 0.0, "Bias=1.0 gives zero weight to all processed notes"
+        assert weight_light == 0.0, "Bias=1.0 gives zero weight to all processed notes"
+
+        # Now test with unprocessed note - should still have weight
+        unprocessed = Note(
+            path="unprocessed.md", filename="Unprocessed", content="x"*1000, tags=[], size=1000
+        )
+        weight_unprocessed = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            unprocessed, bias_strength=1.0
+        )
+        assert weight_unprocessed > 0.0, "Unprocessed notes should still have weight even with bias=1.0"
 
     def test_bias_mid(self, mock_services, mock_config):
-        """Test: oki -b 0.5 (medium bias)"""
-        sys.argv = ['oki', '-b', '0.5']
+        """Test: oki -b 0.5 (medium bias) - moderate penalty for processed notes"""
+        import obsidianki.cli.config
+        from obsidianki.cli.models import Note
 
-        from obsidianki.main import main
-        result = main()
+        # Create notes with different processing history
+        heavily_processed = Note(
+            path="heavy.md", filename="Heavy", content="x"*100, tags=[], size=100
+        )
+        lightly_processed = Note(
+            path="light.md", filename="Light", content="x"*100, tags=[], size=100
+        )
 
-        assert result == 0, "Should work with medium bias"
+        # Set up history
+        history = {
+            "heavy.md": {"size": 100, "total_flashcards": 50, "sessions": [], "flashcard_fronts": []},
+            "light.md": {"size": 100, "total_flashcards": 5, "sessions": [], "flashcard_fronts": []},
+        }
+        obsidianki.cli.config.CONFIG.processing_history = history
+
+        # Test bias=0.5 (medium bias)
+        weight_heavy = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            heavily_processed, bias_strength=0.5
+        )
+        weight_light = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            lightly_processed, bias_strength=0.5
+        )
+
+        # With medium bias, there should be some difference but not as extreme as bias=1.0
+        assert weight_light > weight_heavy, "Bias=0.5 should favor lightly processed notes"
+
+        # Verify it's between no bias and max bias
+        weight_heavy_max = obsidianki.cli.config.CONFIG.get_sampling_weight_for_note_object(
+            heavily_processed, bias_strength=1.0
+        )
+        assert weight_heavy > weight_heavy_max, "Medium bias should be less severe than max bias"
 
 
 class TestUseSchemaFlag:
