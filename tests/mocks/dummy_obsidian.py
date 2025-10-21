@@ -41,7 +41,9 @@ class DummyObsidianAPI:
         self, days: int, limit: int = None, bias_strength: float = None, search_folders: List[str] = None
     ) -> List[Note]:
         """Return sample notes"""
-        filtered = self.notes
+        from obsidianki.cli.config import CONFIG
+        # Filter out hidden notes
+        filtered = [n for n in self.notes if not CONFIG.is_note_hidden(n.path)]
         if limit:
             filtered = filtered[:limit]
         return filtered
@@ -84,7 +86,9 @@ class DummyObsidianAPI:
 
     def dql(self, query: str) -> List[Note]:
         """Execute DQL query - return all notes"""
-        return self.notes
+        from obsidianki.cli.config import CONFIG
+        # Filter out hidden notes
+        return [n for n in self.notes if not CONFIG.is_note_hidden(n.path)]
 
     def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = None) -> List[Note]:
         """Simple sampling"""
