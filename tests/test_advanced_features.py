@@ -536,45 +536,65 @@ class TestUseSchemaWithNote:
         sys.argv = ['oki', '-n', 'Test Note 1', '--use-schema']
 
         from obsidianki.main import main
+        import obsidianki.cli.config
 
         result = main()
-        # Should complete without error even if schema is empty
         assert result == 0, "Should work with specific note and schema"
+
+        # Verify that use_deck_schema was enabled
+        assert obsidianki.cli.config.CONFIG.use_deck_schema is True, "--use-schema should enable schema usage"
 
     def test_use_schema_with_pattern(self, mock_services, mock_config):
         """Test: oki -n "folder/*" --use-schema"""
         sys.argv = ['oki', '-n', 'Test*', '--use-schema']
 
         from obsidianki.main import main
-        import obsidianki.cli.services
-
-        obsidianki.cli.services.ANKI.get_deck_sample_cards = MagicMock(return_value=[
-            {'front': 'Schema Q', 'back': 'Schema A'}
-        ])
+        import obsidianki.cli.config
 
         result = main()
         assert result == 0, "Should work with pattern and schema"
+
+        # Verify schema was enabled
+        assert obsidianki.cli.config.CONFIG.use_deck_schema is True, "--use-schema should enable schema usage"
 
     def test_use_schema_fetches_deck_examples(self, mock_services, mock_config):
         """Test that --use-schema fetches examples from the specified deck"""
         sys.argv = ['oki', '-n', 'Test Note 1', '-d', 'CustomDeck', '--use-schema']
 
         from obsidianki.main import main
+        import obsidianki.cli.config
+        import obsidianki.cli.services
+        from unittest.mock import MagicMock
+
+        # Track if get_card_examples is called
+        original_get_card_examples = obsidianki.cli.services.ANKI.get_card_examples
+        obsidianki.cli.services.ANKI.get_card_examples = MagicMock(return_value=[
+            {'front': 'What is X?', 'back': 'X is Y'}
+        ])
 
         result = main()
-
-        # Should complete successfully
         assert result == 0, "Should work with schema flag"
+
+        # Verify get_card_examples was called with the CustomDeck
+        assert obsidianki.cli.services.ANKI.get_card_examples.called, "Should fetch card examples"
+        call_args = obsidianki.cli.services.ANKI.get_card_examples.call_args
+        assert call_args[0][0] == 'CustomDeck', "Should fetch examples from CustomDeck"
+
+        # Restore
+        obsidianki.cli.services.ANKI.get_card_examples = original_get_card_examples
 
     def test_use_schema_with_origin_note(self, mock_services, mock_config):
         """Test --use-schema with origin note specification (from note path)"""
-        sys.argv = ['oki', '-n', 'Test Note 1', '--use-schema', 'test/origin_note.md']
+        sys.argv = ['oki', '-n', 'Test Note 1', '--use-schema', 'Test Note 2']
 
         from obsidianki.main import main
         import obsidianki.cli.services
+        import obsidianki.cli.config
+        from unittest.mock import MagicMock
 
-        # Mock to return cards from specific note
-        obsidianki.cli.services.ANKI.get_cards_by_origin = MagicMock(return_value=[
+        # Mock get_card_examples to return cards from specific note
+        original_get_card_examples = obsidianki.cli.services.ANKI.get_card_examples
+        obsidianki.cli.services.ANKI.get_card_examples = MagicMock(return_value=[
             {'front': 'Origin Q1', 'back': 'Origin A1'},
             {'front': 'Origin Q2', 'back': 'Origin A2'}
         ])
@@ -582,19 +602,35 @@ class TestUseSchemaWithNote:
         result = main()
         assert result == 0, "Should work with origin note specification"
 
+        # Verify get_card_examples was called with note_paths parameter
+        assert obsidianki.cli.services.ANKI.get_card_examples.called, "Should fetch card examples from origin note"
+
+        # Restore
+        obsidianki.cli.services.ANKI.get_card_examples = original_get_card_examples
+
     def test_use_schema_empty_deck(self, mock_services, mock_config):
         """Test --use-schema behavior when deck has no cards"""
         sys.argv = ['oki', '-n', 'Test Note 1', '-d', 'EmptyDeck', '--use-schema']
 
         from obsidianki.main import main
         import obsidianki.cli.services
+        import obsidianki.cli.config
+        from unittest.mock import MagicMock
 
-        # Return empty list
-        obsidianki.cli.services.ANKI.get_deck_sample_cards = MagicMock(return_value=[])
+        # Mock to return empty list
+        original_get_card_examples = obsidianki.cli.services.ANKI.get_card_examples
+        obsidianki.cli.services.ANKI.get_card_examples = MagicMock(return_value=[])
 
         result = main()
         # Should still work, just without schema examples
         assert result == 0, "Should handle empty deck gracefully"
+
+        # Verify schema was enabled even though deck is empty
+        assert obsidianki.cli.config.CONFIG.use_deck_schema is True, "--use-schema should be enabled"
+        assert obsidianki.cli.services.ANKI.get_card_examples.called, "Should attempt to fetch examples"
+
+        # Restore
+        obsidianki.cli.services.ANKI.get_card_examples = original_get_card_examples
 
 
 if __name__ == "__main__":
