@@ -91,8 +91,6 @@ def approve_note(note: Note) -> bool:
         table.add_row("", "", style="dim")
         table.add_row("TOTAL", str(history.get("total_flashcards", 0)), style="bold")
 
-        console.print()
-        console.print(f"   [bold]Deck Breakdown:[/bold]")
         console.print(table)
         console.print()
 
@@ -108,7 +106,7 @@ def approve_note(note: Note) -> bool:
             return 0
 
         # 1 blank line + 1 header line + 1 table header + len(decks) rows + 1 separator + 1 total + 1 blank
-        return 3 + len(decks) + 3
+        return 1 + len(decks) + 3
 
     def get_input_with_keyboard_listener():
         """Custom input that listens for Ctrl+D to toggle deck breakdown."""
@@ -134,6 +132,10 @@ def approve_note(note: Note) -> bool:
 
                     # Check for Ctrl+D (0x04)
                     if key == b'\x04' and has_deck_info:
+                        # Clear current input line first
+                        sys.stdout.write('\r\033[K')
+                        sys.stdout.flush()
+
                         if not showing_deck:
                             # Show the breakdown
                             console.print()
@@ -141,16 +143,15 @@ def approve_note(note: Note) -> bool:
                             deck_lines = get_deck_line_count()
                             showing_deck = True
                         else:
-                            # Clear the deck breakdown lines
-                            # Move cursor up and clear each line
-                            for _ in range(deck_lines + 1):  # +1 for the prompt line
+                            # Clear the deck breakdown lines by moving up
+                            for _ in range(deck_lines + 1):  # +1 for the newline before deck
                                 sys.stdout.write('\033[F')  # Move cursor up
                                 sys.stdout.write('\033[K')  # Clear line
                             sys.stdout.flush()
                             showing_deck = False
 
+                        # Re-print prompt and input buffer
                         console.print(prompt_text, end=" ")
-                        # Re-print the input buffer
                         for char in input_buffer:
                             sys.stdout.write(char)
                         sys.stdout.flush()
@@ -195,6 +196,10 @@ def approve_note(note: Note) -> bool:
 
                         # Check for Ctrl+D (0x04)
                         if char == '\x04' and has_deck_info:
+                            # Clear current input line first
+                            sys.stdout.write('\r\033[K')
+                            sys.stdout.flush()
+
                             if not showing_deck:
                                 # Show the breakdown
                                 console.print()
@@ -202,15 +207,15 @@ def approve_note(note: Note) -> bool:
                                 deck_lines = get_deck_line_count()
                                 showing_deck = True
                             else:
-                                # Clear the deck breakdown lines
-                                for _ in range(deck_lines + 1):  # +1 for the prompt line
+                                # Clear the deck breakdown lines by moving up
+                                for _ in range(deck_lines + 1):  # +1 for the newline before deck
                                     sys.stdout.write('\033[F')  # Move cursor up
                                     sys.stdout.write('\033[K')  # Clear line
                                 sys.stdout.flush()
                                 showing_deck = False
 
+                            # Re-print prompt and input buffer
                             console.print(prompt_text, end=" ")
-                            # Re-print the input buffer
                             for c in input_buffer:
                                 sys.stdout.write(c)
                             sys.stdout.flush()
