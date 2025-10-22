@@ -81,6 +81,7 @@ def approve_note(note: Note) -> bool:
             return
 
         # Create a table for deck breakdown
+        from rich.padding import Padding
         table = Table(show_header=True, header_style="bold magenta", box=None, padding=(0, 2))
         table.add_column("Deck", style="cyan")
         table.add_column("Cards", justify="right", style="green")
@@ -91,7 +92,8 @@ def approve_note(note: Note) -> bool:
         table.add_row("", "", style="dim")
         table.add_row("TOTAL", str(history.get("total_flashcards", 0)), style="bold")
 
-        console.print(table)
+        padded_table = Padding(table, (0, 0, 0, 3))
+        console.print(padded_table)
         console.print()
 
     def get_deck_line_count():
@@ -113,7 +115,7 @@ def approve_note(note: Note) -> bool:
         # Build the prompt text
         prompt_text = "   Process this note? [magenta](y/n/hide)[/magenta]"
         if has_deck_info:
-            prompt_text += " [dim](Ctrl+D for decks)[/dim]"
+            prompt_text += " [dim](Ctrl+D)[/dim]"
 
         showing_deck = False
         deck_lines = 0
