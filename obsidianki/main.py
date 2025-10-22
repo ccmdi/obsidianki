@@ -1,4 +1,15 @@
 import argparse
+import sys
+
+def _excepthook(exc_type, exc_value, exc_traceback):
+    """Fallback traceback handler"""
+    if exc_type is KeyboardInterrupt:
+        sys.exit(130)
+    else:
+        print(f"\nERROR: {exc_value}", file=sys.stderr)
+        sys.exit(1)
+sys.excepthook = _excepthook
+
 from rich.panel import Panel
 from rich.text import Text
 
