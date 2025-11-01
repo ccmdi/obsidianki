@@ -420,6 +420,59 @@ class AnkiAPI(BaseAPI):
             console.print(f"[red]ERROR:[/red] Failed to update note {note_id}: {e}")
             return False
 
+    def search_cards(self, deck_name: str, query: str, limit: int = 20) -> List[Dict[str, str]]:
+        """
+        Search for cards in a deck by keyword in front or back.
+
+        Args:
+            deck_name: Name of the deck to search in
+            query: Search query string
+            limit: Maximum number of results to return
+
+        Returns:
+            List of matching cards with 'front', 'back', and 'origin' fields
+        """
+        try:
+            # Find all cards in the deck
+            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+
+            if not card_ids:
+                return []
+
+            # Get card info for all cards
+            cards_info = self._request("cardsInfo", {"cards": card_ids})
+
+            if not cards_info:
+                return []
+
+            # Search through cards
+            query_lower = query.lower()
+            matching_cards = []
+
+            for card in cards_info:
+                fields = card.get("fields", {})
+                front = fields.get("Front", {}).get("value", "")
+                back = fields.get("Back", {}).get("value", "")
+                origin = fields.get("Origin", {}).get("value", "")
+
+                # Check if query appears in front or back (case-insensitive)
+                if query_lower in front.lower() or query_lower in back.lower():
+                    matching_cards.append({
+                        "front": front,
+                        "back": back,
+                        "origin": origin
+                    })
+
+                    # Stop if we've hit the limit
+                    if len(matching_cards) >= limit:
+                        break
+
+            return matching_cards
+
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not search cards: {e}")
+            return []
+
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""
         try:
