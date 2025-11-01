@@ -67,7 +67,7 @@ class AnkiAPI(BaseAPI):
             error_str = str(error_msg).lower()
             if 'duplicate' in error_str:
                 console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
-                return {}
+                return []
             else:
                 raise Exception(f"AnkiConnect error: {error_msg}")
 
