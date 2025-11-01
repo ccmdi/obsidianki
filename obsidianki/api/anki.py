@@ -59,6 +59,7 @@ class AnkiAPI(BaseAPI):
         }
 
         response = requests.post(self.url, json=payload)
+        response.raise_for_status()
         result = response.json()
 
         if result.get("error"):
