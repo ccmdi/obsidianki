@@ -56,14 +56,6 @@ def process_code_blocks(text: str, enable_syntax_highlighting: bool = True) -> s
         text = re.sub(r'```([^`]+)```', r'<code>\1</code>', text)
         return text
 
-def create_obsidian_link(note: Note) -> str:
-    """
-    Create a clickable Obsidian URI link for a Note object.
-
-    Note: This function is deprecated. Use note.to_obsidian_link_rich() instead.
-    """
-    return note.to_obsidian_link_rich()
-
 def encode_path(path: str) -> str:
     """Encode a path for use in an Obsidian URI"""
     import urllib.parse

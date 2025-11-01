@@ -5,7 +5,6 @@ from rich.prompt import Confirm
 from rich.panel import Panel
 from rich.text import Text
 from obsidianki.cli.models import Note, Flashcard
-from obsidianki.cli.utils import create_obsidian_link
 
 from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console, CONFIG
 
@@ -64,7 +63,7 @@ def approve_note(note: Note) -> bool:
         metadata = f"[dim](W {weight:.2f} | T {total_cards})[/dim]"
 
     # Format: NOTE TITLE (W <weight> | D <deck> | T <total>)
-    console.print(f"   [dim]Path: {create_obsidian_link(note)} {metadata}[/dim]")
+    console.print(f"   [dim]Path: {note.to_obsidian_link_rich()} {metadata}[/dim]")
 
     if weight == 0:
         console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")

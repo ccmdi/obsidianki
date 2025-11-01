@@ -169,14 +169,6 @@ class AnkiAPI(BaseAPI):
             self._request("createModel", model)
             # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
-    def obsidian_link(self, note) -> str:
-        """
-        Generate Obsidian URI link for a Note object.
-
-        Note: This method is deprecated. Use note.to_obsidian_link_html() instead.
-        """
-        return note.to_obsidian_link_html()
-
     def add_flashcards(self, flashcards: List, deck_name: str = "Obsidian", card_type: str = "basic") -> List[int]:
         """Add Flashcard objects to the specified deck"""
         self.ensure_deck_exists(deck_name)
@@ -187,14 +179,13 @@ class AnkiAPI(BaseAPI):
         notes = []
         for card in flashcards:
             if card_type == "custom":
-                origin_link = self.obsidian_link(card.note)
                 note = {
                     "deckName": deck_name,
                     "modelName": ANKI_CUSTOM_MODEL_NAME,
                     "fields": {
                         "Front": card.front,
                         "Back": card.back,
-                        "Origin": origin_link
+                        "Origin": card.note.to_obsidian_link_html()
                     },
                     "tags": card.tags or ["obsidian-generated"]
                 }
