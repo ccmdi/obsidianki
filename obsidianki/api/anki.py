@@ -170,10 +170,12 @@ class AnkiAPI(BaseAPI):
             # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
     def obsidian_link(self, note) -> str:
-        """Generate Obsidian URI link for a Note object"""
-        encoded_path = urllib.parse.quote(note.path, safe='')
-        obsidian_link = f"obsidian://open?file={encoded_path}"
-        return f"<a href='{obsidian_link}'>{note.title}</a>"
+        """
+        Generate Obsidian URI link for a Note object.
+
+        Note: This method is deprecated. Use note.to_obsidian_link_html() instead.
+        """
+        return note.to_obsidian_link_html()
 
     def add_flashcards(self, flashcards: List, deck_name: str = "Obsidian", card_type: str = "basic") -> List[int]:
         """Add Flashcard objects to the specified deck"""

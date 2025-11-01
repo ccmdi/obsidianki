@@ -280,8 +280,8 @@ def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
     from rich.padding import Padding
 
-    front_clean = flashcard.front_original or flashcard.front
-    back_clean = flashcard.back_original or flashcard.back
+    front_clean = flashcard.get_clean_front()
+    back_clean = flashcard.get_clean_back()
 
     # Print with padding to maintain indentation on newlines
     console.print(Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3)))
@@ -1203,6 +1203,7 @@ def handle_deck_command(args):
     if args.deck_action == 'search':
         from rich.markup import escape
         from rich.panel import Panel
+        from obsidianki.cli.utils import strip_html
         import re
 
         deck_name = args.deck_name
@@ -1235,7 +1236,7 @@ def handle_deck_command(args):
         # Helper function to highlight query in text
         def highlight_query(text, query):
             # Remove HTML tags for cleaner display
-            text_clean = re.sub(r'<[^>]+>', '', text)
+            text_clean = strip_html(text)
             # Escape special characters for rich markup
             text_escaped = escape(text_clean)
             # Highlight the query (case-insensitive)
@@ -1260,7 +1261,7 @@ def handle_deck_command(args):
 
             # Show origin if available (without highlighting)
             if origin:
-                origin_clean = re.sub(r'<[^>]+>', '', origin)
+                origin_clean = strip_html(origin)
                 console.print(f"  [dim]Origin:[/dim] {origin_clean}")
 
             console.print()

@@ -53,6 +53,35 @@ class Note:
         if not self.content:
             self.content = OBSIDIAN.get_note_content(self.path)
 
+    def to_obsidian_uri(self) -> str:
+        """
+        Generate Obsidian URI for opening this note.
+
+        Returns:
+            str: obsidian://open?file=<encoded_path>
+        """
+        import urllib.parse
+        encoded_path = urllib.parse.quote(self.path, safe='')
+        return f"obsidian://open?file={encoded_path}"
+
+    def to_obsidian_link_html(self) -> str:
+        """
+        Generate HTML anchor tag linking to this note in Obsidian.
+
+        Returns:
+            str: <a href='obsidian://open?file=<encoded_path>'>title</a>
+        """
+        return f"<a href='{self.to_obsidian_uri()}'>{self.title}</a>"
+
+    def to_obsidian_link_rich(self) -> str:
+        """
+        Generate Rich markup link for terminal display.
+
+        Returns:
+            str: [link=obsidian://...]path[/link]
+        """
+        return f"[link={self.to_obsidian_uri()}]{self.path}[/link]"
+
     @classmethod
     def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = "") -> 'Note':
         """Create Note from Obsidian API result format."""
@@ -176,6 +205,47 @@ class Flashcard:
     def source_title(self) -> str:
         """Title of the source note."""
         return self.note.title
+
+    def get_clean_front(self) -> str:
+        """
+        Get the clean (HTML-stripped) version of the front text.
+
+        Returns the front_original if available, otherwise strips HTML from front.
+
+        Returns:
+            str: Clean front text without HTML tags
+        """
+        if self.front_original:
+            return self.front_original
+        from obsidianki.cli.utils import strip_html
+        return strip_html(self.front)
+
+    def get_clean_back(self) -> str:
+        """
+        Get the clean (HTML-stripped) version of the back text.
+
+        Returns the back_original if available, otherwise strips HTML from back.
+
+        Returns:
+            str: Clean back text without HTML tags
+        """
+        if self.back_original:
+            return self.back_original
+        from obsidianki.cli.utils import strip_html
+        return strip_html(self.back)
+
+    def ensure_clean_originals(self) -> None:
+        """
+        Ensure front_original and back_original are populated with HTML-stripped versions.
+
+        This is useful before displaying or editing flashcards.
+        """
+        if not self.front_original:
+            from obsidianki.cli.utils import strip_html
+            self.front_original = strip_html(self.front)
+        if not self.back_original:
+            from obsidianki.cli.utils import strip_html
+            self.back_original = strip_html(self.back)
 
     @classmethod
     def from_ai_response(cls, ai_flashcard: Dict[str, Any], note: Note) -> 'Flashcard':
