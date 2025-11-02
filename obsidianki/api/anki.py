@@ -59,6 +59,7 @@ class AnkiAPI(BaseAPI):
         }
 
         response = requests.post(self.url, json=payload)
+        response.raise_for_status()
         result = response.json()
 
         if result.get("error"):
@@ -67,7 +68,7 @@ class AnkiAPI(BaseAPI):
             error_str = str(error_msg).lower()
             if 'duplicate' in error_str:
                 console.print(f"[yellow]WARNING:[/yellow] Skipping duplicate note")
-                return {}
+                return []
             else:
                 raise Exception(f"AnkiConnect error: {error_msg}")
 
@@ -168,12 +169,6 @@ class AnkiAPI(BaseAPI):
             self._request("createModel", model)
             # console.print(f"[green]SUCCESS:[/green] Created custom card model: {CUSTOM_MODEL_NAME}")
 
-    def obsidian_link(self, note) -> str:
-        """Generate Obsidian URI link for a Note object"""
-        encoded_path = urllib.parse.quote(note.path, safe='')
-        obsidian_link = f"obsidian://open?file={encoded_path}"
-        return f"<a href='{obsidian_link}'>{note.title}</a>"
-
     def add_flashcards(self, flashcards: List, deck_name: str = "Obsidian", card_type: str = "basic") -> List[int]:
         """Add Flashcard objects to the specified deck"""
         self.ensure_deck_exists(deck_name)
@@ -184,14 +179,13 @@ class AnkiAPI(BaseAPI):
         notes = []
         for card in flashcards:
             if card_type == "custom":
-                origin_link = self.obsidian_link(card.note)
                 note = {
                     "deckName": deck_name,
                     "modelName": ANKI_CUSTOM_MODEL_NAME,
                     "fields": {
                         "Front": card.front,
                         "Back": card.back,
-                        "Origin": origin_link
+                        "Origin": card.note.to_obsidian_link_html()
                     },
                     "tags": card.tags or ["obsidian-generated"]
                 }
@@ -418,6 +412,59 @@ class AnkiAPI(BaseAPI):
         except Exception as e:
             console.print(f"[red]ERROR:[/red] Failed to update note {note_id}: {e}")
             return False
+
+    def search_cards(self, deck_name: str, query: str, limit: int = 20) -> List[Dict[str, str]]:
+        """
+        Search for cards in a deck by keyword in front or back.
+
+        Args:
+            deck_name: Name of the deck to search in
+            query: Search query string
+            limit: Maximum number of results to return
+
+        Returns:
+            List of matching cards with 'front', 'back', and 'origin' fields
+        """
+        try:
+            # Find all cards in the deck
+            card_ids = self._request("findCards", {"query": f"deck:\"{deck_name}\""})
+
+            if not card_ids:
+                return []
+
+            # Get card info for all cards
+            cards_info = self._request("cardsInfo", {"cards": card_ids})
+
+            if not cards_info:
+                return []
+
+            # Search through cards
+            query_lower = query.lower()
+            matching_cards = []
+
+            for card in cards_info:
+                fields = card.get("fields", {})
+                front = fields.get("Front", {}).get("value", "")
+                back = fields.get("Back", {}).get("value", "")
+                origin = fields.get("Origin", {}).get("value", "")
+
+                # Check if query appears in front or back (case-insensitive)
+                if query_lower in front.lower() or query_lower in back.lower():
+                    matching_cards.append({
+                        "front": front,
+                        "back": back,
+                        "origin": origin
+                    })
+
+                    # Stop if we've hit the limit
+                    if len(matching_cards) >= limit:
+                        break
+
+            return matching_cards
+
+        except Exception as e:
+            console.print(f"[yellow]WARNING:[/yellow] Could not search cards: {e}")
+            return []
 
     def test_connection(self) -> bool:
         """Test if AnkiConnect is running"""

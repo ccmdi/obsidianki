@@ -139,6 +139,12 @@ def main():
     rename_parser.add_argument('old_name', help='Current deck name')
     rename_parser.add_argument('new_name', help='New deck name')
 
+    # deck search <deck_name> <query>
+    search_parser = deck_subparsers.add_parser('search', help='Search for cards in a deck')
+    search_parser.add_argument('deck_name', help='Deck name to search in')
+    search_parser.add_argument('query', help='Search query (searches front and back of cards)')
+    search_parser.add_argument('-l', '--limit', type=int, default=20, help='Maximum number of results to show (default: 20)')
+
     # Templating
     template_parser = subparsers.add_parser('template', aliases=['templates'], help='Manage command templates', add_help=False)
     template_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
