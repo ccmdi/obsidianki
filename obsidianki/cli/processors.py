@@ -5,7 +5,7 @@ Note processing functions for ObsidianKi.
 import concurrent.futures
 import argparse
 from typing import List, Dict
-from obsidianki.cli.handlers import approve_note, approve_flashcard
+from obsidianki.cli.interactive.approval import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 from obsidianki.cli.utils import encode_path
