@@ -200,7 +200,7 @@ class TestHiddenNotes:
     def test_hide_command_lists_hidden_notes(self, mock_services, mock_config):
         """Test: oki hide (list hidden notes)"""
         import obsidianki.cli.config
-        from obsidianki.cli.handlers import handle_hide_command
+        from obsidianki.cli.commands.hide_cmd import handle_hide_command
 
         # Hide a note first
         obsidianki.cli.config.CONFIG.hide_note("test/note1.md")
@@ -228,7 +228,7 @@ class TestHiddenNotes:
     def test_hide_unhide_command(self, mock_services, mock_config):
         """Test: oki hide unhide <note_path>"""
         import obsidianki.cli.config
-        from obsidianki.cli.handlers import handle_hide_command
+        from obsidianki.cli.commands.hide_cmd import handle_hide_command
 
         # Hide a note
         obsidianki.cli.config.CONFIG.hide_note("test/hidden_note.md")
@@ -313,7 +313,7 @@ class TestSemanticPadding:
 
     def test_flashcard_output_has_padding(self, mock_services, mock_config):
         """Test that flashcard output uses proper padding"""
-        from obsidianki.cli.handlers import approve_flashcard
+        from obsidianki.cli.interactive.approval import approve_flashcard
         from obsidianki.cli.models import Flashcard, Note
         from rich.console import Console
         from io import StringIO
@@ -341,7 +341,7 @@ class TestSemanticPadding:
         # Mock Confirm.ask to auto-approve
         from rich.prompt import Confirm
         with patch.object(Confirm, 'ask', return_value=True), \
-             patch('obsidianki.cli.handlers.console', test_console):
+             patch('obsidianki.cli.interactive.approval.console', test_console):
             result = approve_flashcard(flashcard)
 
             output = string_io.getvalue()
@@ -354,7 +354,7 @@ class TestSemanticPadding:
 
     def test_multiline_flashcard_maintains_indentation(self, mock_services, mock_config):
         """Test that multiline flashcards maintain proper indentation"""
-        from obsidianki.cli.handlers import approve_flashcard
+        from obsidianki.cli.interactive.approval import approve_flashcard
         from obsidianki.cli.models import Flashcard, Note
         from rich.console import Console
         from io import StringIO
@@ -384,7 +384,7 @@ class TestSemanticPadding:
 
         from rich.prompt import Confirm
         with patch.object(Confirm, 'ask', return_value=True), \
-             patch('obsidianki.cli.handlers.console', test_console):
+             patch('obsidianki.cli.interactive.approval.console', test_console):
             approve_flashcard(flashcard)
             output = string_io.getvalue()
 
@@ -399,7 +399,7 @@ class TestTemplates:
 
     def test_template_add(self, mock_services, mock_config):
         """Test: oki template add <name> <command>"""
-        from obsidianki.cli.handlers import handle_template_command
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         import obsidianki.cli.config
 
         class Args:
@@ -417,7 +417,7 @@ class TestTemplates:
 
     def test_template_list(self, mock_services, mock_config):
         """Test: oki template (list all templates)"""
-        from obsidianki.cli.handlers import handle_template_command
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         import obsidianki.cli.config
 
         # Add some templates
@@ -441,7 +441,7 @@ class TestTemplates:
 
     def test_template_use(self, mock_services, mock_config):
         """Test: oki template use <name>"""
-        from obsidianki.cli.handlers import handle_template_command
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         import obsidianki.cli.config
 
         # Save a template
@@ -469,7 +469,7 @@ class TestTemplates:
 
     def test_template_remove(self, mock_services, mock_config):
         """Test: oki template remove <name>"""
-        from obsidianki.cli.handlers import handle_template_command
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         import obsidianki.cli.config
 
         # Add a template
@@ -482,7 +482,7 @@ class TestTemplates:
             name = 'to_remove'
 
         # Mock confirm
-        with patch('obsidianki.cli.handlers.Confirm.ask', return_value=True):
+        with patch('obsidianki.cli.commands.template_cmd.Confirm.ask', return_value=True):
             handle_template_command(Args())
 
         # Verify template was removed
@@ -511,7 +511,7 @@ class TestTemplates:
 
     def test_template_with_complex_command(self, mock_services, mock_config):
         """Test template with complex command including quotes and special chars"""
-        from obsidianki.cli.handlers import handle_template_command
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         import obsidianki.cli.config
 
         complex_cmd = '--notes "Test Note 1" --cards 5 --deck "My Deck"'
