@@ -162,6 +162,48 @@ class TestConfigCommands:
         # Should print some path
         assert ('.config\\obsidianki' in captured.out) or ('.config/obsidianki' in captured.out)
 
+    def test_config_set_difficulty(self, mock_services, temp_config, capsys):
+        """Test setting difficulty configuration"""
+        import json
+        from obsidianki.cli.config import CONFIG_FILE
+
+        # Test setting to 'easy'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'easy']
+        from obsidianki.main import main
+        result = main()
+        assert result == 0
+
+        # Verify the config file was updated
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'easy'
+
+        # Test setting to 'hard'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'hard']
+        result = main()
+        assert result == 0
+
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'hard'
+
+        # Test setting to 'normal'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'normal']
+        result = main()
+        assert result == 0
+
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'normal'
+
+        # Test invalid difficulty value
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'invalid']
+        result = main()
+        # Should not change the value
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'normal'  # Should still be 'normal'
+
 
 class TestDeckCommands:
     """Test deck management commands"""

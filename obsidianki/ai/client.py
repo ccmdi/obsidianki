@@ -66,17 +66,66 @@ class FlashcardAI:
 
         return schema_context
 
+    def _build_difficulty_context(self) -> str:
+        """Build difficulty context based on configured difficulty level"""
+        difficulty = CONFIG.difficulty.lower()
+
+        if difficulty == "easy":
+            return """
+
+        DIFFICULTY LEVEL: EASY
+        Focus on fundamental, directly stated information. Create flashcards that:
+        - Test recall of concrete facts, definitions, and basic concepts
+        - Ask straightforward questions with clear, unambiguous answers
+        - Avoid requiring multi-step reasoning or complex inference
+        - Cover the most essential and foundational information
+        - Are suitable for initial exposure to the material
+
+        Avoid obscure details, subtle implications, or questions requiring synthesis across multiple concepts."""
+
+        elif difficulty == "hard":
+            return """
+
+        DIFFICULTY LEVEL: HARD
+        Focus on deeper understanding and challenging retrieval. Create flashcards that:
+        - Test nuanced understanding, subtle distinctions, and edge cases
+        - Require synthesis of multiple concepts or ideas from the material
+        - Ask about implications, consequences, and non-obvious connections
+        - Include challenging technical details and advanced applications
+        - Test the ability to apply concepts in novel contexts or identify limitations
+
+        You may include questions about:
+        - Why certain approaches are used over alternatives
+        - Potential pitfalls or common misconceptions
+        - Relationships between different concepts in the material
+        - Edge cases and boundary conditions
+        - Implications that aren't explicitly stated but follow from the material"""
+
+        else:  # normal (default)
+            return """
+
+        DIFFICULTY LEVEL: NORMAL
+        Create a balanced mix of flashcards that:
+        - Cover both fundamental concepts and deeper understanding
+        - Include straightforward recall as well as some application and analysis
+        - Test understanding at a standard difficulty level appropriate for active learning
+        - Balance between concrete facts and conceptual relationships
+        - Are challenging enough to promote retention but not frustratingly obscure"""
+
+        return ""
+
     def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
         """Generate flashcards from a Note object using Claude"""
 
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
         schema_context = self._build_schema_context(deck_examples)
+        difficulty_context = self._build_difficulty_context()
 
         user_prompt = f"""Note Title: {note.filename}
 
         Note Content:
-        {note.content}{dedup_context}{schema_context}
+        {note.content}{difficulty_context}{dedup_context}{schema_context}
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
@@ -129,10 +178,11 @@ class FlashcardAI:
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
         schema_context = self._build_schema_context(deck_examples)
+        difficulty_context = self._build_difficulty_context()
 
         user_prompt = f"""User Query: {query}
 
-        Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{dedup_context}{schema_context}"""
+        Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{difficulty_context}{dedup_context}{schema_context}"""
 
         try:
             response = self.client.messages.create(
@@ -198,12 +248,13 @@ class FlashcardAI:
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
         schema_context = self._build_schema_context(deck_examples)
+        difficulty_context = self._build_difficulty_context()
 
         user_prompt = f"""Note Title: {note.filename}
         Query: {query}
 
         Note Content:
-        {note.content}{dedup_context}{schema_context}
+        {note.content}{difficulty_context}{dedup_context}{schema_context}
 
         Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
