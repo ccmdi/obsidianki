@@ -28,6 +28,7 @@ def temp_config():
             "CARD_TYPE": "basic",
             "SAMPLING_MODE": "weighted",
             "DAYS_OLD": 7,
+            "DIFFICULTY": "normal",
             "SYNTAX_HIGHLIGHTING": False,
             "SEARCH_FOLDERS": [],
             "DEDUPLICATE_VIA_HISTORY": False,
@@ -50,7 +51,9 @@ def temp_config():
         # Patch config paths
         with patch('obsidianki.cli.config.CONFIG_DIR', config_dir), \
              patch('obsidianki.cli.config.CONFIG_FILE', config_file), \
-             patch('obsidianki.cli.config.ENV_FILE', env_file):
+             patch('obsidianki.cli.config.ENV_FILE', env_file), \
+             patch('obsidianki.cli.commands.config_cmd.CONFIG_FILE', config_file), \
+             patch('obsidianki.cli.commands.config_cmd.CONFIG_DIR', config_dir):
             yield config_dir
 
 
