@@ -28,6 +28,7 @@ class TestObsidianAPIInit:
 class TestObsidianAPIBuildFilters:
     """Test filter building"""
 
+    @patch('obsidianki.api.obsidian.CONFIG', None)
     def test_build_filters_no_filters(self):
         """Test building filters with no conditions"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -35,6 +36,7 @@ class TestObsidianAPIBuildFilters:
             result = api._build_filters(None)
             assert result == ""
 
+    @patch('obsidianki.api.obsidian.CONFIG', None)
     def test_build_filters_with_folders(self):
         """Test building filters with search folders"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):

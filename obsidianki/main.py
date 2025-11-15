@@ -14,7 +14,12 @@ from rich.panel import Panel
 from rich.text import Text
 
 from obsidianki.cli.config import console, ENV_FILE, CONFIG_FILE
-from obsidianki.cli.handlers import handle_config_command, handle_tag_command, handle_history_command, handle_deck_command, handle_template_command, handle_hide_command
+from obsidianki.cli.commands.config_cmd import handle_config_command
+from obsidianki.cli.commands.tag_cmd import handle_tag_command
+from obsidianki.cli.commands.history_cmd import handle_history_command
+from obsidianki.cli.commands.deck_cmd import handle_deck_command
+from obsidianki.cli.commands.template_cmd import handle_template_command
+from obsidianki.cli.commands.hide_cmd import handle_hide_command
 
 def show_main_help():
     """Display the main help screen"""
@@ -199,7 +204,7 @@ def main():
         return 0
 
     if args.edit:
-        from obsidianki.cli.handlers import edit_mode
+        from obsidianki.cli.interactive.edit_mode import edit_mode
         try:
             return edit_mode(args)
         except KeyboardInterrupt:
