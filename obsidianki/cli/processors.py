@@ -13,7 +13,7 @@ from obsidianki.cli.utils import encode_path
 #TODO
 # deck_examples -> List[Flashcard]
 # previous_fronts -> List[Flashcard]?
-def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: list[List[str]]) -> List[Flashcard]:
+def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
     from obsidianki.cli.config import console
     note.ensure_content()
 
@@ -281,8 +281,8 @@ def preprocess(args: argparse.Namespace):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_note: dict[concurrent.futures.Future, Note] = {
-                executor.submit(process, note, args, deck_examples, target_cards_per_note, previous_fronts): note
-                for note in valid_notes
+                executor.submit(process, note, args, deck_examples, target_cards_per_note, previous_fronts[i] if previous_fronts else []): note
+                for i, note in enumerate(valid_notes)
             }
 
             for future in concurrent.futures.as_completed(future_to_note):
@@ -322,7 +322,7 @@ def preprocess(args: argparse.Namespace):
 
             console.print("   ", end="")  # Indent cursor position
             try:
-                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts)
+                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
                 console.print()  # Clear the indented cursor line
 
                 if not flashcards:
