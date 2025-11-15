@@ -527,6 +527,61 @@ class TestTemplates:
         templates = obsidianki.cli.config.CONFIG.load_templates()
         assert templates['complex'] == complex_cmd
 
+    def test_template_with_overrides(self, mock_services, mock_config):
+        """Test template use with override arguments"""
+        from obsidianki.cli.commands.template_cmd import handle_template_command
+        import obsidianki.cli.config
+        import sys
+
+        # Save a template with specific deck and cards
+        templates = {'japanese': '--notes 5 --cards 10 --deck Japanese --bias 0.7'}
+        obsidianki.cli.config.CONFIG.save_templates(templates)
+
+        # Use template with override arguments
+        class Args:
+            template_action = 'use'
+            help = False
+            name = 'japanese'
+            override_args = ['--deck', 'JLPT_N3', '--cards', '20']
+
+        # Mock main and sys.exit to capture the final argv
+        from obsidianki import main as main_module
+        captured_argv = None
+
+        def capture_argv(*args, **kwargs):
+            nonlocal captured_argv
+            captured_argv = list(sys.argv)
+            return 0
+
+        with patch.object(main_module, 'main', side_effect=capture_argv) as mock_main, \
+             patch.object(sys, 'exit') as mock_exit:
+            handle_template_command(Args())
+
+            # Verify the final argv contains overridden values
+            assert captured_argv is not None, "main() should have been called"
+            argv_str = ' '.join(captured_argv)
+
+            # Should have both template args and overrides, with overrides taking precedence
+            assert '--notes' in captured_argv
+            assert '5' in captured_argv
+            assert '--bias' in captured_argv
+            assert '0.7' in captured_argv
+
+            # Deck should appear twice (template + override), but argparse uses the last one
+            assert argv_str.count('--deck') == 2
+            deck_indices = [i for i, x in enumerate(captured_argv) if x == '--deck']
+            assert len(deck_indices) == 2
+            # First deck is from template
+            assert captured_argv[deck_indices[0] + 1] == 'Japanese'
+            # Second deck is from override (this one wins)
+            assert captured_argv[deck_indices[1] + 1] == 'JLPT_N3'
+
+            # Cards should also appear twice
+            assert argv_str.count('--cards') == 2
+            cards_indices = [i for i, x in enumerate(captured_argv) if x == '--cards']
+            assert captured_argv[cards_indices[0] + 1] == '10'  # template
+            assert captured_argv[cards_indices[1] + 1] == '20'  # override wins
+
 
 class TestUseSchemaWithNote:
     """Test --use-schema flag with specific note specification"""
