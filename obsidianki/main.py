@@ -73,7 +73,9 @@ def main():
     parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
     parser.add_argument("-x", "--extrapolate", action="store_true", help="Allow extrapolation of knowledge from pre-existing notes")
 
-    parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)  # Hidden flag for MCP mode
+    # hidden flags
+    parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
     # Config management subparser
     subparsers = parser.add_subparsers(dest='command', help='Commands')
@@ -178,6 +180,10 @@ def main():
     unhide_parser.add_argument('note_path', help='Path to note to unhide')
 
     args = parser.parse_args()
+
+    if args.json:
+        from obsidianki.cli.utils import exec_json_mode
+        exec_json_mode()
 
     if args.help and not args.command:
         show_main_help()
