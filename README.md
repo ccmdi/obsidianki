@@ -50,9 +50,10 @@ oki                          # Alias
 
 ### Configuration
 ```bash
-oki config                   # Show config
-oki config get max_cards     # Get specific setting
-oki config set max_cards 15  # Update setting
+oki config                         # Show config
+oki config get max_cards           # Get specific setting
+oki config set max_cards 15        # Update setting
+oki config set model "GPT-5"       # Switch AI model
 ```
 
 ### Tags
