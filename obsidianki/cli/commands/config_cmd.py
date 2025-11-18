@@ -65,15 +65,26 @@ def handle_config_command(args):
             console.print("[red]No configuration file found. Run 'oki --setup' first.[/red]")
             return
 
+        from obsidianki.cli.config import DEFAULT_CONFIG
+
         key_upper = args.key.upper()
-        if key_upper not in user_config:
+        # Check if key exists in DEFAULT_CONFIG (support new config keys)
+        if key_upper not in DEFAULT_CONFIG:
             console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
             console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
             return
 
         # Try to convert value to appropriate type
         value = args.value
-        current_value = user_config[key_upper]
+        # Use value from user_config if exists, otherwise from DEFAULT_CONFIG
+        current_value = user_config.get(key_upper, DEFAULT_CONFIG[key_upper])
+
+        # Special validation for DIFFICULTY
+        if key_upper == 'DIFFICULTY':
+            if value not in ('easy', 'normal', 'hard', 'none'):
+                console.print(f"[red]Invalid difficulty: {value}[/red]")
+                console.print("[dim]Valid options: easy, normal, hard[/dim]")
+                return
 
         if isinstance(current_value, bool):
             value = value.lower() in ('true', '1', 'yes', 'on')

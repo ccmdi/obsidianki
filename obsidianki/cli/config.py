@@ -33,6 +33,7 @@ DEFAULT_CONFIG = {
     "DEDUPLICATE_VIA_DECK": False,  # Include all deck cards in prompts to avoid duplicates (experimental/expensive)
     "USE_DECK_SCHEMA": False,  # Sample existing cards from deck to enforce consistent formatting/style
     "DECK": "Obsidian",  # Default Anki deck for adding cards
+    "DIFFICULTY": "normal",  # Flashcard difficulty level: "easy", "normal", or "hard"
     "SYNTAX_HIGHLIGHTING": True,  # Enable syntax highlighting for code blocks in flashcards
     "UPFRONT_BATCHING": False,  # Process all notes in parallel instead of one-by-one
     "BATCH_SIZE_LIMIT": 20,  # Maximum notes to process in batch mode

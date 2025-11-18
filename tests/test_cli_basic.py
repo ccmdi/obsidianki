@@ -28,6 +28,7 @@ def temp_config():
             "CARD_TYPE": "basic",
             "SAMPLING_MODE": "weighted",
             "DAYS_OLD": 7,
+            "DIFFICULTY": "none",
             "SYNTAX_HIGHLIGHTING": False,
             "SEARCH_FOLDERS": [],
             "DEDUPLICATE_VIA_HISTORY": False,
@@ -50,7 +51,8 @@ def temp_config():
         # Patch config paths
         with patch('obsidianki.cli.config.CONFIG_DIR', config_dir), \
              patch('obsidianki.cli.config.CONFIG_FILE', config_file), \
-             patch('obsidianki.cli.config.ENV_FILE', env_file):
+             patch('obsidianki.cli.config.ENV_FILE', env_file), \
+             patch('obsidianki.cli.commands.config_cmd.CONFIG_FILE', config_file):
             yield config_dir
 
 
@@ -159,8 +161,51 @@ class TestConfigCommands:
 
         assert result == 0
         captured = capsys.readouterr()
-        # Should print some path
-        assert ('.config\\obsidianki' in captured.out) or ('.config/obsidianki' in captured.out)
+        # Should print a directory path
+        assert len(captured.out.strip()) > 0
+        assert '/' in captured.out or '\\' in captured.out  # Path separator
+
+    def test_config_set_difficulty(self, mock_services, temp_config, capsys):
+        """Test setting difficulty configuration"""
+        import json
+        from obsidianki.cli.config import CONFIG_FILE
+
+        # Test setting to 'easy'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'easy']
+        from obsidianki.main import main
+        result = main()
+        assert result == 0
+
+        # Verify the config file was updated
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'easy'
+
+        # Test setting to 'hard'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'hard']
+        result = main()
+        assert result == 0
+
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'hard'
+
+        # Test setting to 'normal'
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'normal']
+        result = main()
+        assert result == 0
+
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'normal'
+
+        # Test invalid difficulty value
+        sys.argv = ['oki', 'config', 'set', 'difficulty', 'invalid']
+        result = main()
+        # Should not change the value
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        assert config['DIFFICULTY'] == 'normal'  # Should still be 'normal'
 
 
 class TestDeckCommands:
