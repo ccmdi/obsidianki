@@ -7,6 +7,8 @@ from obsidianki.cli.config import console, CONFIG_DIR, ENV_FILE, CONFIG_FILE
 
 def setup(force_full_setup=False):
     """Interactive setup to configure API keys and preferences"""
+    import questionary
+
     console.print(Panel(Text("ObsidianKi Setup", style="bold blue"), style="blue"))
 
     step_num = 1
@@ -23,14 +25,14 @@ def setup(force_full_setup=False):
             return
 
         console.print("\n   [cyan]AI Model Selection[/cyan]")
-        console.print("   Choose which AI model to use for flashcard generation:")
-        
+
         from obsidianki.ai.models import MODEL_MAP
-        model_choice = Prompt.ask(
-            "   Select model",
+        model_choice = questionary.select(
+            "   Select model:",
             choices=list(MODEL_MAP.keys()),
-            default="Claude Sonnet 4"
-        )
+            default="Claude Sonnet 4.5",
+            instruction=""
+        ).ask()
 
         model_info = MODEL_MAP[model_choice]
 
@@ -65,17 +67,19 @@ def setup(force_full_setup=False):
         notes_to_sample = IntPrompt.ask("   How many notes to sample?", default=CONFIG.notes_to_sample)
         days_old = IntPrompt.ask("   Only process notes older than X days?", default=CONFIG.days_old)
 
-        sampling_mode = Prompt.ask(
-            "   Sampling mode",
+        sampling_mode = questionary.select(
+            "   Sampling mode:",
             choices=["random", "weighted"],
-            default=CONFIG.sampling_mode
-        )
+            default=CONFIG.sampling_mode,
+            instruction=""
+        ).ask()
 
-        card_type = Prompt.ask(
-            "   Card type",
+        card_type = questionary.select(
+            "   Card type:",
             choices=["basic", "custom"],
-            default=CONFIG.card_type
-        )
+            default=CONFIG.card_type,
+            instruction=""
+        ).ask()
 
         console.print("\n   [cyan]Approval Settings[/cyan]")
         approve_notes = Confirm.ask(
