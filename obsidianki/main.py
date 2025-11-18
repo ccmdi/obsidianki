@@ -40,7 +40,6 @@ def show_main_help():
     console.print("  [cyan]-c, --cards <n>[/cyan]           Maximum cards to generate")
     console.print("  [cyan]-n, --notes <args>[/cyan]        Notes to process: count (5), names (\"React\"), or patterns (\"docs/*:3\")")
     console.print("  [cyan]-q, --query <text>[/cyan]        Generate cards from query or extract from notes")
-    console.print("  [cyan]-e, --edit[/cyan]                Interactive editing mode for existing cards")
     # console.print("  [cyan]-a, --agent <request>[/cyan]  Agent mode: natural language note discovery [yellow](experimental)[/yellow]")
     console.print("  [cyan]-d, --deck <name>[/cyan]         Anki deck to add cards to")
     console.print("  [cyan]-b, --bias <float>[/cyan]        Bias against over-processed notes (0-1)")
@@ -60,6 +59,7 @@ def show_main_help():
     console.print("  [cyan]deck[/cyan]                  Manage Anki decks")
     console.print("  [cyan]template[/cyan]              Manage command templates")
     console.print("  [cyan]hide[/cyan]                  Manage hidden notes")
+    console.print("  [cyan]edit \\[<deck>][/cyan]       Edit existing cards")
     console.print()
 
 
@@ -188,7 +188,7 @@ def main():
     # Edit mode
     edit_parser = subparsers.add_parser('edit', help='Edit existing cards', add_help=False)
     edit_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
-    edit_parser.add_argument("-d", "--deck", type=str, help="Anki deck to edit cards from")
+    edit_parser.add_argument('deck', type=str, help="Anki deck to edit cards from", nargs='?', default=None)
 
     args = parser.parse_args()
 
