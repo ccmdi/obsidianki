@@ -20,6 +20,7 @@ from obsidianki.cli.commands.history_cmd import handle_history_command
 from obsidianki.cli.commands.deck_cmd import handle_deck_command
 from obsidianki.cli.commands.template_cmd import handle_template_command
 from obsidianki.cli.commands.hide_cmd import handle_hide_command
+from obsidianki.cli.interactive.edit_mode import edit_mode
 
 def show_main_help():
     """Display the main help screen"""
@@ -75,7 +76,6 @@ def main():
     parser.add_argument("-b", "--bias", type=float, help="Override density bias strength (0=no bias, 1=maximum bias against over-processed notes)")
     parser.add_argument("-w", "--allow", nargs='+', help="Temporarily add folders to SEARCH_FOLDERS for this run")
     parser.add_argument("-u", "--use-schema", nargs='?', const=True, default=False, metavar="PATTERN", help="Sample existing cards from deck to enforce consistent formatting/style. Optionally provide a note pattern to filter cards (e.g., --use-schema \"docs/*\")")
-    parser.add_argument("-e", "--edit", action="store_true", help="Interactive editing mode for existing cards")
     parser.add_argument("-x", "--extrapolate", action="store_true", help="Allow extrapolation of knowledge from pre-existing notes")
 
     # hidden flags
@@ -185,6 +185,11 @@ def main():
     unhide_parser = hide_subparsers.add_parser('unhide', help='Unhide a specific note')
     unhide_parser.add_argument('note_path', help='Path to note to unhide')
 
+    # Edit mode
+    edit_parser = subparsers.add_parser('edit', help='Edit existing cards', add_help=False)
+    edit_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    edit_parser.add_argument("-d", "--deck", type=str, help="Anki deck to edit cards from")
+
     args = parser.parse_args()
 
     if args.json:
@@ -195,7 +200,6 @@ def main():
         show_main_help()
         return 0
 
-    # Handle config, history, and tag management commands
     if args.command == 'config':
         handle_config_command(args)
         return 0
@@ -214,14 +218,9 @@ def main():
     elif args.command == 'hide':
         handle_hide_command(args)
         return 0
-
-    if args.edit:
-        from obsidianki.cli.interactive.edit_mode import edit_mode
-        try:
-            return edit_mode(args)
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Operation cancelled by user[/yellow]")
-            return 1
+    elif args.command == 'edit':
+        edit_mode(args)
+        return 0
 
     needs_setup = False
     if not ENV_FILE.exists():
