@@ -25,7 +25,7 @@ def setup(force_full_setup=False):
         console.print("\n   [cyan]AI Model Selection[/cyan]")
         console.print("   Choose which AI model to use for flashcard generation:")
 
-        # Model choices - only real models that exist
+        # Model choices - the actual latest models
         model_choices = {
             "Claude Sonnet 4": {
                 "provider": "anthropic",
@@ -39,17 +39,23 @@ def setup(force_full_setup=False):
                 "key_name": "ANTHROPIC_API_KEY",
                 "url": "https://console.anthropic.com/"
             },
+            "GPT-5": {
+                "provider": "openai",
+                "model": "gpt-5",
+                "key_name": "OPENAI_API_KEY",
+                "url": "https://platform.openai.com/api-keys"
+            },
+            "Gemini 3 Pro Preview": {
+                "provider": "google",
+                "model": "gemini/gemini-3-pro-preview",
+                "key_name": "GOOGLE_API_KEY",
+                "url": "https://makersuite.google.com/app/apikey"
+            },
             "GPT-4o": {
                 "provider": "openai",
                 "model": "gpt-4o",
                 "key_name": "OPENAI_API_KEY",
                 "url": "https://platform.openai.com/api-keys"
-            },
-            "Gemini 2.0 Flash": {
-                "provider": "google",
-                "model": "gemini/gemini-2.0-flash-exp",
-                "key_name": "GOOGLE_API_KEY",
-                "url": "https://makersuite.google.com/app/apikey"
             },
             "GPT-4o Mini": {
                 "provider": "openai",
@@ -57,7 +63,13 @@ def setup(force_full_setup=False):
                 "key_name": "OPENAI_API_KEY",
                 "url": "https://platform.openai.com/api-keys"
             },
-            "DeepSeek V3": {
+            "Gemini 2.5 Flash": {
+                "provider": "google",
+                "model": "gemini/gemini-2.5-flash",
+                "key_name": "GOOGLE_API_KEY",
+                "url": "https://makersuite.google.com/app/apikey"
+            },
+            "DeepSeek V3.1": {
                 "provider": "deepseek",
                 "model": "deepseek/deepseek-chat",
                 "key_name": "DEEPSEEK_API_KEY",
