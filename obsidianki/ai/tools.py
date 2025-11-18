@@ -1,6 +1,4 @@
-from anthropic.types import ToolParam
-
-FLASHCARD_TOOL: ToolParam = {
+FLASHCARD_TOOL: dict = {
     "name": "create_flashcards",
     "description": "Create flashcards from note content with front (question) and back (answer)",
     "input_schema": {
@@ -30,7 +28,7 @@ FLASHCARD_TOOL: ToolParam = {
 }
 
 # DQL Execution Tool for multi-turn agent
-DQL_EXECUTION_TOOL: ToolParam = {
+DQL_EXECUTION_TOOL: dict = {
     "name": "execute_dql_query",
     "description": "Execute a DQL query against the Obsidian vault and get results",
     "input_schema": {
@@ -50,7 +48,7 @@ DQL_EXECUTION_TOOL: ToolParam = {
 }
 
 # Final selection tool for multi-turn agent
-FINALIZE_SELECTION_TOOL: ToolParam = {
+FINALIZE_SELECTION_TOOL: dict = {
     "name": "finalize_note_selection",
     "description": "Finalize the selection of notes that best match the user's request",
     "input_schema": {
