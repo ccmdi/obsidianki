@@ -17,40 +17,22 @@ litellm.suppress_debug_info = True
 
 class FlashcardAI:
     def __init__(self):
-        # Get model name from config
-        model_name = getattr(CONFIG, 'model', 'Claude Sonnet 4')
+        model_name = getattr(CONFIG, 'model', 'Claude Sonnet 4.5')
 
         model_info = MODEL_MAP[model_name]
         self.provider = model_info["provider"]
         self.model = model_info["model"]
 
-        # Backwards compatibility: if ANTHROPIC_API_KEY exists but no config, use anthropic
-        if os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-            self.provider = 'anthropic'
-            if self.model == 'claude-sonnet-4-20250514' or not hasattr(CONFIG, 'model'):
-                self.model = 'claude-sonnet-4-20250514'
-
         self._validate_api_key()
 
     def _validate_api_key(self):
         """Ensure appropriate API key is available for selected provider"""
-        key_map = {
-            'anthropic': 'ANTHROPIC_API_KEY',
-            'openai': 'OPENAI_API_KEY',
-            'google': 'GOOGLE_API_KEY',
-            'azure': 'AZURE_API_KEY',
-            'groq': 'GROQ_API_KEY',
-            'cohere': 'COHERE_API_KEY',
-            'together': 'TOGETHER_API_KEY',
-            'mistral': 'MISTRAL_API_KEY',
-        }
+        key_map = {model_info["provider"]: model_info["key_name"] for model_info in MODEL_MAP.values()}
 
-        required_key = key_map.get(self.provider, f"{self.provider.upper()}_API_KEY")
+        required_key = key_map.get(self.provider)
 
-        if not os.getenv(required_key):
-            # Check for generic LLM_API_KEY fallback
-            if not os.getenv("LLM_API_KEY"):
-                raise ValueError(f"{required_key} not found in environment variables")
+        if required_key is None:
+            raise ValueError(f"{required_key} not found in environment variables for provider {self.provider}")
 
     def _build_card_instruction(self, target_cards: int) -> str:
         context = f"create approximately {target_cards} flashcards."
@@ -200,12 +182,6 @@ class FlashcardAI:
                 tool_call = message.tool_calls[0]
                 import json
                 arguments = json.loads(tool_call.function.arguments)
-
-                # Gemini sometimes returns empty arguments - check for this
-                if not arguments or 'flashcards' not in arguments:
-                    console.print(f"[yellow]WARNING:[/yellow] Model returned empty or invalid tool arguments: {arguments}")
-                    console.print(f"[yellow]This is a known issue with some Gemini models. Try using a different model.[/yellow]")
-                    return []
 
                 flashcard_dicts = arguments['flashcards']
 
