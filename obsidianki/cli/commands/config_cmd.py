@@ -85,9 +85,9 @@ def handle_config_command(args):
                     "provider": "openai",
                     "model": "gpt-5"
                 },
-                "Gemini 3 Pro Preview": {
+                "Gemini 3": {
                     "provider": "google",
-                    "model": "gemini/gemini-3-pro-preview"
+                    "model": "gemini-3-pro-preview"
                 },
                 "GPT-4o": {
                     "provider": "openai",
@@ -99,11 +99,11 @@ def handle_config_command(args):
                 },
                 "Gemini 2.5 Flash": {
                     "provider": "google",
-                    "model": "gemini/gemini-2.5-flash"
+                    "model": "gemini-2.5-flash"
                 },
                 "DeepSeek V3.1": {
                     "provider": "deepseek",
-                    "model": "deepseek/deepseek-chat"
+                    "model": "deepseek-chat"
                 }
             }
 
