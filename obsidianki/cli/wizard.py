@@ -25,7 +25,7 @@ def setup(force_full_setup=False):
         console.print("\n   [cyan]AI Model Selection[/cyan]")
         console.print("   Choose which AI model to use for flashcard generation:")
 
-        # Model choices with human-friendly names
+        # Model choices - only real models that exist
         model_choices = {
             "Claude Sonnet 4": {
                 "provider": "anthropic",
@@ -45,29 +45,17 @@ def setup(force_full_setup=False):
                 "key_name": "OPENAI_API_KEY",
                 "url": "https://platform.openai.com/api-keys"
             },
-            "GPT-4o Mini": {
-                "provider": "openai",
-                "model": "gpt-4o-mini",
-                "key_name": "OPENAI_API_KEY",
-                "url": "https://platform.openai.com/api-keys"
-            },
             "Gemini 2.0 Flash": {
                 "provider": "google",
                 "model": "gemini/gemini-2.0-flash-exp",
                 "key_name": "GOOGLE_API_KEY",
                 "url": "https://makersuite.google.com/app/apikey"
             },
-            "Gemini 1.5 Pro": {
-                "provider": "google",
-                "model": "gemini/gemini-1.5-pro",
-                "key_name": "GOOGLE_API_KEY",
-                "url": "https://makersuite.google.com/app/apikey"
-            },
-            "Llama 3.3 70B (Groq)": {
-                "provider": "groq",
-                "model": "groq/llama-3.3-70b-versatile",
-                "key_name": "GROQ_API_KEY",
-                "url": "https://console.groq.com/keys"
+            "GPT-4o Mini": {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "key_name": "OPENAI_API_KEY",
+                "url": "https://platform.openai.com/api-keys"
             },
             "DeepSeek V3": {
                 "provider": "deepseek",
