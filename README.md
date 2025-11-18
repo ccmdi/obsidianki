@@ -31,21 +31,15 @@ This will start the interactive setup. Here's what you'll need:
    - Install [plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) in Obsidian
    - Copy the API key from plugin settings
 
-2. **AI Provider (choose one):**
-   - **Anthropic** (Claude): [console.anthropic.com](https://console.anthropic.com/)
-   - **OpenAI** (GPT-4): [platform.openai.com](https://platform.openai.com/api-keys)
-   - **Google** (Gemini): [makersuite.google.com](https://makersuite.google.com/app/apikey)
-   - **Groq** (Fast Llama): [console.groq.com](https://console.groq.com/keys)
-   - **Azure OpenAI**: [portal.azure.com](https://portal.azure.com/)
-   - **Cohere**: [dashboard.cohere.com](https://dashboard.cohere.com/api-keys)
-   - **Together AI**: [api.together.xyz](https://api.together.xyz/settings/api-keys)
-   - **Mistral**: [console.mistral.ai](https://console.mistral.ai/api-keys/)
+2. **AI Model:**
+   - Choose from popular models (Claude 4, GPT-4o, Gemini 2.0, etc.)
+   - 8+ providers supported through LiteLLM
 
 3. **AnkiConnect setup:**
    - Add-on code: `2055492159`
    - Keep Anki running
 
-The interactive setup will guide you through provider selection and configuration.
+The interactive setup will guide you through model selection and configuration.
 
 ## Usage
 

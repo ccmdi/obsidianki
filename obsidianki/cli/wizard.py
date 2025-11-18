@@ -22,74 +22,80 @@ def setup(force_full_setup=False):
             console.print("[red]ERROR:[/red] Obsidian API key is required. Setup aborted.")
             return
 
-        console.print("\n   [cyan]AI Provider Selection[/cyan]")
-        console.print("   Choose your AI provider for flashcard generation:")
+        console.print("\n   [cyan]AI Model Selection[/cyan]")
+        console.print("   Choose which AI model to use for flashcard generation:")
 
-        ai_provider = Prompt.ask(
-            "   Select provider",
-            choices=["anthropic", "openai", "google", "groq", "azure", "cohere", "together", "mistral"],
-            default="anthropic"
-        )
-
-        # Provider-specific instructions and model defaults
-        provider_info = {
-            "anthropic": {
-                "url": "https://console.anthropic.com/",
+        # Model choices with human-friendly names
+        model_choices = {
+            "Claude Sonnet 4": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-20250514",
                 "key_name": "ANTHROPIC_API_KEY",
-                "default_model": "claude-sonnet-4-20250514"
+                "url": "https://console.anthropic.com/"
             },
-            "openai": {
-                "url": "https://platform.openai.com/api-keys",
+            "Claude Opus 4": {
+                "provider": "anthropic",
+                "model": "claude-opus-4-20250514",
+                "key_name": "ANTHROPIC_API_KEY",
+                "url": "https://console.anthropic.com/"
+            },
+            "GPT-4o": {
+                "provider": "openai",
+                "model": "gpt-4o",
                 "key_name": "OPENAI_API_KEY",
-                "default_model": "gpt-4o"
+                "url": "https://platform.openai.com/api-keys"
             },
-            "google": {
-                "url": "https://makersuite.google.com/app/apikey",
+            "GPT-4o Mini": {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "key_name": "OPENAI_API_KEY",
+                "url": "https://platform.openai.com/api-keys"
+            },
+            "Gemini 2.0 Flash": {
+                "provider": "google",
+                "model": "gemini/gemini-2.0-flash-exp",
                 "key_name": "GOOGLE_API_KEY",
-                "default_model": "gemini/gemini-2.0-flash-exp"
+                "url": "https://makersuite.google.com/app/apikey"
             },
-            "groq": {
-                "url": "https://console.groq.com/keys",
+            "Gemini 1.5 Pro": {
+                "provider": "google",
+                "model": "gemini/gemini-1.5-pro",
+                "key_name": "GOOGLE_API_KEY",
+                "url": "https://makersuite.google.com/app/apikey"
+            },
+            "Llama 3.3 70B (Groq)": {
+                "provider": "groq",
+                "model": "groq/llama-3.3-70b-versatile",
                 "key_name": "GROQ_API_KEY",
-                "default_model": "groq/llama-3.3-70b-versatile"
+                "url": "https://console.groq.com/keys"
             },
-            "azure": {
-                "url": "https://portal.azure.com/",
-                "key_name": "AZURE_API_KEY",
-                "default_model": "azure/gpt-4o"
-            },
-            "cohere": {
-                "url": "https://dashboard.cohere.com/api-keys",
-                "key_name": "COHERE_API_KEY",
-                "default_model": "command-r-plus"
-            },
-            "together": {
-                "url": "https://api.together.xyz/settings/api-keys",
-                "key_name": "TOGETHER_API_KEY",
-                "default_model": "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
-            },
-            "mistral": {
-                "url": "https://console.mistral.ai/api-keys/",
-                "key_name": "MISTRAL_API_KEY",
-                "default_model": "mistral/mistral-large-latest"
+            "DeepSeek V3": {
+                "provider": "deepseek",
+                "model": "deepseek/deepseek-chat",
+                "key_name": "DEEPSEEK_API_KEY",
+                "url": "https://platform.deepseek.com/api_keys"
             }
         }
 
-        info = provider_info[ai_provider]
-        console.print(f"\n   Get {ai_provider.title()} API key from: [blue]{info['url']}[/blue]")
+        model_choice = Prompt.ask(
+            "   Select model",
+            choices=list(model_choices.keys()),
+            default="Claude Sonnet 4"
+        )
 
-        ai_key = Prompt.ask(f"   Enter your {ai_provider.title()} API key", password=True).strip()
+        model_info = model_choices[model_choice]
+        ai_provider = model_info["provider"]
+        ai_model = model_info["model"]
+
+        console.print(f"\n   Get API key from: [blue]{model_info['url']}[/blue]")
+
+        ai_key = Prompt.ask(f"   Enter your API key", password=True).strip()
         if not ai_key:
-            console.print(f"[red]ERROR:[/red] {ai_provider.title()} API key is required. Setup aborted.")
+            console.print(f"[red]ERROR:[/red] API key is required. Setup aborted.")
             return
 
-        # Optional: let user customize model
-        console.print(f"\n   Default model: [green]{info['default_model']}[/green]")
-        custom_model = Prompt.ask("   Custom model (press Enter to use default)", default="").strip()
-        ai_model = custom_model if custom_model else info['default_model']
-
         env_content = f"""OBSIDIAN_API_KEY={obsidian_key}
-{info['key_name']}={ai_key}
+{model_info['key_name']}={ai_key}
         """
 
         try:
