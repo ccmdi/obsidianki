@@ -14,16 +14,62 @@ AI_RESULT_SET_SIZE = 20
 # Suppress litellm logging
 litellm.suppress_debug_info = True
 
+# Model mapping
+MODEL_MAP = {
+    "Claude Sonnet 4": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-20250514"
+    },
+    "Claude Opus 4": {
+        "provider": "anthropic",
+        "model": "claude-opus-4-20250514"
+    },
+    "GPT-5": {
+        "provider": "openai",
+        "model": "gpt-5"
+    },
+    "Gemini 3 Pro Preview": {
+        "provider": "google",
+        "model": "gemini/gemini-3-pro-preview"
+    },
+    "GPT-4o": {
+        "provider": "openai",
+        "model": "gpt-4o"
+    },
+    "GPT-4o Mini": {
+        "provider": "openai",
+        "model": "gpt-4o-mini"
+    },
+    "Gemini 2.5 Flash": {
+        "provider": "google",
+        "model": "gemini/gemini-2.5-flash"
+    },
+    "DeepSeek V3.1": {
+        "provider": "deepseek",
+        "model": "deepseek/deepseek-chat"
+    }
+}
+
 class FlashcardAI:
     def __init__(self):
-        # Auto-detect provider and model from config or fall back to env
-        self.provider = getattr(CONFIG, 'ai_provider', 'anthropic')
-        self.model = getattr(CONFIG, 'ai_model', 'claude-sonnet-4-20250514')
+        # Get model name from config
+        model_name = getattr(CONFIG, 'model', 'Claude Sonnet 4')
 
-        # Backwards compatibility: if ANTHROPIC_API_KEY exists but no provider set, use anthropic
+        # Map to provider and technical model name
+        if model_name in MODEL_MAP:
+            model_info = MODEL_MAP[model_name]
+            self.provider = model_info["provider"]
+            self.model = model_info["model"]
+        else:
+            # Backwards compatibility: check for old AI_PROVIDER/AI_MODEL config
+            self.provider = getattr(CONFIG, 'ai_provider', 'anthropic')
+            self.model = getattr(CONFIG, 'ai_model', 'claude-sonnet-4-20250514')
+
+        # Backwards compatibility: if ANTHROPIC_API_KEY exists but no config, use anthropic
         if os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"):
             self.provider = 'anthropic'
-            self.model = 'claude-sonnet-4-20250514'
+            if self.model == 'claude-sonnet-4-20250514' or not hasattr(CONFIG, 'model'):
+                self.model = 'claude-sonnet-4-20250514'
 
         # Validate API key exists for provider
         self._validate_api_key()
