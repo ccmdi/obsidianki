@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,11 +35,50 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Generate release notes from PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+
+          # Get all tags sorted by version, then get the one before current
+          previous_tag=$(git tag --sort=-version:refname | grep -A1 "^${tag}$" | tail -n1)
+
+          echo "## What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+
+          if [ "$previous_tag" == "$tag" ] || [ -z "$previous_tag" ]; then
+            echo "Initial release" >> release_notes.md
+          else
+            # Get merge commits between tags
+            git log ${previous_tag}..${tag} --merges --pretty=format:"%H %s" | while read commit_hash commit_msg; do
+              # Extract PR number from merge commit message
+              pr_number=$(echo "$commit_msg" | grep -oP 'Merge pull request #\K\d+' || echo "")
+
+              if [ -n "$pr_number" ]; then
+                # Fetch PR details from GitHub API
+                pr_data=$(gh pr view $pr_number --json title,author,number)
+                pr_title=$(echo "$pr_data" | jq -r '.title')
+                pr_author=$(echo "$pr_data" | jq -r '.author.login')
+
+                echo "- $pr_title (#$pr_number) @$pr_author" >> release_notes.md
+              fi
+            done
+
+            # If no PRs were found, fall back to commit messages
+            if ! grep -q "^-" release_notes.md; then
+              git log ${previous_tag}..${tag} --pretty=format:"- %s" --no-merges >> release_notes.md
+            fi
+          fi
+
+          echo "" >> release_notes.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${previous_tag}...${tag}" >> release_notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*
-          generate_release_notes: true
+          body_path: release_notes.md
           draft: false
           prerelease: false
         env:
