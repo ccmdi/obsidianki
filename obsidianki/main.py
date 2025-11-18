@@ -167,9 +167,10 @@ def main():
     add_template_parser.add_argument('name', help='Template name')
     add_template_parser.add_argument('template_command', help='Command template (without "oki" prefix)')
 
-    # template use <name>
+    # template use <name> [override args...]
     use_template_parser = template_subparsers.add_parser('use', help='Execute a saved template')
     use_template_parser.add_argument('name', help='Template name')
+    use_template_parser.add_argument('override_args', nargs=argparse.REMAINDER, help='Additional arguments to override template defaults')
 
     # template remove <name>
     remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')

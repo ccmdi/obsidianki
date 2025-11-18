@@ -11,7 +11,6 @@ from obsidianki.cli.help_utils import show_simple_help
 def handle_template_command(args):
     """Handle template management commands"""
 
-    # Handle help request
     if args.help:
         show_simple_help("Template Management", {
             "template add <name> <command>": "Save a command template",
@@ -41,7 +40,6 @@ def handle_template_command(args):
         name = args.name
         command = args.template_command
 
-        # Check if template already exists
         if name in templates:
             console.print(f"[yellow]WARNING:[/yellow] Template '[cyan]{name}[/cyan]' already exists")
             if not Confirm.ask("   Overwrite?", default=False):
@@ -63,29 +61,31 @@ def handle_template_command(args):
             return
 
         command = templates[name]
+
+        override_args = getattr(args, 'override_args', []) or []
+
         console.print(f"[cyan]Executing template:[/cyan] [bold]{name}[/bold]")
         console.print(f"[dim]Command:[/dim] oki {command}")
+        if override_args:
+            console.print(f"[dim]Overrides:[/dim] {' '.join(override_args)}")
         console.print()
 
         # Parse the command and re-invoke main with those arguments
         try:
-            # Import main from this module's parent
             from obsidianki.main import main
 
-            # Parse the command string into arguments
             cmd_args = shlex.split(command)
 
-            # Replace sys.argv with the new arguments
-            original_argv = sys.argv
-            sys.argv = ['oki'] + cmd_args
+            # Merge: template args + override args (override args win for duplicates)
+            final_args = cmd_args + override_args
 
-            # Call main() with the new arguments
+            original_argv = sys.argv
+            sys.argv = ['oki'] + final_args
+
             result = main()
 
-            # Restore original argv
             sys.argv = original_argv
 
-            # Exit with the result code
             sys.exit(result if result is not None else 0)
 
         except Exception as e:
