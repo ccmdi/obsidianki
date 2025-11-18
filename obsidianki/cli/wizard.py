@@ -24,68 +24,15 @@ def setup(force_full_setup=False):
 
         console.print("\n   [cyan]AI Model Selection[/cyan]")
         console.print("   Choose which AI model to use for flashcard generation:")
-
-        # Model choices - the actual latest models
-        model_choices = {
-            "Claude Sonnet 4": {
-                "provider": "anthropic",
-                "model": "claude-sonnet-4-20250514",
-                "key_name": "ANTHROPIC_API_KEY",
-                "url": "https://console.anthropic.com/"
-            },
-            "Claude Opus 4": {
-                "provider": "anthropic",
-                "model": "claude-opus-4-20250514",
-                "key_name": "ANTHROPIC_API_KEY",
-                "url": "https://console.anthropic.com/"
-            },
-            "GPT-5": {
-                "provider": "openai",
-                "model": "gpt-5",
-                "key_name": "OPENAI_API_KEY",
-                "url": "https://platform.openai.com/api-keys"
-            },
-            "Gemini 3 Pro Preview": {
-                "provider": "google",
-                "model": "gemini/gemini-3-pro-preview",
-                "key_name": "GOOGLE_API_KEY",
-                "url": "https://makersuite.google.com/app/apikey"
-            },
-            "GPT-4o": {
-                "provider": "openai",
-                "model": "gpt-4o",
-                "key_name": "OPENAI_API_KEY",
-                "url": "https://platform.openai.com/api-keys"
-            },
-            "GPT-4o Mini": {
-                "provider": "openai",
-                "model": "gpt-4o-mini",
-                "key_name": "OPENAI_API_KEY",
-                "url": "https://platform.openai.com/api-keys"
-            },
-            "Gemini 2.5 Flash": {
-                "provider": "google",
-                "model": "gemini/gemini-2.5-flash",
-                "key_name": "GOOGLE_API_KEY",
-                "url": "https://makersuite.google.com/app/apikey"
-            },
-            "DeepSeek V3.1": {
-                "provider": "deepseek",
-                "model": "deepseek/deepseek-chat",
-                "key_name": "DEEPSEEK_API_KEY",
-                "url": "https://platform.deepseek.com/api_keys"
-            }
-        }
-
+        
+        from obsidianki.ai.models import MODEL_MAP
         model_choice = Prompt.ask(
             "   Select model",
-            choices=list(model_choices.keys()),
+            choices=list(MODEL_MAP.keys()),
             default="Claude Sonnet 4"
         )
 
-        model_info = model_choices[model_choice]
-        ai_provider = model_info["provider"]
-        ai_model = model_info["model"]
+        model_info = MODEL_MAP[model_choice]
 
         console.print(f"\n   Get API key from: [blue]{model_info['url']}[/blue]")
 

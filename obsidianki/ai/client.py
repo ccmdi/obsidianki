@@ -6,6 +6,7 @@ from litellm import completion
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
+from obsidianki.ai.models import MODEL_MAP
 from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
 from obsidianki.ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
@@ -14,56 +15,14 @@ AI_RESULT_SET_SIZE = 20
 # Suppress litellm logging
 litellm.suppress_debug_info = True
 
-# Model mapping
-MODEL_MAP = {
-    "Claude Sonnet 4": {
-        "provider": "anthropic",
-        "model": "claude-sonnet-4-20250514"
-    },
-    "Claude Opus 4": {
-        "provider": "anthropic",
-        "model": "claude-opus-4-20250514"
-    },
-    "GPT-5": {
-        "provider": "openai",
-        "model": "gpt-5"
-    },
-    "Gemini 3 Pro Preview": {
-        "provider": "google",
-        "model": "gemini/gemini-3-pro-preview"
-    },
-    "GPT-4o": {
-        "provider": "openai",
-        "model": "gpt-4o"
-    },
-    "GPT-4o Mini": {
-        "provider": "openai",
-        "model": "gpt-4o-mini"
-    },
-    "Gemini 2.5 Flash": {
-        "provider": "google",
-        "model": "gemini/gemini-2.5-flash"
-    },
-    "DeepSeek V3.1": {
-        "provider": "deepseek",
-        "model": "deepseek/deepseek-chat"
-    }
-}
-
 class FlashcardAI:
     def __init__(self):
         # Get model name from config
         model_name = getattr(CONFIG, 'model', 'Claude Sonnet 4')
 
-        # Map to provider and technical model name
-        if model_name in MODEL_MAP:
-            model_info = MODEL_MAP[model_name]
-            self.provider = model_info["provider"]
-            self.model = model_info["model"]
-        else:
-            # Backwards compatibility: check for old AI_PROVIDER/AI_MODEL config
-            self.provider = getattr(CONFIG, 'ai_provider', 'anthropic')
-            self.model = getattr(CONFIG, 'ai_model', 'claude-sonnet-4-20250514')
+        model_info = MODEL_MAP[model_name]
+        self.provider = model_info["provider"]
+        self.model = model_info["model"]
 
         # Backwards compatibility: if ANTHROPIC_API_KEY exists but no config, use anthropic
         if os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"):
@@ -71,7 +30,6 @@ class FlashcardAI:
             if self.model == 'claude-sonnet-4-20250514' or not hasattr(CONFIG, 'model'):
                 self.model = 'claude-sonnet-4-20250514'
 
-        # Validate API key exists for provider
         self._validate_api_key()
 
     def _validate_api_key(self):
@@ -241,7 +199,15 @@ class FlashcardAI:
             if hasattr(message, 'tool_calls') and message.tool_calls:
                 tool_call = message.tool_calls[0]
                 import json
-                flashcard_dicts = json.loads(tool_call.function.arguments)['flashcards']
+                arguments = json.loads(tool_call.function.arguments)
+
+                # Gemini sometimes returns empty arguments - check for this
+                if not arguments or 'flashcards' not in arguments:
+                    console.print(f"[yellow]WARNING:[/yellow] Model returned empty or invalid tool arguments: {arguments}")
+                    console.print(f"[yellow]This is a known issue with some Gemini models. Try using a different model.[/yellow]")
+                    return []
+
+                flashcard_dicts = arguments['flashcards']
 
                 flashcard_objects = []
                 for card in flashcard_dicts:
@@ -262,6 +228,7 @@ class FlashcardAI:
 
                 return flashcard_objects
         except Exception as e:
+            print(response)
             console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
             return []
 

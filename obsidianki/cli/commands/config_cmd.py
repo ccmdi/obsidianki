@@ -16,7 +16,7 @@ def handle_config_command(args):
             "config": "List all configuration settings",
             "config get <key>": "Get a configuration value",
             "config set <key> <value>": "Set a configuration value",
-            "config set model \"<name>\"": "Set AI model (Claude Sonnet 4, GPT-5, etc.)",
+            "config set model \"<name>\"": "Set model",
             "config reset": "Reset configuration to defaults",
             "config where": "Show configuration directory path"
         })
@@ -72,40 +72,7 @@ def handle_config_command(args):
 
         # Special handling for "model" - allows human-friendly names
         if key_upper == 'MODEL':
-            MODEL_MAP = {
-                "Claude Sonnet 4": {
-                    "provider": "anthropic",
-                    "model": "claude-sonnet-4-20250514"
-                },
-                "Claude Opus 4": {
-                    "provider": "anthropic",
-                    "model": "claude-opus-4-20250514"
-                },
-                "GPT-5": {
-                    "provider": "openai",
-                    "model": "gpt-5"
-                },
-                "Gemini 3": {
-                    "provider": "google",
-                    "model": "gemini-3-pro-preview"
-                },
-                "GPT-4o": {
-                    "provider": "openai",
-                    "model": "gpt-4o"
-                },
-                "GPT-4o Mini": {
-                    "provider": "openai",
-                    "model": "gpt-4o-mini"
-                },
-                "Gemini 2.5 Flash": {
-                    "provider": "google",
-                    "model": "gemini-2.5-flash"
-                },
-                "DeepSeek V3.1": {
-                    "provider": "deepseek",
-                    "model": "deepseek-chat"
-                }
-            }
+            from obsidianki.ai.models import MODEL_MAP
 
             if args.value in MODEL_MAP:
                 user_config["MODEL"] = args.value
