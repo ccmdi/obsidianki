@@ -38,8 +38,7 @@ DEFAULT_CONFIG = {
     "UPFRONT_BATCHING": False,  # Process all notes in parallel instead of one-by-one
     "BATCH_SIZE_LIMIT": 20,  # Maximum notes to process in batch mode
     "BATCH_CARD_LIMIT": 100,  # Maximum total cards in batch mode
-    "AI_PROVIDER": "anthropic",  # AI provider: anthropic, openai, google, azure, groq, etc.
-    "AI_MODEL": "claude-sonnet-4-20250514"  # Default model for the provider
+    "MODEL": "Claude Sonnet 4"  # AI model to use (Claude Sonnet 4, GPT-5, Gemini 3 Pro Preview, etc.)
 }
 
 class Config:

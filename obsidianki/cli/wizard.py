@@ -165,8 +165,7 @@ def setup(force_full_setup=False):
             "APPROVE_CARDS": approve_cards,
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
             "SYNTAX_HIGHLIGHTING": syntax_highlighting,
-            "AI_PROVIDER": ai_provider,
-            "AI_MODEL": ai_model,
+            "MODEL": model_choice,
         })
 
         try:

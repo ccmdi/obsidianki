@@ -108,16 +108,12 @@ def handle_config_command(args):
             }
 
             if args.value in MODEL_MAP:
-                info = MODEL_MAP[args.value]
-                user_config["AI_PROVIDER"] = info["provider"]
-                user_config["AI_MODEL"] = info["model"]
+                user_config["MODEL"] = args.value
 
                 with open(CONFIG_FILE, 'w') as f:
                     json.dump(user_config, f, indent=2)
 
                 console.print(f"[green]✓[/green] Set model to [bold]{args.value}[/bold]")
-                console.print(f"[dim]  Provider: {info['provider']}[/dim]")
-                console.print(f"[dim]  Model: {info['model']}[/dim]")
                 return
             else:
                 console.print(f"[red]Invalid model: {args.value}[/red]")
