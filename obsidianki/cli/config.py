@@ -37,7 +37,9 @@ DEFAULT_CONFIG = {
     "SYNTAX_HIGHLIGHTING": True,  # Enable syntax highlighting for code blocks in flashcards
     "UPFRONT_BATCHING": False,  # Process all notes in parallel instead of one-by-one
     "BATCH_SIZE_LIMIT": 20,  # Maximum notes to process in batch mode
-    "BATCH_CARD_LIMIT": 100  # Maximum total cards in batch mode
+    "BATCH_CARD_LIMIT": 100,  # Maximum total cards in batch mode
+    "AI_PROVIDER": "anthropic",  # AI provider: anthropic, openai, google, azure, groq, etc.
+    "AI_MODEL": "claude-sonnet-4-20250514"  # Default model for the provider
 }
 
 class Config:

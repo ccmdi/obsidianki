@@ -22,14 +22,74 @@ def setup(force_full_setup=False):
             console.print("[red]ERROR:[/red] Obsidian API key is required. Setup aborted.")
             return
 
-        console.print("\n   Get Anthropic API key from: [blue]https://console.anthropic.com/[/blue]")
-        anthropic_key = Prompt.ask("   Enter your Anthropic API key", password=True).strip()
-        if not anthropic_key:
-            console.print("[red]ERROR:[/red] Anthropic API key is required. Setup aborted.")
+        console.print("\n   [cyan]AI Provider Selection[/cyan]")
+        console.print("   Choose your AI provider for flashcard generation:")
+
+        ai_provider = Prompt.ask(
+            "   Select provider",
+            choices=["anthropic", "openai", "google", "groq", "azure", "cohere", "together", "mistral"],
+            default="anthropic"
+        )
+
+        # Provider-specific instructions and model defaults
+        provider_info = {
+            "anthropic": {
+                "url": "https://console.anthropic.com/",
+                "key_name": "ANTHROPIC_API_KEY",
+                "default_model": "claude-sonnet-4-20250514"
+            },
+            "openai": {
+                "url": "https://platform.openai.com/api-keys",
+                "key_name": "OPENAI_API_KEY",
+                "default_model": "gpt-4o"
+            },
+            "google": {
+                "url": "https://makersuite.google.com/app/apikey",
+                "key_name": "GOOGLE_API_KEY",
+                "default_model": "gemini/gemini-2.0-flash-exp"
+            },
+            "groq": {
+                "url": "https://console.groq.com/keys",
+                "key_name": "GROQ_API_KEY",
+                "default_model": "groq/llama-3.3-70b-versatile"
+            },
+            "azure": {
+                "url": "https://portal.azure.com/",
+                "key_name": "AZURE_API_KEY",
+                "default_model": "azure/gpt-4o"
+            },
+            "cohere": {
+                "url": "https://dashboard.cohere.com/api-keys",
+                "key_name": "COHERE_API_KEY",
+                "default_model": "command-r-plus"
+            },
+            "together": {
+                "url": "https://api.together.xyz/settings/api-keys",
+                "key_name": "TOGETHER_API_KEY",
+                "default_model": "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+            },
+            "mistral": {
+                "url": "https://console.mistral.ai/api-keys/",
+                "key_name": "MISTRAL_API_KEY",
+                "default_model": "mistral/mistral-large-latest"
+            }
+        }
+
+        info = provider_info[ai_provider]
+        console.print(f"\n   Get {ai_provider.title()} API key from: [blue]{info['url']}[/blue]")
+
+        ai_key = Prompt.ask(f"   Enter your {ai_provider.title()} API key", password=True).strip()
+        if not ai_key:
+            console.print(f"[red]ERROR:[/red] {ai_provider.title()} API key is required. Setup aborted.")
             return
 
+        # Optional: let user customize model
+        console.print(f"\n   Default model: [green]{info['default_model']}[/green]")
+        custom_model = Prompt.ask("   Custom model (press Enter to use default)", default="").strip()
+        ai_model = custom_model if custom_model else info['default_model']
+
         env_content = f"""OBSIDIAN_API_KEY={obsidian_key}
-ANTHROPIC_API_KEY={anthropic_key}
+{info['key_name']}={ai_key}
         """
 
         try:
@@ -99,6 +159,8 @@ ANTHROPIC_API_KEY={anthropic_key}
             "APPROVE_CARDS": approve_cards,
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
             "SYNTAX_HIGHLIGHTING": syntax_highlighting,
+            "AI_PROVIDER": ai_provider,
+            "AI_MODEL": ai_model,
         })
 
         try:

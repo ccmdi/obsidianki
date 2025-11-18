@@ -31,14 +31,21 @@ This will start the interactive setup. Here's what you'll need:
    - Install [plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) in Obsidian
    - Copy the API key from plugin settings
 
-2. **Anthropic API key:**
-   - Get from [console.anthropic.com](https://console.anthropic.com/)
+2. **AI Provider (choose one):**
+   - **Anthropic** (Claude): [console.anthropic.com](https://console.anthropic.com/)
+   - **OpenAI** (GPT-4): [platform.openai.com](https://platform.openai.com/api-keys)
+   - **Google** (Gemini): [makersuite.google.com](https://makersuite.google.com/app/apikey)
+   - **Groq** (Fast Llama): [console.groq.com](https://console.groq.com/keys)
+   - **Azure OpenAI**: [portal.azure.com](https://portal.azure.com/)
+   - **Cohere**: [dashboard.cohere.com](https://dashboard.cohere.com/api-keys)
+   - **Together AI**: [api.together.xyz](https://api.together.xyz/settings/api-keys)
+   - **Mistral**: [console.mistral.ai](https://console.mistral.ai/api-keys/)
 
 3. **AnkiConnect setup:**
    - Add-on code: `2055492159`
    - Keep Anki running
 
-You can then follow the interactive setup and edit the configuration as you like.
+The interactive setup will guide you through provider selection and configuration.
 
 ## Usage
 
