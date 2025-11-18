@@ -81,7 +81,7 @@ def handle_config_command(args):
 
         # Special validation for DIFFICULTY
         if key_upper == 'DIFFICULTY':
-            if value not in ('easy', 'normal', 'hard'):
+            if value not in ('easy', 'normal', 'hard', 'none'):
                 console.print(f"[red]Invalid difficulty: {value}[/red]")
                 console.print("[dim]Valid options: easy, normal, hard[/dim]")
                 return

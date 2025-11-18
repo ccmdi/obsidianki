@@ -28,7 +28,7 @@ def temp_config():
             "CARD_TYPE": "basic",
             "SAMPLING_MODE": "weighted",
             "DAYS_OLD": 7,
-            "DIFFICULTY": "normal",
+            "DIFFICULTY": "none",
             "SYNTAX_HIGHLIGHTING": False,
             "SEARCH_FOLDERS": [],
             "DEDUPLICATE_VIA_HISTORY": False,

@@ -98,6 +98,7 @@ def preprocess(args: argparse.Namespace):
     CONFIG.deck = args.deck or CONFIG.deck # --deck
     CONFIG.density_bias_strength = args.bias or CONFIG.density_bias_strength # --bias
     CONFIG.use_extrapolation = args.extrapolate # --extrapolate
+    CONFIG.difficulty = args.difficulty or CONFIG.difficulty # --difficulty
 
     if args.notes:
         # When --notes is provided, scale cards to 2 * number of notes (unless --cards also provided)

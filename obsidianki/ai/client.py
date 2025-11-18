@@ -69,6 +69,8 @@ class FlashcardAI:
     def _build_difficulty_context(self) -> str:
         """Build difficulty context based on configured difficulty level"""
         difficulty = CONFIG.difficulty.lower()
+        if difficulty == "none":
+            return ""
 
         if difficulty == "easy":
             return """
