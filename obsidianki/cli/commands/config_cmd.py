@@ -16,6 +16,7 @@ def handle_config_command(args):
             "config": "List all configuration settings",
             "config get <key>": "Get a configuration value",
             "config set <key> <value>": "Set a configuration value",
+            "config set model \"<name>\"": "Set AI model (Claude Sonnet 4, GPT-5, etc.)",
             "config reset": "Reset configuration to defaults",
             "config where": "Show configuration directory path"
         })
@@ -68,10 +69,67 @@ def handle_config_command(args):
         from obsidianki.cli.config import DEFAULT_CONFIG
 
         key_upper = args.key.upper()
+
+        # Special handling for "model" - allows human-friendly names
+        if key_upper == 'MODEL':
+            MODEL_MAP = {
+                "Claude Sonnet 4": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4-20250514"
+                },
+                "Claude Opus 4": {
+                    "provider": "anthropic",
+                    "model": "claude-opus-4-20250514"
+                },
+                "GPT-5": {
+                    "provider": "openai",
+                    "model": "gpt-5"
+                },
+                "Gemini 3 Pro Preview": {
+                    "provider": "google",
+                    "model": "gemini/gemini-3-pro-preview"
+                },
+                "GPT-4o": {
+                    "provider": "openai",
+                    "model": "gpt-4o"
+                },
+                "GPT-4o Mini": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini"
+                },
+                "Gemini 2.5 Flash": {
+                    "provider": "google",
+                    "model": "gemini/gemini-2.5-flash"
+                },
+                "DeepSeek V3.1": {
+                    "provider": "deepseek",
+                    "model": "deepseek/deepseek-chat"
+                }
+            }
+
+            if args.value in MODEL_MAP:
+                info = MODEL_MAP[args.value]
+                user_config["AI_PROVIDER"] = info["provider"]
+                user_config["AI_MODEL"] = info["model"]
+
+                with open(CONFIG_FILE, 'w') as f:
+                    json.dump(user_config, f, indent=2)
+
+                console.print(f"[green]✓[/green] Set model to [bold]{args.value}[/bold]")
+                console.print(f"[dim]  Provider: {info['provider']}[/dim]")
+                console.print(f"[dim]  Model: {info['model']}[/dim]")
+                return
+            else:
+                console.print(f"[red]Invalid model: {args.value}[/red]")
+                console.print("[dim]Valid options:[/dim]")
+                for model_name in MODEL_MAP.keys():
+                    console.print(f"  - {model_name}")
+                return
+
         # Check if key exists in DEFAULT_CONFIG (support new config keys)
         if key_upper not in DEFAULT_CONFIG:
             console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
-            console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
+            console.print("[dim]Use 'oki config' to see available keys.[/dim]")
             return
 
         # Try to convert value to appropriate type
@@ -83,7 +141,7 @@ def handle_config_command(args):
         if key_upper == 'DIFFICULTY':
             if value not in ('easy', 'normal', 'hard', 'none'):
                 console.print(f"[red]Invalid difficulty: {value}[/red]")
-                console.print("[dim]Valid options: easy, normal, hard[/dim]")
+                console.print("[dim]Valid options: easy, normal, hard, none[/dim]")
                 return
 
         if isinstance(current_value, bool):
