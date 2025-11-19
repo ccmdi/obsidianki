@@ -1,4 +1,5 @@
 import os
+import json
 from typing import List, Dict, Optional, Union, cast
 import litellm
 from litellm import completion
@@ -163,6 +164,63 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] LLM call failed" + str(e))
             return None
 
+    def _extract_flashcards_from_response(
+        self,
+        response: Optional[ModelResponse],
+        note: Note,
+        default_tags: Optional[List[str]] = None
+    ) -> List[Flashcard]:
+        """Extract and process flashcards from LLM response
+
+        Args:
+            response: The LLM response containing tool calls
+            note: The note to associate with flashcards
+            default_tags: Optional default tags if card doesn't specify any
+
+        Returns:
+            List of processed Flashcard objects
+        """
+        if not response:
+            return []
+
+        try:
+            message = response.choices[0].message
+            if not hasattr(message, 'tool_calls') or not message.tool_calls:
+                console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
+                return []
+
+            tool_call = message.tool_calls[0]
+            arguments = json.loads(tool_call.function.arguments)
+            flashcard_dicts = arguments.get('flashcards', [])
+
+            flashcard_objects = []
+            for card in flashcard_dicts:
+                front_original = card.get('front', '')
+                back_original = card.get('back', '')
+
+                # Process code blocks with syntax highlighting
+                front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+                back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
+
+                # Determine tags priority: card's tags > default_tags > note's tags
+                tags = card.get('tags') or default_tags or note.tags.copy()
+
+                flashcard = Flashcard(
+                    front=front_processed,
+                    back=back_processed,
+                    note=note,
+                    tags=tags,
+                    front_original=front_original,
+                    back_original=back_original
+                )
+                flashcard_objects.append(flashcard)
+
+            return flashcard_objects
+
+        except Exception as e:
+            console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
+            return []
+
     def generate_flashcards(
         self,
         note: Note,
@@ -190,43 +248,7 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        if not response:
-            return []
-
-        # Extract flashcards from tool call
-        try:
-            message = response.choices[0].message
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                tool_call = message.tool_calls[0]
-                import json
-                arguments = json.loads(tool_call.function.arguments)
-
-                flashcard_dicts = arguments['flashcards']
-
-                flashcard_objects = []
-                for card in flashcard_dicts:
-                    front_original = card.get('front', '')
-                    back_original = card.get('back', '')
-                    front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
-                    back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
-
-                    flashcard = Flashcard(
-                        front=front_processed,
-                        back=back_processed,
-                        note=note,
-                        tags=card.get('tags', note.tags.copy()),
-                        front_original=front_original,
-                        back_original=back_original
-                    )
-                    flashcard_objects.append(flashcard)
-
-                return flashcard_objects
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
-            return []
-
-        console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
-        return []
+        return self._extract_flashcards_from_response(response, note)
 
     def generate_from_query(
         self,
@@ -252,50 +274,16 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        if not response:
-            return []
+        # Create virtual Note object for query-based flashcards
+        virtual_note = Note(
+            path="query",
+            filename=f"Query: {query}",
+            content=query,
+            tags=["query-generated"],
+            size=0
+        )
 
-        # Extract flashcards
-        try:
-            message = response.choices[0].message
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                tool_call = message.tool_calls[0]
-                import json
-                flashcard_dicts = json.loads(tool_call.function.arguments).get("flashcards", [])
-
-                # Create virtual Note object for query-based flashcards
-                virtual_note = Note(
-                    path="query",
-                    filename=f"Query: {query}",
-                    content=query,
-                    tags=["query-generated"],
-                    size=0
-                )
-
-                flashcard_objects = []
-                for card in flashcard_dicts:
-                    front_original = card.get('front', '')
-                    back_original = card.get('back', '')
-                    front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
-                    back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
-
-                    flashcard = Flashcard(
-                        front=front_processed,
-                        back=back_processed,
-                        note=virtual_note,
-                        tags=card.get('tags', ["query-generated"]),
-                        front_original=front_original,
-                        back_original=back_original
-                    )
-                    flashcard_objects.append(flashcard)
-
-                return flashcard_objects
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
-            return []
-
-        console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
-        return []
+        return self._extract_flashcards_from_response(response, virtual_note, default_tags=["query-generated"])
 
     def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: List[str] | None = None, deck_examples: List[Dict[str, str]] | None = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
@@ -324,41 +312,7 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        if not response:
-            return []
-
-        # Extract flashcards
-        try:
-            message = response.choices[0].message
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                tool_call = message.tool_calls[0]
-                import json
-                flashcard_dicts = json.loads(tool_call.function.arguments).get("flashcards", [])
-
-                flashcard_objects = []
-                for card in flashcard_dicts:
-                    front_original = card.get('front', '')
-                    back_original = card.get('back', '')
-                    front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
-                    back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
-
-                    flashcard = Flashcard(
-                        front=front_processed,
-                        back=back_processed,
-                        note=note,
-                        tags=card.get('tags', note.tags.copy()),
-                        front_original=front_original,
-                        back_original=back_original
-                    )
-                    flashcard_objects.append(flashcard)
-
-                return flashcard_objects
-        except Exception as e:
-            console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
-            return []
-
-        console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
-        return []
+        return self._extract_flashcards_from_response(response, note)
 
     def find_with_agent(self, natural_request: str, sample_size: int | None = None, bias_strength: float | None = None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
@@ -413,7 +367,6 @@ class FlashcardAI:
                 if hasattr(message, 'tool_calls') and message.tool_calls:
                     for tool_call in message.tool_calls:
                         tool_name = tool_call.function.name
-                        import json
                         tool_input = json.loads(tool_call.function.arguments)
 
                         if tool_name == "execute_dql_query":
@@ -602,7 +555,6 @@ IMPORTANT:
             message = response.choices[0].message
             if hasattr(message, 'tool_calls') and message.tool_calls:
                 tool_call = message.tool_calls[0]
-                import json
                 flashcard_data = json.loads(tool_call.function.arguments)
 
                 if "flashcards" in flashcard_data:
