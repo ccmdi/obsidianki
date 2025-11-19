@@ -1,9 +1,11 @@
-import os
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from litellm import completion
+    from litellm.types.utils import ModelResponse
+
 import json
 from typing import List, Dict, Optional, Union, cast
-import litellm
-from litellm import completion
-from litellm.types.utils import ModelResponse
 
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
@@ -13,9 +15,6 @@ from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_S
 from obsidianki.ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
 AI_RESULT_SET_SIZE = 20
-
-# Suppress litellm logging
-litellm.suppress_debug_info = True
 
 class FlashcardAI:
     def __init__(self):
@@ -147,6 +146,8 @@ class FlashcardAI:
     ) -> Optional[ModelResponse]:
         """Unified LLM call using litellm"""
         try:
+            from litellm import completion
+            from litellm.types.utils import ModelResponse
             response = completion(
                 model=self.model,
                 messages=[
