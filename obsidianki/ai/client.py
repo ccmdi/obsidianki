@@ -1,7 +1,8 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional, Union
 import litellm
 from litellm import completion
+from litellm.types.utils import ModelResponse
 
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.utils import process_code_blocks, strip_html
@@ -25,7 +26,7 @@ class FlashcardAI:
 
         self._validate_api_key()
 
-    def _validate_api_key(self):
+    def _validate_api_key(self) -> None:
         """Ensure appropriate API key is available for selected provider"""
         key_map = {model_info["provider"]: model_info["key_name"] for model_info in MODEL_MAP.values()}
 
@@ -132,10 +133,17 @@ class FlashcardAI:
 
         return ""
 
-    def _get_tool_choice(self, function_name: str):
+    def _get_tool_choice(self, function_name: str) -> str:
         return 'required'
 
-    def _call_llm(self, system_prompt: str, user_prompt: str, tools: List[Dict], tool_choice: Dict, max_tokens: int = 8000):
+    def _call_llm(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        tools: List[Dict[str, object]],
+        tool_choice: Union[str, Dict[str, object]],
+        max_tokens: int = 8000
+    ) -> Optional[ModelResponse]:
         """Unified LLM call using litellm"""
         try:
             response = completion(
@@ -154,8 +162,18 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] LLM call failed" + str(e))
             return None
 
-    def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
+    def generate_flashcards(
+        self,
+        note: Note,
+        target_cards: int,
+        previous_fronts: Optional[List[str]] = None,
+        deck_examples: Optional[List[Dict[str, str]]] = None
+    ) -> List[Flashcard]:
         """Generate flashcards from a Note object using LLM"""
+        if previous_fronts is None:
+            previous_fronts = []
+        if deck_examples is None:
+            deck_examples = []
 
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
@@ -214,8 +232,18 @@ class FlashcardAI:
         console.print("[yellow]WARNING:[/yellow] No flashcards generated - unexpected response format")
         return []
 
-    def generate_from_query(self, query: str, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
+    def generate_from_query(
+        self,
+        query: str,
+        target_cards: int,
+        previous_fronts: Optional[List[str]] = None,
+        deck_examples: Optional[List[Dict[str, str]]] = None
+    ) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
+        if previous_fronts is None:
+            previous_fronts = []
+        if deck_examples is None:
+            deck_examples = []
 
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
