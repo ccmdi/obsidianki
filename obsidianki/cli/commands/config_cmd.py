@@ -40,6 +40,7 @@ def handle_config_command(args):
             "config": "List all configuration settings",
             "config get <key>": "Get a configuration value",
             "config set <key> <value>": "Set a configuration value",
+            "config set model \"<name>\"": "Set model",
             "config reset": "Reset configuration to defaults",
             "config where": "Show configuration directory path"
         })
@@ -92,10 +93,30 @@ def handle_config_command(args):
         from obsidianki.cli.config import DEFAULT_CONFIG
 
         key_upper = args.key.upper()
+
+        # Special handling for "model" - allows human-friendly names
+        if key_upper == 'MODEL':
+            from obsidianki.ai.models import MODEL_MAP
+
+            if args.value in MODEL_MAP:
+                user_config["MODEL"] = args.value
+
+                with open(CONFIG_FILE, 'w') as f:
+                    json.dump(user_config, f, indent=2)
+
+                console.print(f"[green]✓[/green] Set model to [bold]{args.value}[/bold]")
+                return
+            else:
+                console.print(f"[red]Invalid model: {args.value}[/red]")
+                console.print("[dim]Valid options:[/dim]")
+                for model_name in MODEL_MAP.keys():
+                    console.print(f"  - {model_name}")
+                return
+
         # Check if key exists in DEFAULT_CONFIG (support new config keys)
         if key_upper not in DEFAULT_CONFIG:
             console.print(f"[red]Configuration key '{args.key}' not found.[/red]")
-            console.print("[dim]Use 'oki config list' to see available keys.[/dim]")
+            console.print("[dim]Use 'oki config' to see available keys.[/dim]")
             return
 
         # Try to convert value to appropriate type
@@ -107,7 +128,7 @@ def handle_config_command(args):
         if key_upper == 'DIFFICULTY':
             if value not in ('easy', 'normal', 'hard', 'none'):
                 console.print(f"[red]Invalid difficulty: {value}[/red]")
-                console.print("[dim]Valid options: easy, normal, hard[/dim]")
+                console.print("[dim]Valid options: easy, normal, hard, none[/dim]")
                 return
 
         if isinstance(current_value, bool):

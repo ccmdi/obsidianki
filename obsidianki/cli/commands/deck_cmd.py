@@ -4,7 +4,6 @@ import re
 from rich.markup import escape
 from rich.panel import Panel
 
-from obsidianki.cli.services import ANKI
 from obsidianki.cli.config import console
 from obsidianki.cli.utils import strip_html
 from obsidianki.cli.help_utils import show_simple_help
@@ -33,6 +32,7 @@ def setup_parser(subparsers):
 
 def handle_deck_command(args):
     """Handle deck management commands"""
+    from obsidianki.cli.services import ANKI
 
     # Handle help request
     if args.help:
@@ -44,17 +44,15 @@ def handle_deck_command(args):
         })
         return
 
-    anki = ANKI
-
     # Test connection first
-    if not anki.test_connection():
+    if not ANKI.test_connection():
         console.print("[red]ERROR:[/red] Cannot connect to AnkiConnect")
         console.print("[dim]Make sure Anki is running with AnkiConnect add-on installed[/dim]")
         return
 
     if args.deck_action is None:
         # Default action: list decks
-        deck_names = anki.get_decks()
+        deck_names = ANKI.get_decks()
 
         if not deck_names:
             console.print("[yellow]No decks found[/yellow]")
@@ -70,7 +68,7 @@ def handle_deck_command(args):
             console.print(f"[dim]Found {len(deck_names)} decks:[/dim]")
             console.print()
             for deck_name in sorted(deck_names):
-                stats = anki.get_stats(deck_name)
+                stats = ANKI.get_stats(deck_name)
                 total_cards = stats.get("total_cards", 0)
 
                 console.print(f"  [cyan]{deck_name}[/cyan]")
@@ -90,7 +88,7 @@ def handle_deck_command(args):
 
         console.print(f"[cyan]Renaming deck:[/cyan] [bold]{old_name}[/bold] → [bold]{new_name}[/bold]")
 
-        if anki.rename_deck(old_name, new_name):
+        if ANKI.rename_deck(old_name, new_name):
             console.print(f"[green]✓[/green] Successfully renamed deck to '[cyan]{new_name}[/cyan]'")
         else:
             console.print("[red]Failed to rename deck[/red]")
@@ -103,7 +101,7 @@ def handle_deck_command(args):
         limit = args.limit
 
         # Check if deck exists
-        deck_names = anki.get_decks()
+        deck_names = ANKI.get_decks()
         if deck_name not in deck_names:
             console.print(f"[red]ERROR:[/red] Deck '[cyan]{deck_name}[/cyan]' not found")
             console.print("\n[dim]Available decks:[/dim]")
@@ -116,7 +114,7 @@ def handle_deck_command(args):
         console.print()
 
         # Search for cards
-        results = anki.search_cards(deck_name, query, limit)
+        results = ANKI.search_cards(deck_name, query, limit)
 
         if not results:
             console.print(f"[yellow]No cards found matching '{query}'[/yellow]")

@@ -6,7 +6,7 @@ def _excepthook(exc_type, exc_value, exc_traceback):
     if exc_type is KeyboardInterrupt:
         sys.exit(130)
     else:
-        print(f"\nERROR: {exc_value}", file=sys.stderr)
+        console.print(f"[red]ERROR:[/red] {exc_value}")
         sys.exit(1)
 sys.excepthook = _excepthook
 

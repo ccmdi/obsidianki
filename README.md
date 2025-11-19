@@ -31,14 +31,15 @@ This will start the interactive setup. Here's what you'll need:
    - Install [plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) in Obsidian
    - Copy the API key from plugin settings
 
-2. **Anthropic API key:**
-   - Get from [console.anthropic.com](https://console.anthropic.com/)
+2. **AI Model:**
+   - Choose from popular models (Claude 4, GPT-4o, Gemini 2.0, etc.)
+   - 8+ providers supported through LiteLLM
 
 3. **AnkiConnect setup:**
    - Add-on code: `2055492159`
    - Keep Anki running
 
-You can then follow the interactive setup and edit the configuration as you like.
+The interactive setup will guide you through model selection and configuration.
 
 ## Usage
 
@@ -49,9 +50,10 @@ oki                          # Alias
 
 ### Configuration
 ```bash
-oki config                   # Show config
-oki config get max_cards     # Get specific setting
-oki config set max_cards 15  # Update setting
+oki config                         # Show config
+oki config get max_cards           # Get specific setting
+oki config set max_cards 15        # Update setting
+oki config set model "GPT-5"       # Switch AI model
 ```
 
 ### Tags
