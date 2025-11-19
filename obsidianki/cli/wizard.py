@@ -12,6 +12,7 @@ def setup(force_full_setup=False):
     console.print(Panel(Text("ObsidianKi Setup", style="bold blue"), style="blue"))
 
     step_num = 1
+    model_choice = None  # Initialize to None, will be set if API keys are configured
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -106,7 +107,7 @@ def setup(force_full_setup=False):
         from obsidianki.cli.config import DEFAULT_CONFIG
 
         user_config = DEFAULT_CONFIG.copy()
-        user_config.update({
+        config_update = {
             "MAX_CARDS": max_cards,
             "NOTES_TO_SAMPLE": notes_to_sample,
             "DAYS_OLD": days_old,
@@ -116,8 +117,11 @@ def setup(force_full_setup=False):
             "APPROVE_CARDS": approve_cards,
             "DEDUPLICATE_VIA_HISTORY": deduplicate_via_history,
             "SYNTAX_HIGHLIGHTING": syntax_highlighting,
-            "MODEL": model_choice,
-        })
+        }
+        # Only update MODEL if it was set during this setup run
+        if model_choice is not None:
+            config_update["MODEL"] = model_choice
+        user_config.update(config_update)
 
         try:
             CONFIG.save(user_config)

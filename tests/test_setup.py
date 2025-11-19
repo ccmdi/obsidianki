@@ -31,7 +31,7 @@ def mock_prompts():
         prompt_lower = prompt_text.lower()
 
         # API keys
-        if 'anthropic' in prompt_lower:
+        if 'anthropic' in prompt_lower or 'api key' in prompt_lower:
             return mock_responses['api_key']
         elif 'obsidian' in prompt_lower:
             return mock_responses['obsidian_key']
@@ -75,9 +75,30 @@ def mock_prompts():
 
         return default if default is not None else True
 
+    def mock_questionary_select(message, choices=None, default=None, **kwargs):
+        """Mock questionary.select() - returns object with .ask() method"""
+        class MockResponse:
+            def __init__(self, value):
+                self.value = value
+            def ask(self):
+                return self.value
+
+        message_lower = message.lower()
+
+        if 'model' in message_lower:
+            return MockResponse("Claude Sonnet 4.5")
+        elif 'sampling' in message_lower:
+            return MockResponse("weighted")
+        elif 'card type' in message_lower:
+            return MockResponse("basic")
+
+        # Default fallback
+        return MockResponse(default if default else (choices[0] if choices else ""))
+
     with patch('rich.prompt.Prompt.ask', side_effect=mock_prompt_ask), \
          patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt_ask), \
-         patch('rich.prompt.Confirm.ask', side_effect=mock_confirm_ask):
+         patch('rich.prompt.Confirm.ask', side_effect=mock_confirm_ask), \
+         patch('questionary.select', side_effect=mock_questionary_select):
         yield mock_responses
 
 
@@ -146,7 +167,7 @@ class TestSetupFlow:
         def mock_prompt(text, **kwargs):
             if 'Obsidian' in text:
                 return 'test_obs_key_123'
-            elif 'Anthropic' in text:
+            elif 'API key' in text or 'api key' in text.lower():
                 return 'test_anthro_key_456'
             elif 'Sampling mode' in text:
                 return 'random'
@@ -160,6 +181,23 @@ class TestSetupFlow:
         def mock_confirm(text, **kwargs):
             return kwargs.get('default', False)
 
+        def mock_questionary(message, choices=None, default=None, **kwargs):
+            """Mock questionary.select()"""
+            class MockResponse:
+                def __init__(self, value):
+                    self.value = value
+                def ask(self):
+                    return self.value
+
+            message_lower = message.lower()
+            if 'model' in message_lower:
+                return MockResponse("Claude Sonnet 4.5")
+            elif 'sampling' in message_lower:
+                return MockResponse("random")
+            elif 'card type' in message_lower:
+                return MockResponse("basic")
+            return MockResponse(default if default else (choices[0] if choices else ""))
+
         # Patch both the wizard module's paths and config module's paths
         with patch('obsidianki.cli.wizard.CONFIG_DIR', test_config_dir), \
                 patch('obsidianki.cli.wizard.ENV_FILE', test_env), \
@@ -168,7 +206,8 @@ class TestSetupFlow:
                 patch('obsidianki.cli.config.CONFIG_FILE', test_config), \
                 patch('rich.prompt.Prompt.ask', side_effect=mock_prompt), \
                 patch('rich.prompt.IntPrompt.ask', side_effect=mock_int_prompt), \
-                patch('rich.prompt.Confirm.ask', side_effect=mock_confirm):
+                patch('rich.prompt.Confirm.ask', side_effect=mock_confirm), \
+                patch('questionary.select', side_effect=mock_questionary):
 
             from obsidianki.cli.wizard import setup
             setup(force_full_setup=True)
@@ -195,7 +234,21 @@ class TestSetupValidation:
         def mock_empty_prompt(prompt_text, **kwargs):
             return ""  # Empty key
 
-        with patch('rich.prompt.Prompt.ask', side_effect=mock_empty_prompt):
+        def mock_questionary_for_empty_test(message, choices=None, default=None, **kwargs):
+            """Mock questionary.select() for empty key test"""
+            class MockResponse:
+                def __init__(self, value):
+                    self.value = value
+                def ask(self):
+                    return self.value
+
+            # Return valid values for model selection so test gets to API key prompt
+            if 'model' in message.lower():
+                return MockResponse("Claude Sonnet 4.5")
+            return MockResponse(default if default else (choices[0] if choices else ""))
+
+        with patch('rich.prompt.Prompt.ask', side_effect=mock_empty_prompt), \
+             patch('questionary.select', side_effect=mock_questionary_for_empty_test):
             sys.argv = ['oki', '--setup']
             from obsidianki.main import main
 
