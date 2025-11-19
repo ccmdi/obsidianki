@@ -17,6 +17,8 @@ def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, 
     from obsidianki.cli.config import console
     note.ensure_content()
 
+    console.print("   ", end="")
+
     # Generate flashcards
     if args.query and note.path == "query":
         # Standalone query mode - use direct query generation
@@ -273,7 +275,6 @@ def preprocess(args: argparse.Namespace):
                 except KeyboardInterrupt:
                     raise
 
-            console.print("   ", end="")  # Indent cursor position
             valid_notes.append(note)
         
         if not valid_notes:
@@ -321,7 +322,6 @@ def preprocess(args: argparse.Namespace):
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return 0
 
-            console.print("   ", end="")  # Indent cursor position
             try:
                 flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
                 console.print()  # Clear the indented cursor line

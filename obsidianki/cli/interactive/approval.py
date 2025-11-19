@@ -252,13 +252,17 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
+    from rich.console import Group
+    from rich.text import Text
+
     front_clean = flashcard.get_clean_front()
     back_clean = flashcard.get_clean_back()
 
-    # Print with padding to maintain indentation on newlines
-    console.print(Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3)))
-    console.print(Padding(f"[cyan]Back:[/cyan] {back_clean}", (0, 0, 0, 3)))
-    console.print()
+    front_line = Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3))
+    back_line = Padding(f"[cyan]Back:[/cyan] {back_clean}", (0, 0, 0, 3))
+    blank_line = Text("")
+
+    console.print(Group(front_line, back_line, blank_line))
 
     try:
         result = Confirm.ask("   Add this card to Anki?", default=True, console=console)
