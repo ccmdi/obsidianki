@@ -166,15 +166,10 @@ class FlashcardAI:
         self,
         note: Note,
         target_cards: int,
-        previous_fronts: Optional[List[str]] = None,
-        deck_examples: Optional[List[Dict[str, str]]] = None
+        previous_fronts: List[str] = [],
+        deck_examples: List[Dict[str, str]] = []
     ) -> List[Flashcard]:
         """Generate flashcards from a Note object using LLM"""
-        if previous_fronts is None:
-            previous_fronts = []
-        if deck_examples is None:
-            deck_examples = []
-
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
         schema_context = self._build_schema_context(deck_examples)
@@ -236,15 +231,10 @@ class FlashcardAI:
         self,
         query: str,
         target_cards: int,
-        previous_fronts: Optional[List[str]] = None,
-        deck_examples: Optional[List[Dict[str, str]]] = None
+        previous_fronts: List[str] = [],
+        deck_examples: List[Dict[str, str]] = []
     ) -> List[Flashcard]:
         """Generate flashcards based on a user query without source material"""
-        if previous_fronts is None:
-            previous_fronts = []
-        if deck_examples is None:
-            deck_examples = []
-
         card_instruction = self._build_card_instruction(target_cards)
         dedup_context = self._build_dedup_context(previous_fronts)
         schema_context = self._build_schema_context(deck_examples)
