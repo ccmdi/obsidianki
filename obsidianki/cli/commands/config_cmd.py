@@ -7,6 +7,30 @@ from obsidianki.cli.config import CONFIG_FILE, CONFIG_DIR, console
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for config command"""
+    config_parser = subparsers.add_parser('config', help='Manage configuration', add_help=False)
+    config_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    config_subparsers = config_parser.add_subparsers(dest='config_action', help='Config actions')
+
+    # config get <key>
+    get_parser = config_subparsers.add_parser('get', help='Get a configuration value')
+    get_parser.add_argument('key', help='Configuration key to get')
+
+    # config set <key> <value>
+    set_parser = config_subparsers.add_parser('set', help='Set a configuration value')
+    set_parser.add_argument('key', help='Configuration key to set')
+    set_parser.add_argument('value', help='Value to set')
+
+    # config reset
+    config_subparsers.add_parser('reset', help='Reset configuration to defaults')
+
+    # config where
+    config_subparsers.add_parser('where', help='Show configuration directory path')
+
+    return config_parser
+
+
 def handle_config_command(args):
     """Handle config management commands"""
 
@@ -139,3 +163,11 @@ def handle_config_command(args):
         except KeyboardInterrupt:
             raise
         return
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['config'],
+    'setup_parser': setup_parser,
+    'handler': handle_config_command
+}

@@ -9,6 +9,27 @@ from obsidianki.cli.utils import strip_html
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for deck command"""
+    deck_parser = subparsers.add_parser('deck', help='Manage Anki decks', add_help=False)
+    deck_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    deck_parser.add_argument("-m", "--metadata", action="store_true", help="Show metadata (card counts)")
+    deck_subparsers = deck_parser.add_subparsers(dest='deck_action', help='Deck actions')
+
+    # deck rename <old_name> <new_name>
+    rename_parser = deck_subparsers.add_parser('rename', help='Rename a deck')
+    rename_parser.add_argument('old_name', help='Current deck name')
+    rename_parser.add_argument('new_name', help='New deck name')
+
+    # deck search <deck_name> <query>
+    search_parser = deck_subparsers.add_parser('search', help='Search for cards in a deck')
+    search_parser.add_argument('deck_name', help='Deck name to search in')
+    search_parser.add_argument('query', help='Search query (searches front and back of cards)')
+    search_parser.add_argument('-l', '--limit', type=int, default=20, help='Maximum number of results to show (default: 20)')
+
+    return deck_parser
+
+
 def handle_deck_command(args):
     """Handle deck management commands"""
     from obsidianki.cli.services import ANKI
@@ -139,3 +160,11 @@ def handle_deck_command(args):
             console.print(f"[dim]Showing first {limit} results. Use -l/--limit to show more.[/dim]")
 
         return
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['deck'],
+    'setup_parser': setup_parser,
+    'handler': handle_deck_command
+}
