@@ -4,7 +4,6 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 
 from obsidianki.cli.models import Note, Flashcard
-from obsidianki.cli.services import ANKI, AI
 from obsidianki.cli.config import CONFIG, console
 from obsidianki.cli.interactive.approval import approve_flashcard
 from obsidianki.cli.interactive.card_selector import create_card_selector
@@ -14,6 +13,8 @@ def edit_mode(args):
     """
     Entry point for interactive editing of existing flashcards.
     """
+    from obsidianki.cli.services import ANKI, AI
+
     deck_name = args.deck if args.deck else CONFIG.deck
 
     console.print(Panel("ObsidianKi - Editing mode", style="bold blue"))
