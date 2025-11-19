@@ -133,13 +133,7 @@ class FlashcardAI:
         return ""
 
     def _get_tool_choice(self, function_name: str):
-        """Get provider-specific tool_choice format"""
-        if self.provider == "anthropic":
-            # Anthropic uses nested format
-            return {"type": "function", "function": {"name": function_name}}
-        else:
-            # OpenAI, Google, DeepSeek use simpler format
-            return {"type": "function", "name": function_name}
+        return 'required'
 
     def _call_llm(self, system_prompt: str, user_prompt: str, tools: List[Dict], tool_choice: Dict, max_tokens: int = 8000):
         """Unified LLM call using litellm"""
@@ -156,7 +150,15 @@ class FlashcardAI:
             )
             return response
         except Exception as e:
-            console.print(f"[red]ERROR:[/red] LLM call failed: {e}")
+            import traceback
+            console.print(f"[red]ERROR:[/red] LLM call failed")
+            console.print(f"[red]Provider:[/red] {self.provider}")
+            console.print(f"[red]Model:[/red] {self.model}")
+            console.print(f"[red]Error type:[/red] {type(e).__name__}")
+            console.print(f"[red]Error message:[/red] {str(e)}")
+            console.print(f"[dim]Tool choice:[/dim] {tool_choice}")
+            console.print(f"[dim]Full traceback:[/dim]")
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
             return None
 
     def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:
@@ -213,7 +215,6 @@ class FlashcardAI:
 
                 return flashcard_objects
         except Exception as e:
-            print(response)
             console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
             return []
 
