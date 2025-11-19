@@ -32,6 +32,11 @@ class FlashcardAI:
 
         required_key = key_map.get(self.provider)
 
+        import os
+        if required_key is not None:
+            if required_key not in os.environ:
+                raise ValueError(f"{required_key} not found in environment variables for provider {self.provider}")
+
         if required_key is None:
             raise ValueError(f"{required_key} not found in environment variables for provider {self.provider}")
 
@@ -161,8 +166,7 @@ class FlashcardAI:
             # We never use streaming, so response is always ModelResponse
             return cast(ModelResponse, response)
         except Exception as e:
-            import traceback
-            console.print(f"[red]ERROR:[/red] LLM call failed" + str(e))
+            console.print(f"[red]ERROR:[/red] LLM call failed: {e}")
             return None
 
     def _extract_flashcards_from_response(
