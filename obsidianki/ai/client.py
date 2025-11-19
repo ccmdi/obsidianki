@@ -151,14 +151,7 @@ class FlashcardAI:
             return response
         except Exception as e:
             import traceback
-            console.print(f"[red]ERROR:[/red] LLM call failed")
-            console.print(f"[red]Provider:[/red] {self.provider}")
-            console.print(f"[red]Model:[/red] {self.model}")
-            console.print(f"[red]Error type:[/red] {type(e).__name__}")
-            console.print(f"[red]Error message:[/red] {str(e)}")
-            console.print(f"[dim]Tool choice:[/dim] {tool_choice}")
-            console.print(f"[dim]Full traceback:[/dim]")
-            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            console.print(f"[red]ERROR:[/red] LLM call failed" + str(e))
             return None
 
     def generate_flashcards(self, note: Note, target_cards: int, previous_fronts: list = [], deck_examples: list = []) -> List[Flashcard]:

@@ -37,7 +37,7 @@ MODEL_MAP = {
     },
     "Gemini 2.5 Flash": {
         "provider": "google",
-        "model": "google/gemini-2.0-flash-exp",
+        "model": "gemini/gemini-2.5-flash",
         "key_name": "GEMINI_API_KEY",
         "url": "https://makersuite.google.com/app/apikey"
     },
