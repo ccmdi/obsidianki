@@ -27,10 +27,20 @@ def mock_services(monkeypatch):
     obsidianki.cli.services.OBSIDIAN = DummyObsidianAPI()
     obsidianki.cli.services.ANKI = DummyAnkiAPI()
 
-    if 'obsidianki.cli.processors' in sys.modules:
-        importlib.reload(sys.modules['obsidianki.cli.processors'])
-    if 'obsidianki.main' in sys.modules:
-        importlib.reload(sys.modules['obsidianki.main'])
+    # Reload all modules that import from services to pick up the mocks
+    modules_to_reload = [
+        'obsidianki.cli.processors',
+        'obsidianki.main',
+        'obsidianki.cli.commands.deck_cmd',
+        'obsidianki.cli.commands.config_cmd',
+        'obsidianki.cli.commands.stats_cmd',
+        'obsidianki.cli.commands.schema_cmd',
+        'obsidianki.cli.interactive.edit_mode',
+    ]
+
+    for module_name in modules_to_reload:
+        if module_name in sys.modules:
+            importlib.reload(sys.modules[module_name])
 
     yield
 
