@@ -8,6 +8,22 @@ from obsidianki.cli.config import CONFIG, console
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for history command"""
+    history_parser = subparsers.add_parser('history', help='Manage processing history', add_help=False)
+    history_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    history_subparsers = history_parser.add_subparsers(dest='history_action', help='History actions')
+
+    # history clear
+    clear_parser = history_subparsers.add_parser('clear', help='Clear processing history')
+    clear_parser.add_argument('--notes', nargs='+', help='Clear history for specific notes only (patterns supported)')
+
+    # history stats
+    history_subparsers.add_parser('stats', help='Show flashcard generation statistics')
+
+    return history_parser
+
+
 def handle_history_command(args):
     """Handle history management commands"""
 
@@ -171,3 +187,11 @@ def handle_history_command(args):
         except Exception as e:
             console.print(f"[red]Error reading history: {e}[/red]")
         return
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['history'],
+    'setup_parser': setup_parser,
+    'handler': handle_history_command
+}

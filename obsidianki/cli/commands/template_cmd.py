@@ -8,6 +8,29 @@ from obsidianki.cli.config import CONFIG, console
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for template command"""
+    template_parser = subparsers.add_parser('template', aliases=['templates'], help='Manage command templates', add_help=False)
+    template_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    template_subparsers = template_parser.add_subparsers(dest='template_action', help='Template actions')
+
+    # template add <name> <command>
+    add_template_parser = template_subparsers.add_parser('add', help='Add a command template')
+    add_template_parser.add_argument('name', help='Template name')
+    add_template_parser.add_argument('template_command', help='Command template (without "oki" prefix)')
+
+    # template use <name> [override args...]
+    use_template_parser = template_subparsers.add_parser('use', help='Execute a saved template')
+    use_template_parser.add_argument('name', help='Template name')
+    use_template_parser.add_argument('override_args', nargs='...', help='Additional arguments to override template defaults')
+
+    # template remove <name>
+    remove_template_parser = template_subparsers.add_parser('remove', help='Remove a template')
+    remove_template_parser.add_argument('name', help='Template name')
+
+    return template_parser
+
+
 def handle_template_command(args):
     """Handle template management commands"""
 
@@ -109,3 +132,11 @@ def handle_template_command(args):
                 console.print(f"[green]✓[/green] Removed template '[cyan]{name}[/cyan]'")
         else:
             console.print("[yellow]Cancelled[/yellow]")
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['template', 'templates'],
+    'setup_parser': setup_parser,
+    'handler': handle_template_command
+}

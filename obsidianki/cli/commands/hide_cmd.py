@@ -6,6 +6,19 @@ from obsidianki.cli.config import CONFIG, console
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for hide command"""
+    hide_parser = subparsers.add_parser('hide', help='Manage hidden notes', add_help=False)
+    hide_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    hide_subparsers = hide_parser.add_subparsers(dest='hide_action', help='Hide actions')
+
+    # hide unhide <note_path>
+    unhide_parser = hide_subparsers.add_parser('unhide', help='Unhide a specific note')
+    unhide_parser.add_argument('note_path', help='Path to note to unhide')
+
+    return hide_parser
+
+
 def handle_hide_command(args):
     """Handle hidden notes management commands"""
 
@@ -43,3 +56,11 @@ def handle_hide_command(args):
         else:
             console.print(f"[red]Note not found in hidden list:[/red] {note_path}")
         return
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['hide'],
+    'setup_parser': setup_parser,
+    'handler': handle_hide_command
+}

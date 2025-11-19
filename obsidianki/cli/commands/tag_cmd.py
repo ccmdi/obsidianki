@@ -4,6 +4,32 @@ from obsidianki.cli.config import CONFIG, console
 from obsidianki.cli.help_utils import show_simple_help
 
 
+def setup_parser(subparsers):
+    """Setup argparse parser for tag command"""
+    tag_parser = subparsers.add_parser('tag', aliases=['tags'], help='Manage tag weights', add_help=False)
+    tag_parser.add_argument("-h", "--help", action="store_true", help="Show help message")
+    tag_subparsers = tag_parser.add_subparsers(dest='tag_action', help='Tag actions')
+
+    # tag add <tag> <weight>
+    add_parser = tag_subparsers.add_parser('add', help='Add or update a tag weight')
+    add_parser.add_argument('tag', help='Tag name')
+    add_parser.add_argument('weight', type=float, help='Tag weight')
+
+    # tag remove <tag>
+    remove_parser = tag_subparsers.add_parser('remove', help='Remove a tag weight')
+    remove_parser.add_argument('tag', help='Tag name to remove')
+
+    # tag exclude <tag>
+    exclude_parser = tag_subparsers.add_parser('exclude', help='Add a tag to exclusion list')
+    exclude_parser.add_argument('tag', help='Tag name to exclude')
+
+    # tag include <tag>
+    include_parser = tag_subparsers.add_parser('include', help='Remove a tag from exclusion list')
+    include_parser.add_argument('tag', help='Tag name to include')
+
+    return tag_parser
+
+
 def handle_tag_command(args):
     """Handle tag management commands"""
 
@@ -69,3 +95,11 @@ def handle_tag_command(args):
         else:
             console.print(f"[yellow]Tag '{tag}' is not in exclusion list[/yellow]")
         return
+
+
+# Command registration for main.py
+COMMAND = {
+    'names': ['tag', 'tags'],
+    'setup_parser': setup_parser,
+    'handler': handle_tag_command
+}
