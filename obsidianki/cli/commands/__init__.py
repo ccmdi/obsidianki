@@ -8,8 +8,6 @@ from obsidianki.cli.commands.template_cmd import COMMAND as template_command
 from obsidianki.cli.commands.hide_cmd import COMMAND as hide_command
 from obsidianki.cli.commands.edit_cmd import COMMAND as edit_command
 
-# Registry of all available commands
-# Each command exports: {'names': [...], 'setup_parser': func, 'handler': func}
 ALL_COMMANDS = [
     config_command,
     tag_command,

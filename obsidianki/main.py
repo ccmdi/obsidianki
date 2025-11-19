@@ -76,7 +76,6 @@ def main():
     parser.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
 
-    # Auto-register all commands from the command registry
     subparsers = parser.add_subparsers(dest='command', help='Commands')
     for command in ALL_COMMANDS:
         command['setup_parser'](subparsers)
@@ -91,7 +90,6 @@ def main():
         show_main_help()
         return 0
 
-    # Auto-dispatch to command handlers
     for command in ALL_COMMANDS:
         if args.command in command['names']:
             return command['handler'](args) or 0

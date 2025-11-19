@@ -14,7 +14,6 @@ def setup_parser(subparsers):
 
 def handle_edit_command(args):
     """Handle edit command"""
-    # Just delegate to the interactive edit mode
     return edit_mode(args)
 
 

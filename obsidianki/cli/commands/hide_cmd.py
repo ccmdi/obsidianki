@@ -22,7 +22,6 @@ def setup_parser(subparsers):
 def handle_hide_command(args):
     """Handle hidden notes management commands"""
 
-    # Handle help request
     if args.help:
         show_simple_help("Hidden Notes Management", {
             "hide": "List all hidden notes",
