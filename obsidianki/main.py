@@ -6,7 +6,7 @@ def _excepthook(exc_type, exc_value, exc_traceback):
     if exc_type is KeyboardInterrupt:
         sys.exit(130)
     else:
-        print(f"\nERROR: {exc_value}", file=sys.stderr)
+        console.print(f"[red]ERROR:[/red] {exc_value}")
         sys.exit(1)
 sys.excepthook = _excepthook
 
@@ -14,13 +14,6 @@ from rich.panel import Panel
 from rich.text import Text
 
 from obsidianki.cli.config import console, ENV_FILE, CONFIG_FILE
-from obsidianki.cli.commands.config_cmd import handle_config_command
-from obsidianki.cli.commands.tag_cmd import handle_tag_command
-from obsidianki.cli.commands.history_cmd import handle_history_command
-from obsidianki.cli.commands.deck_cmd import handle_deck_command
-from obsidianki.cli.commands.template_cmd import handle_template_command
-from obsidianki.cli.commands.hide_cmd import handle_hide_command
-from obsidianki.cli.interactive.edit_mode import edit_mode
 
 def show_main_help():
     """Display the main help screen"""
@@ -201,24 +194,31 @@ def main():
         return 0
 
     if args.command == 'config':
+        from obsidianki.cli.commands.config_cmd import handle_config_command
         handle_config_command(args)
         return 0
     elif args.command == 'history':
+        from obsidianki.cli.commands.history_cmd import handle_history_command
         handle_history_command(args)
         return 0
     elif args.command in ['tag', 'tags']:
+        from obsidianki.cli.commands.tag_cmd import handle_tag_command
         handle_tag_command(args)
         return 0
     elif args.command == 'deck':
+        from obsidianki.cli.commands.deck_cmd import handle_deck_command
         handle_deck_command(args)
         return 0
     elif args.command in ['template', 'templates']:
+        from obsidianki.cli.commands.template_cmd import handle_template_command
         handle_template_command(args)
         return 0
     elif args.command == 'hide':
+        from obsidianki.cli.commands.hide_cmd import handle_hide_command
         handle_hide_command(args)
         return 0
     elif args.command == 'edit':
+        from obsidianki.cli.interactive.edit_mode import edit_mode
         edit_mode(args)
         return 0
 
