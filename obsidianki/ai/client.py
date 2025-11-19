@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, cast
 import litellm
 from litellm import completion
 from litellm.types.utils import ModelResponse
@@ -156,7 +156,8 @@ class FlashcardAI:
                 tool_choice=tool_choice,
                 max_tokens=max_tokens
             )
-            return response
+            # We never use streaming, so response is always ModelResponse
+            return cast(ModelResponse, response)
         except Exception as e:
             import traceback
             console.print(f"[red]ERROR:[/red] LLM call failed" + str(e))
@@ -395,13 +396,13 @@ class FlashcardAI:
                     available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
                     tool_choice = "auto"
 
-                response = completion(
+                response = cast(ModelResponse, completion(
                     model=self.model,
                     messages=messages,
                     tools=available_tools,
                     tool_choice=tool_choice,
                     max_tokens=3000
-                )
+                ))
 
                 message = response.choices[0].message
                 messages.append({"role": "assistant", "content": message.content or "", "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None})
