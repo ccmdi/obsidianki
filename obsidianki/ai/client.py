@@ -132,6 +132,15 @@ class FlashcardAI:
 
         return ""
 
+    def _get_tool_choice(self, function_name: str):
+        """Get provider-specific tool_choice format"""
+        if self.provider == "anthropic":
+            # Anthropic uses nested format
+            return {"type": "function", "function": {"name": function_name}}
+        else:
+            # OpenAI, Google, DeepSeek use simpler format
+            return {"type": "function", "name": function_name}
+
     def _call_llm(self, system_prompt: str, user_prompt: str, tools: List[Dict], tool_choice: Dict, max_tokens: int = 8000):
         """Unified LLM call using litellm"""
         try:
@@ -169,7 +178,7 @@ class FlashcardAI:
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
             tools=[FLASHCARD_TOOL],
-            tool_choice={"type": "function", "function": {"name": "create_flashcards"}}
+            tool_choice=self._get_tool_choice("create_flashcards")
         )
 
         if not response:
@@ -227,7 +236,7 @@ class FlashcardAI:
             system_prompt=QUERY_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             tools=[FLASHCARD_TOOL],
-            tool_choice={"type": "function", "function": {"name": "create_flashcards"}}
+            tool_choice=self._get_tool_choice("create_flashcards")
         )
 
         if not response:
@@ -299,7 +308,7 @@ class FlashcardAI:
             system_prompt=TARGETED_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             tools=[FLASHCARD_TOOL],
-            tool_choice={"type": "function", "function": {"name": "create_flashcards"}}
+            tool_choice=self._get_tool_choice("create_flashcards")
         )
 
         if not response:
@@ -369,10 +378,10 @@ class FlashcardAI:
                 # Determine available tools
                 if not has_dql_results:
                     available_tools = [DQL_EXECUTION_TOOL]
-                    tool_choice = {"type": "function", "function": {"name": "execute_dql_query"}}
+                    tool_choice = self._get_tool_choice("execute_dql_query")
                 else:
                     available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
-                    tool_choice = {"type": "auto"}
+                    tool_choice = "auto"
 
                 response = completion(
                     model=self.model,
@@ -569,7 +578,7 @@ IMPORTANT:
             system_prompt=edit_system_prompt,
             user_prompt=edit_prompt,
             tools=[FLASHCARD_TOOL],
-            tool_choice={"type": "function", "function": {"name": "create_flashcards"}},
+            tool_choice=self._get_tool_choice("create_flashcards"),
             max_tokens=4000
         )
 
