@@ -126,9 +126,6 @@ def preprocess(args: argparse.Namespace):
         CONFIG.show_weights()
     console.print()
 
-    if args.query and not args.notes and CONFIG.deduplicate_via_deck:
-        console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
-
     # Test connections
     if not OBSIDIAN.test_connection():
         console.print("[red]ERROR:[/red] Cannot connect to Obsidian REST API")
@@ -254,6 +251,11 @@ def preprocess(args: argparse.Namespace):
         deck_fronts = ANKI.get_card_fronts(CONFIG.deck)
         if deck_fronts:
             console.print(f"[dim]Found {len(deck_fronts)} existing cards in deck '{CONFIG.deck}' for deduplication[/dim]")
+            if len(deck_fronts) > 10:
+                from rich.prompt import Confirm
+                if not Confirm.ask(f"Are you sure you want to proceed?", default=False):
+                    console.print("[red]ERROR:[/red] User cancelled")
+                    return 1
         previous_fronts = [deck_fronts] * len(notes)  # Same fronts for all notes (just the query note)
 
     total_cards = 0
