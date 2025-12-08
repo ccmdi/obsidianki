@@ -332,10 +332,11 @@ def completion(
         )
     else:
         # OpenAI-compatible providers
+        token_param = "max_completion_tokens" if provider == "openai" else "max_tokens"
         body: Dict[str, Any] = {
             "model": model_name,
             "messages": messages,
-            "max_tokens": max_tokens,
+            token_param: max_tokens,
         }
         if tools:
             body["tools"] = tools
