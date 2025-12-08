@@ -1,8 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from litellm import completion
-    from litellm.types.utils import ModelResponse
+from obsidianki.ai.call import completion
+from obsidianki.ai.call import ModelResponse
 
 import json
 from typing import List, Dict, Optional, Union, cast
@@ -149,22 +147,10 @@ class FlashcardAI:
         tool_choice: Union[str, Dict[str, object]],
         max_tokens: int = 8000
     ) -> Optional[ModelResponse]:
-        """Unified LLM call using litellm"""
+        """Unified LLM call"""
         try:
-            from litellm import completion
-            from litellm.types.utils import ModelResponse
-            response = completion(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                tools=tools,
-                tool_choice=tool_choice,
-                max_tokens=max_tokens
-            )
-            # We never use streaming, so response is always ModelResponse
-            return cast(ModelResponse, response)
+            response = completion(model=self.model, messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], tools=tools, tool_choice=tool_choice, max_tokens=max_tokens)
+            return response
         except Exception as e:
             console.print(f"[red]ERROR:[/red] LLM call failed: {e}")
             return None
