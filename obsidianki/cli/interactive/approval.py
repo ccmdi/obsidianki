@@ -38,10 +38,10 @@ def approve_note(note: Note) -> bool:
         metadata = f"[dim](W {weight:.2f} | T {total_cards})[/dim]"
 
     # Format: NOTE TITLE (W <weight> | D <deck> | T <total>)
-    console.print(f"   [dim]Path: {note.to_obsidian_link_rich()} {metadata}[/dim]")
+    console.print(f"[dim]Path: {note.to_obsidian_link_rich()} {metadata}[/dim]")
 
     if weight == 0:
-        console.print(f"   [yellow]WARNING:[/yellow] This note has 0 weight")
+        console.print(f"[yellow]WARNING:[/yellow] This note has 0 weight")
 
     def show_deck_breakdown():
         """Display deck breakdown for the note."""
@@ -85,8 +85,8 @@ def approve_note(note: Note) -> bool:
 
     def get_input_with_keyboard_listener():
         """Custom input that listens for Ctrl+D to toggle deck breakdown."""
-        # Build the prompt text
-        prompt_text = "   Process this note? [magenta](y/n/hide)[/magenta]"
+        # Build the prompt text with current indent
+        prompt_text = f"{console.prefix}Process this note? [magenta](y/n/hide)[/magenta]"
         if has_deck_info:
             prompt_text += " [dim](Ctrl+D)[/dim]"
 
@@ -235,14 +235,14 @@ def approve_note(note: Note) -> bool:
 
             if choice == "hide":
                 CONFIG.hide_note(note.path)
-                console.print(f"   [yellow]Note hidden permanently[/yellow]")
+                console.print(f"[yellow]Note hidden permanently[/yellow]")
                 return False
 
             if choice in ["y", "n"]:
                 return choice == "y"
 
             # Invalid input, re-prompt
-            console.print(f"   [yellow]Invalid choice. Please enter y, n, or hide[/yellow]")
+            console.print(f"[yellow]Invalid choice. Please enter y, n, or hide[/yellow]")
 
     except KeyboardInterrupt:
         raise
@@ -252,21 +252,15 @@ def approve_note(note: Note) -> bool:
 
 def approve_flashcard(flashcard: Flashcard) -> bool:
     """Ask user to approve Flashcard object before adding to Anki"""
-    from rich.console import Group
-    from rich.text import Text
-
     front_clean = flashcard.get_clean_front()
     back_clean = flashcard.get_clean_back()
 
-    front_line = Padding(f"[cyan]Front:[/cyan] {front_clean}", (0, 0, 0, 3))
-    back_line = Padding(f"[cyan]Back:[/cyan] {back_clean}", (0, 0, 0, 3))
-    blank_line = Text("")
-
-    console.print(Group(front_line, back_line, blank_line))
+    console.print(f"[cyan]Front:[/cyan] {front_clean}")
+    console.print(f"[cyan]Back:[/cyan] {back_clean}")
+    console.print()
 
     try:
-        result = Confirm.ask("   Add this card to Anki?", default=True, console=console)
-        console.print()
+        result = Confirm.ask(f"{console.prefix}Add this card to Anki?", default=True, console=console._console)
         return result
     except KeyboardInterrupt:
         raise

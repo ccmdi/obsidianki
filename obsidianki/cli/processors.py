@@ -17,26 +17,27 @@ def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, 
     from obsidianki.cli.config import console
     note.ensure_content()
 
-    console.print("   ", end="")
-
     # Generate flashcards
     if args.query and note.path == "query":
         # Standalone query mode - use direct query generation
-        flashcards = AI.generate_from_query(args.query,
-                                           target_cards=target_cards_per_note,
-                                           previous_fronts=previous_fronts,
-                                           deck_examples=deck_examples)
+        with console.status("Generating..."):
+            flashcards = AI.generate_from_query(args.query,
+                                               target_cards=target_cards_per_note,
+                                               previous_fronts=previous_fronts,
+                                               deck_examples=deck_examples)
     elif args.query:
-        console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-        flashcards = AI.generate_from_note_query(note, args.query,
-                                                target_cards=target_cards_per_note,
-                                                previous_fronts=previous_fronts,
-                                                deck_examples=deck_examples)
+        console.print(f"[cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
+        with console.status("Generating..."):
+            flashcards = AI.generate_from_note_query(note, args.query,
+                                                    target_cards=target_cards_per_note,
+                                                    previous_fronts=previous_fronts,
+                                                    deck_examples=deck_examples)
     else:
-        flashcards = AI.generate_flashcards(note,
-                                           target_cards=target_cards_per_note,
-                                           previous_fronts=previous_fronts,
-                                           deck_examples=deck_examples)
+        with console.status("Generating..."):
+            flashcards = AI.generate_flashcards(note,
+                                               target_cards=target_cards_per_note,
+                                               previous_fronts=previous_fronts,
+                                               deck_examples=deck_examples)
 
     return flashcards
 
@@ -54,8 +55,8 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
                 if CONFIG.approve_cards and approve_flashcard(flashcard):
                     approved_flashcards.append(flashcard)
                 elif CONFIG.print_cards:
-                    console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")
-                    console.print(f"   [cyan]Back:[/cyan] {flashcard.back}")
+                    console.print(f"[cyan]Front:[/cyan] {flashcard.front}")
+                    console.print(f"[cyan]Back:[/cyan] {flashcard.back}")
                     console.print()
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
@@ -326,28 +327,29 @@ def preprocess(args: argparse.Namespace):
 
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if CONFIG.approve_notes:
+            with console.indent():
+                if CONFIG.approve_notes:
+                    try:
+                        if not approve_note(note):
+                            continue
+                    except KeyboardInterrupt:
+                        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                        return 0
+
                 try:
-                    if not approve_note(note):
+                    flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
+                    console.print()
+
+                    if not flashcards:
+                        console.print("[yellow]WARNING:[/yellow] No flashcards generated, skipping")
                         continue
+
+                    cards_added = postprocess(note, flashcards, CONFIG.deck)
+                    total_cards += cards_added
+
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return 0
-
-            try:
-                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
-                console.print()  # Clear the indented cursor line
-
-                if not flashcards:
-                    console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
-                    continue
-
-                cards_added = postprocess(note, flashcards, CONFIG.deck)
-                total_cards += cards_added
-
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                return 0
 
     console.print("")
     console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{CONFIG.max_cards} flashcards to deck '{CONFIG.deck}'", style="green"))
