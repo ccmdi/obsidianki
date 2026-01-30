@@ -103,7 +103,6 @@ class VectorStore:
 
         self.data["_dims"] = len(embeddings[0]) if embeddings else self._get_expected_dims()
         self._save()
-        console.print(f"[dim]Vector index: {self.count()} cards[/dim]")
 
     def find_similar(self, front: str, threshold: float, limit: int = 5) -> List[Tuple[str, float]]:
         """Find all similar existing cards above threshold.

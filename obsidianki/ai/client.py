@@ -3,9 +3,11 @@ from obsidianki.ai.call import completion
 from obsidianki.ai.call import ModelResponse
 
 import json
+from datetime import datetime
+from pathlib import Path
 from typing import List, Dict, Optional, Union, cast
 
-from obsidianki.cli.config import console, CONFIG
+from obsidianki.cli.config import console, CONFIG, CONFIG_DIR
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.ai.models import MODEL_MAP
@@ -13,6 +15,7 @@ from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_S
 from obsidianki.ai.tools import FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
 AI_RESULT_SET_SIZE = 20
+LOGS_DIR = CONFIG_DIR / "logs"
 
 class FlashcardAI:
     def __init__(self):
@@ -228,6 +231,43 @@ class FlashcardAI:
             for tc in tool_calls
         ]
 
+    def _log_conversation(
+        self,
+        messages: List[Dict],
+        note: Optional[Note] = None,
+        flashcards: Optional[List[Flashcard]] = None,
+        mode: str = "generate"
+    ) -> None:
+        """Log conversation to file for debugging."""
+        try:
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            note_name = note.filename.replace(".md", "") if note else "query"
+            safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in note_name)[:30]
+            log_file = LOGS_DIR / f"{timestamp}_{safe_name}.json"
+
+            log_data = {
+                "timestamp": datetime.now().isoformat(),
+                "model": self.model,
+                "mode": mode,
+                "note": note.path if note else None,
+                "messages": messages,
+                "result": {
+                    "count": len(flashcards) if flashcards else 0,
+                    "cards": [
+                        {"front": fc.front_original, "back": fc.back_original}
+                        for fc in (flashcards or [])
+                    ]
+                }
+            }
+
+            with open(log_file, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            console.print(f"[dim]Log write failed: {e}[/dim]")
+
     def _generate_with_vector_feedback(
         self,
         system_prompt: str,
@@ -252,8 +292,8 @@ class FlashcardAI:
         index_count = vectors.count()
         if index_count == 0:
             console.print("[dim]Vector index empty - no similarity checks will match[/dim]")
-        else:
-            console.print(f"[dim]Vector index: {index_count} cards indexed[/dim]")
+        # else:
+        #     console.print(f"[dim]Vector index: {index_count} cards indexed[/dim]")
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -304,22 +344,29 @@ class FlashcardAI:
                         # Build feedback message - now handles multiple matches per card
                         feedback_lines = []
                         total_matches = 0
+                        high_similarity = False
                         for idx, front, matches in similar_matches:
-                            front_preview = f"{front[:50]}{'...' if len(front) > 50 else ''}"
                             for existing, score in matches:
-                                existing_preview = f"{existing[:50]}{'...' if len(existing) > 50 else ''}"
                                 feedback_lines.append(
-                                    f"- Card {idx + 1}: \"{front_preview}\" ≈ \"{existing_preview}\" ({score:.0%})"
+                                    f"- Card {idx + 1} ({score:.0%} similar): \"{front}\" ≈ \"{existing}\""
                                 )
                                 total_matches += 1
+                                if score >= 0.85:
+                                    high_similarity = True
 
-                        feedback = (
-                            f"Similar existing cards found:\n"
-                            f"{chr(10).join(feedback_lines)}\n\n"
-                            f"You may:\n"
-                            f"1. Call create_flashcards again with revised cards that explore different angles\n"
-                            f"2. Call submit_flashcards if you believe these are sufficiently distinct"
-                        )
+                        if high_similarity:
+                            instruction = (
+                                "Cards with ≥85% similarity are TOO SIMILAR and should NOT be submitted.\n"
+                                "You MUST call create_flashcards again with substantially different questions."
+                            )
+                        else:
+                            instruction = (
+                                "You may:\n"
+                                "1. Call create_flashcards again with revised cards that explore different angles\n"
+                                "2. Call submit_flashcards if you believe these are sufficiently distinct"
+                            )
+
+                        feedback = f"Similar existing cards found:\n{chr(10).join(feedback_lines)}\n\n{instruction}"
                         console.print(f"[yellow]Vector feedback:[/yellow] {total_matches} similar match(es) for {len(similar_matches)} card(s)")
                         for line in feedback_lines:
                             console.print(f"[dim]{line}[/dim]")
@@ -343,19 +390,27 @@ class FlashcardAI:
                         "content": f"{len(pending_cards)} cards submitted."
                     })
                     console.print(f"[green]Submitted:[/green] {len(pending_cards)} cards")
-                    return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                    flashcards = self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                    self._log_conversation(messages, note, flashcards, mode="vector_feedback")
+                    return flashcards
 
             except Exception as e:
                 console.print(f"[red]ERROR:[/red] Vector feedback loop failed: {e}")
                 if pending_cards:
-                    return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                    flashcards = self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                    self._log_conversation(messages, note, flashcards, mode="vector_feedback_error")
+                    return flashcards
+                self._log_conversation(messages, note, [], mode="vector_feedback_error")
                 return []
 
         # Max turns reached - return whatever we have
         if pending_cards:
             console.print(f"[yellow]Max turns reached:[/yellow] Submitting {len(pending_cards)} pending cards")
-            return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+            flashcards = self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+            self._log_conversation(messages, note, flashcards, mode="vector_feedback_max_turns")
+            return flashcards
 
+        self._log_conversation(messages, note, [], mode="vector_feedback_empty")
         return []
 
     def _convert_pending_to_flashcards(
@@ -418,6 +473,10 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ]
         response = self._call_llm(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
@@ -425,7 +484,15 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        return self._extract_flashcards_from_response(response, note)
+        flashcards = self._extract_flashcards_from_response(response, note)
+        if response and response.choices[0].message.tool_calls:
+            messages.append({
+                "role": "assistant",
+                "content": response.choices[0].message.content or "",
+                "tool_calls": self._serialize_tool_calls(response.choices[0].message.tool_calls)
+            })
+        self._log_conversation(messages, note, flashcards, mode="generate")
+        return flashcards
 
     def generate_from_query(
         self,
@@ -463,6 +530,10 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
+        messages = [
+            {"role": "system", "content": QUERY_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ]
         response = self._call_llm(
             system_prompt=QUERY_SYSTEM_PROMPT,
             user_prompt=user_prompt,
@@ -470,7 +541,15 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        return self._extract_flashcards_from_response(response, virtual_note, default_tags=["query-generated"])
+        flashcards = self._extract_flashcards_from_response(response, virtual_note, default_tags=["query-generated"])
+        if response and response.choices[0].message.tool_calls:
+            messages.append({
+                "role": "assistant",
+                "content": response.choices[0].message.content or "",
+                "tool_calls": self._serialize_tool_calls(response.choices[0].message.tool_calls)
+            })
+        self._log_conversation(messages, virtual_note, flashcards, mode="query")
+        return flashcards
 
     def generate_from_note_query(self, note: Note, query: str, target_cards: int, previous_fronts: List[str] | None = None, deck_examples: List[Dict[str, str]] | None = None) -> List[Flashcard]:
         """Generate flashcards by extracting specific information from a note based on a query"""
@@ -501,6 +580,10 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
+        messages = [
+            {"role": "system", "content": TARGETED_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt}
+        ]
         response = self._call_llm(
             system_prompt=TARGETED_SYSTEM_PROMPT,
             user_prompt=user_prompt,
@@ -508,7 +591,15 @@ class FlashcardAI:
             tool_choice=self._get_tool_choice("create_flashcards")
         )
 
-        return self._extract_flashcards_from_response(response, note)
+        flashcards = self._extract_flashcards_from_response(response, note)
+        if response and response.choices[0].message.tool_calls:
+            messages.append({
+                "role": "assistant",
+                "content": response.choices[0].message.content or "",
+                "tool_calls": self._serialize_tool_calls(response.choices[0].message.tool_calls)
+            })
+        self._log_conversation(messages, note, flashcards, mode="note_query")
+        return flashcards
 
     def find_with_agent(self, natural_request: str, sample_size: int | None = None, bias_strength: float | None = None) -> List[Note]:
         """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
