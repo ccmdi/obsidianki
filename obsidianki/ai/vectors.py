@@ -46,11 +46,14 @@ class VectorStore:
             if VECTORS_FILE.exists():
                 try:
                     with open(VECTORS_FILE) as f:
-                        self._data = json.load(f)
+                        loaded = json.load(f)
+                    if not isinstance(loaded, dict):
+                        loaded = {"_dims": self._get_expected_dims()}
                     # Check dimension compatibility
-                    if self._data.get("_dims") and self._data["_dims"] != self._get_expected_dims():
+                    if loaded.get("_dims") and loaded["_dims"] != self._get_expected_dims():
                         console.print(f"[yellow]Embedder changed. Clearing vector index.[/yellow]")
-                        self._data = {"_dims": self._get_expected_dims()}
+                        loaded = {"_dims": self._get_expected_dims()}
+                    self._data = loaded
                 except (json.JSONDecodeError, KeyError):
                     self._data = {"_dims": self._get_expected_dims()}
             else:

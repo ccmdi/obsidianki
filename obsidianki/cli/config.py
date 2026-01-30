@@ -58,7 +58,8 @@ class IndentedConsole:
         try:
             model_name = getattr(CONFIG, 'model', '')
             provider = MODEL_MAP.get(model_name, {}).get("provider")
-            color = PROVIDER_COLORS.get(provider, "white")
+            if provider:
+                color = PROVIDER_COLORS.get(provider, "white")
         except:
             pass
 

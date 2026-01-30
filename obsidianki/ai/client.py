@@ -299,7 +299,7 @@ class FlashcardAI:
         # else:
         #     console.print(f"[dim]Vector index: {index_count} cards indexed[/dim]")
 
-        messages = [
+        messages: List[Dict[str, object]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
@@ -478,7 +478,7 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
-        messages = [
+        messages: List[Dict[str, object]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ]
@@ -535,7 +535,7 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
-        messages = [
+        messages: List[Dict[str, object]] = [
             {"role": "system", "content": QUERY_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ]
@@ -585,7 +585,7 @@ class FlashcardAI:
             )
 
         # Original single-shot behavior
-        messages = [
+        messages: List[Dict[str, object]] = [
             {"role": "system", "content": TARGETED_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ]
@@ -622,7 +622,7 @@ class FlashcardAI:
         Find the most relevant notes for this request using DQL queries. Start with an initial query, analyze the results, and refine as needed."""
 
         # Multi-turn conversation with tool calling
-        messages = [
+        messages: List[Dict[str, object]] = [
             {"role": "system", "content": MULTI_TURN_DQL_AGENT_PROMPT},
             {"role": "user", "content": user_prompt}
         ]

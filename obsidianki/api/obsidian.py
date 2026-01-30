@@ -1,4 +1,5 @@
 import os
+from urllib3.exceptions import InsecureRequestWarning
 import urllib3
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -7,7 +8,7 @@ from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.models import Note
 from obsidianki.api.base import BaseAPI
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+urllib3.disable_warnings(InsecureRequestWarning)
 
 OBSIDIAN_TIMEOUT_LENGTH = 30
 
@@ -147,7 +148,7 @@ class ObsidianAPI(BaseAPI):
             ]
         }
 
-        filters = [tag_filter]
+        filters: List[Optional[Dict]] = [tag_filter]
 
         if exclude_recent_days > 0:
             cutoff_date = datetime.now() - timedelta(days=exclude_recent_days)

@@ -78,7 +78,7 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
         # Index new cards in vector store for semantic deduplication
         if CONFIG.vector_dedup:
             from obsidianki.ai.vectors import get_vectors
-            fronts_to_index = [fc.front_original for fc in cards_to_add[:successful_cards]]
+            fronts_to_index = [fc.front_original for fc in cards_to_add[:successful_cards] if fc.front_original]
             get_vectors().add(fronts_to_index)
 
         return successful_cards
@@ -148,7 +148,6 @@ def preprocess(args: argparse.Namespace):
     if args.query and not args.agent and not args.notes:
         # STANDALONE QUERY MODE
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
-        from obsidianki.cli.models import Note
         query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
         notes = [query_note]
 

@@ -94,6 +94,7 @@ def handle_template_command(args):
         console.print()
 
         # Parse the command and re-invoke main with those arguments
+        original_argv = sys.argv
         try:
             from obsidianki.main import main
 
@@ -102,7 +103,6 @@ def handle_template_command(args):
             # Merge: template args + override args (override args win for duplicates)
             final_args = cmd_args + override_args
 
-            original_argv = sys.argv
             sys.argv = ['oki'] + final_args
 
             result = main()
