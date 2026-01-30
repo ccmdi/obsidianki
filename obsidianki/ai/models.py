@@ -26,7 +26,7 @@ MODEL_MAP = {
     },
     "Gemini 3 Pro": {
         "provider": "google",
-        "model": "gemini/gemini-3-pro-preview",
+        "model": "gemini-3-pro-preview",
         "key_name": "GEMINI_API_KEY",
         "url": "https://makersuite.google.com/app/apikey"
     },
@@ -44,13 +44,13 @@ MODEL_MAP = {
     },
     "Gemini 3 Flash": {
         "provider": "google",
-        "model": "gemini/gemini-3-flash-preview",
+        "model": "gemini-3-flash-preview",
         "key_name": "GEMINI_API_KEY",
         "url": "https://makersuite.google.com/app/apikey"
     },
     "DeepSeek V3.1": {
         "provider": "deepseek",
-        "model": "deepseek/deepseek-chat",
+        "model": "deepseek-chat",
         "key_name": "DEEPSEEK_API_KEY",
         "url": "https://console.deepseek.com/"
     }

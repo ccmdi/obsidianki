@@ -152,7 +152,7 @@ class FlashcardAI:
     ) -> Optional[ModelResponse]:
         """Unified LLM call"""
         try:
-            response = completion(model=self.model, messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], tools=tools, tool_choice=tool_choice, max_tokens=max_tokens)
+            response = completion(model=self.model, messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], provider=self.provider, tools=tools, tool_choice=tool_choice, max_tokens=max_tokens)
             return response
         except Exception as e:
             console.print(f"[red]ERROR:[/red] LLM call failed: {e}")
@@ -219,8 +219,9 @@ class FlashcardAI:
         """Serialize tool calls to JSON-compatible format."""
         if not tool_calls:
             return None
-        return [
-            {
+        result = []
+        for tc in tool_calls:
+            serialized = {
                 "id": tc.id,
                 "type": "function",
                 "function": {
@@ -228,8 +229,11 @@ class FlashcardAI:
                     "arguments": tc.function.arguments
                 }
             }
-            for tc in tool_calls
-        ]
+            # Preserve provider-specific data (e.g., Gemini thought_signature)
+            if hasattr(tc, 'extra') and tc.extra:
+                serialized["extra"] = tc.extra
+            result.append(serialized)
+        return result
 
     def _log_conversation(
         self,
@@ -307,6 +311,7 @@ class FlashcardAI:
                 response = completion(
                     model=self.model,
                     messages=messages,
+                    provider=self.provider,
                     tools=[FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL],
                     tool_choice="required" if turn == 0 else "auto",
                     max_tokens=8000
@@ -640,6 +645,7 @@ class FlashcardAI:
                 response = cast(ModelResponse, completion(
                     model=self.model,
                     messages=messages,
+                    provider=self.provider,
                     tools=available_tools,
                     tool_choice=tool_choice,
                     max_tokens=3000
