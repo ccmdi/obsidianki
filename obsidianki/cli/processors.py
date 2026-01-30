@@ -251,8 +251,11 @@ def preprocess(args: argparse.Namespace):
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     previous_fronts = []
-    if not args.query and args.notes and CONFIG.deduplicate_via_history:
+    if args.notes and CONFIG.deduplicate_via_history:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
+        total_prev = sum(len(pf) for pf in previous_fronts)
+        if total_prev > 0:
+            console.print(f"[dim]{total_prev} previous card(s) loaded for this note[/dim]")
     elif args.query and not args.notes and CONFIG.deduplicate_via_deck:
         # For standalone query mode, use deck-based deduplication
         deck_fronts = ANKI.get_card_fronts(CONFIG.deck)
