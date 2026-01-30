@@ -13,12 +13,12 @@ class TestModelMap:
         """Verify MODEL_MAP contains all expected models"""
         expected_models = [
             "Claude Sonnet 4.5",
-            "Claude Opus 4",
+            "Claude Opus 4.5",
             "GPT-5",
-            "Gemini 3",
+            "Gemini 3 Pro",
             "GPT-4o",
             "GPT-4o Mini",
-            "Gemini 2.5 Flash",
+            "Gemini 3 Flash",
             "DeepSeek V3.1"
         ]
 
@@ -36,7 +36,7 @@ class TestModelMap:
 
     def test_anthropic_models_use_correct_provider(self):
         """Verify Anthropic models use 'anthropic' provider"""
-        claude_models = ["Claude Sonnet 4.5", "Claude Opus 4"]
+        claude_models = ["Claude Sonnet 4.5", "Claude Opus 4.5"]
 
         for model in claude_models:
             assert MODEL_MAP[model]["provider"] == "anthropic"
@@ -52,7 +52,7 @@ class TestModelMap:
 
     def test_google_models_use_correct_provider(self):
         """Verify Google models use 'google' provider"""
-        google_models = ["Gemini 3", "Gemini 2.5 Flash"]
+        google_models = ["Gemini 3 Pro", "Gemini 3 Flash"]
 
         for model in google_models:
             assert MODEL_MAP[model]["provider"] == "google"
@@ -85,8 +85,8 @@ class TestFlashcardAIModelSelection:
         """Test that FlashcardAI uses model from CONFIG"""
         test_cases = [
             ("GPT-5", "openai", "gpt-5"),
-            ("Claude Opus 4", "anthropic", "claude-opus-4-1"),
-            ("Gemini 3", "google", "gemini/gemini-2.5-pro"),
+            ("Claude Opus 4.5", "anthropic", "claude-opus-4-5"),
+            ("Gemini 3 Pro", "google", "gemini/gemini-3-pro-preview"),
         ]
 
         for model_name, expected_provider, expected_model in test_cases:
@@ -114,7 +114,7 @@ class TestModelConfiguration:
         """Test that config command accepts valid model names"""
         from obsidianki.cli.config import CONFIG
 
-        valid_models = ["GPT-5", "Claude Sonnet 4.5", "Gemini 2.5 Flash"]
+        valid_models = ["GPT-5", "Claude Sonnet 4.5", "Gemini 3 Flash"]
 
         for model in valid_models:
             assert model in MODEL_MAP, \
