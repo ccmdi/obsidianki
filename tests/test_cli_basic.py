@@ -77,7 +77,8 @@ def mock_config():
              patch.object(obsidianki.cli.config.CONFIG, 'processing_history_file', history_file), \
              patch.object(obsidianki.cli.config.CONFIG, 'processing_history', {}), \
              patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_NOTES', False), \
-             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_CARDS', False):
+             patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_CARDS', False), \
+             patch.object(obsidianki.cli.config.CONFIG, 'vector_dedup', False):
             yield
 
 
