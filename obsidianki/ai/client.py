@@ -301,13 +301,17 @@ class FlashcardAI:
                     )
 
                     if similar_matches:
-                        # Build feedback message
+                        # Build feedback message - now handles multiple matches per card
                         feedback_lines = []
-                        for idx, front, existing, score in similar_matches:
-                            feedback_lines.append(
-                                f"- Card {idx + 1}: \"{front[:50]}{'...' if len(front) > 50 else ''}\" "
-                                f"≈ \"{existing[:50]}{'...' if len(existing) > 50 else ''}\" ({score:.0%})"
-                            )
+                        total_matches = 0
+                        for idx, front, matches in similar_matches:
+                            front_preview = f"{front[:50]}{'...' if len(front) > 50 else ''}"
+                            for existing, score in matches:
+                                existing_preview = f"{existing[:50]}{'...' if len(existing) > 50 else ''}"
+                                feedback_lines.append(
+                                    f"- Card {idx + 1}: \"{front_preview}\" ≈ \"{existing_preview}\" ({score:.0%})"
+                                )
+                                total_matches += 1
 
                         feedback = (
                             f"Similar existing cards found:\n"
@@ -316,7 +320,7 @@ class FlashcardAI:
                             f"1. Call create_flashcards again with revised cards that explore different angles\n"
                             f"2. Call submit_flashcards if you believe these are sufficiently distinct"
                         )
-                        console.print(f"[yellow]Vector feedback:[/yellow] {len(similar_matches)} similar card(s) found")
+                        console.print(f"[yellow]Vector feedback:[/yellow] {total_matches} similar match(es) for {len(similar_matches)} card(s)")
                         for line in feedback_lines:
                             console.print(f"[dim]{line}[/dim]")
                     else:

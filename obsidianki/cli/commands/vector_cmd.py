@@ -46,6 +46,12 @@ def setup_parser(subparsers):
         type=str,
         help="Question text to check for similarity"
     )
+    check_parser.add_argument(
+        "-t", "--threshold",
+        type=float,
+        default=None,
+        help="Custom similarity threshold (0-1), overrides config"
+    )
 
     return vector_parser
 
@@ -145,21 +151,21 @@ def _handle_check(args: argparse.Namespace):
 
     vectors = get_vectors()
     question = args.question
-    threshold = CONFIG.vector_threshold or 0.85
+    threshold = args.threshold if args.threshold is not None else (CONFIG.vector_threshold or 0.7)
 
     if vectors.count() == 0:
         console.print("[yellow]Vector index is empty. Run 'oki vector index' first.[/yellow]")
         return
 
     console.print(f"[cyan]Checking:[/cyan] {question}")
-    console.print(f"[dim]Threshold: {threshold}[/dim]")
+    console.print(f"[dim]Threshold: {threshold:.0%}[/dim]")
 
-    result = vectors.find_similar(question, threshold)
+    matches = vectors.find_similar(question, threshold)
 
-    if result:
-        similar_front, score = result
-        console.print(f"\n[yellow]Similar card found ({score:.0%}):[/yellow]")
-        console.print(f"  {similar_front}")
+    if matches:
+        console.print(f"\n[yellow]{len(matches)} similar card(s) found:[/yellow]")
+        for text, score in matches:
+            console.print(f"  [{score:.0%}] {text}")
     else:
         console.print(f"\n[green]No similar cards found above {threshold:.0%} threshold.[/green]")
 

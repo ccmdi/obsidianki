@@ -18,17 +18,14 @@ dependencies = [
     "rich>=13.0.0",
     "urllib3>=1.26.0",
     "pygments>=2.10.0",
-    "questionary>=2.0.0"
+    "questionary>=2.0.0",
+    "httpx>=0.24.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.10.0"
-]
-vectors = [
-    "chromadb>=0.4.0",
-    "sentence-transformers>=2.0.0"
 ]
 
 [project.scripts]

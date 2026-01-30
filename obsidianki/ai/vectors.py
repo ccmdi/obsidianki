@@ -1,150 +1,162 @@
 """Vector-based semantic deduplication for flashcards.
 
-Uses ChromaDB for storage and sentence-transformers for local embeddings.
-Provides a feedback loop where the LLM can revise cards based on similarity.
+Simple JSON storage + API embeddings. No heavy dependencies.
 """
 from __future__ import annotations
-import hashlib
-from pathlib import Path
-from typing import List, Optional, Tuple, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from chromadb.api.models.Collection import Collection
-    from chromadb import ClientAPI
+import hashlib
+import json
+import os
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+import httpx
 
 from obsidianki.cli.config import CONFIG_DIR, console
 
-VECTORS_DIR = CONFIG_DIR / "vectors"
+VECTORS_FILE = CONFIG_DIR / "vectors.json"
+
+# Embedding endpoints
+GEMINI_BATCH_EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
+OPENAI_EMBED_URL = "https://api.openai.com/v1/embeddings"
+
+
+def cosine_similarity(a: List[float], b: List[float]) -> float:
+    """Pure Python cosine similarity."""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = sum(x * x for x in a) ** 0.5
+    norm_b = sum(x * x for x in b) ** 0.5
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
 
 
 class VectorStore:
-    """Lazy-loaded vector store for flashcard semantic deduplication."""
+    """Simple vector store using JSON file + API embeddings."""
 
     def __init__(self):
-        self._client: Optional[ClientAPI] = None
-        self._collection: Optional[Collection] = None
-        self._model: Optional[BaseEmbedder] = None
+        self._data: Optional[dict] = None
+        self._embedder: Optional[BaseEmbedder] = None
+        self._dims: Optional[int] = None
 
     @property
-    def collection(self) -> Collection:
-        """Lazy-load ChromaDB collection."""
-        if self._collection is None:
-            try:
-                import chromadb
-            except ImportError:
-                raise ImportError(
-                    "ChromaDB is required for vector deduplication. "
-                    "Install with: pip install chromadb"
+    def data(self) -> dict:
+        """Lazy-load vector data from JSON file."""
+        if self._data is None:
+            if VECTORS_FILE.exists():
+                try:
+                    with open(VECTORS_FILE) as f:
+                        self._data = json.load(f)
+                    # Check dimension compatibility
+                    if self._data.get("_dims") and self._data["_dims"] != self._get_expected_dims():
+                        console.print(f"[yellow]Embedder changed. Clearing vector index.[/yellow]")
+                        self._data = {"_dims": self._get_expected_dims()}
+                except (json.JSONDecodeError, KeyError):
+                    self._data = {"_dims": self._get_expected_dims()}
+            else:
+                self._data = {"_dims": self._get_expected_dims()}
+        return self._data
+
+    def _save(self) -> None:
+        """Save vector data to JSON file."""
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(VECTORS_FILE, 'w') as f:
+            json.dump(self._data, f)
+
+    def _get_expected_dims(self) -> int:
+        """Get expected embedding dimensions based on current embedder."""
+        if os.environ.get("GEMINI_API_KEY"):
+            return 768
+        elif os.environ.get("OPENAI_API_KEY"):
+            return 1536
+        return 0  # Unknown
+
+    @property
+    def embedder(self) -> BaseEmbedder:
+        """Get embedder - Gemini or OpenAI."""
+        if self._embedder is None:
+            if os.environ.get("GEMINI_API_KEY"):
+                self._embedder = GeminiEmbedder()
+            elif os.environ.get("OPENAI_API_KEY"):
+                self._embedder = OpenAIEmbedder()
+            else:
+                raise ValueError(
+                    "No API key for embeddings. Set GEMINI_API_KEY or OPENAI_API_KEY."
                 )
-
-            VECTORS_DIR.mkdir(parents=True, exist_ok=True)
-            self._client = chromadb.PersistentClient(path=str(VECTORS_DIR))
-            self._collection = self._client.get_or_create_collection(
-                name="flashcards",
-                metadata={"hnsw:space": "cosine"}
-            )
-        return self._collection
-
-    @property
-    def model(self) -> BaseEmbedder:
-        """Lazy-load embedding model."""
-        if self._model is None:
-            self._model = LocalEmbedder()
-        return self._model
+        return self._embedder
 
     def add(self, fronts: List[str]) -> None:
         """Index flashcard fronts."""
         if not fronts:
             return
 
-        # Filter out empty strings and duplicates
         fronts = [f for f in fronts if f.strip()]
         if not fronts:
             return
 
-        console.print(f"[dim]Indexing {len(fronts)} card(s) in vector store...[/dim]")
-        embeddings = self.model.embed(fronts)
-        ids = [self._hash(f) for f in fronts]
+        console.print(f"[dim]Indexing {len(fronts)} card(s)...[/dim]")
+        embeddings = self.embedder.embed(fronts)
 
-        # Upsert to handle duplicates
-        self.collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=fronts
-        )
-        console.print(f"[dim]Vector index now has {self.count()} cards[/dim]")
+        for front, embedding in zip(fronts, embeddings):
+            card_id = self._hash(front)
+            self.data[card_id] = {"text": front, "embedding": embedding}
 
-    def find_similar(self, front: str, threshold: float) -> Optional[Tuple[str, float]]:
-        """Find most similar existing card above threshold.
+        self.data["_dims"] = len(embeddings[0]) if embeddings else self._get_expected_dims()
+        self._save()
+        console.print(f"[dim]Vector index: {self.count()} cards[/dim]")
 
-        Args:
-            front: The flashcard front text to check
-            threshold: Minimum cosine similarity (0-1) to consider a match
+    def find_similar(self, front: str, threshold: float, limit: int = 5) -> List[Tuple[str, float]]:
+        """Find all similar existing cards above threshold.
 
         Returns:
-            Tuple of (similar_front, similarity_score) or None if no match
+            List of (similar_text, similarity_score) tuples, sorted by score descending
         """
-        if self.collection.count() == 0:
-            return None
+        if self.count() == 0:
+            return []
 
-        # Don't match against itself
         front_id = self._hash(front)
+        query_embedding = self.embedder.embed([front])[0]
 
-        results = self.collection.query(
-            query_embeddings=[self.model.embed([front])[0]],
-            n_results=2,  # Get 2 in case first is itself
-            include=["documents", "distances"]
-        )
-
-        if not results["documents"] or not results["documents"][0]:
-            return None
-
-        # Find best match that isn't the same card
-        for i, doc in enumerate(results["documents"][0]):
-            doc_id = self._hash(doc)
-            if doc_id == front_id:
+        matches = []
+        for card_id, card_data in self.data.items():
+            if card_id.startswith("_"):  # Skip metadata
+                continue
+            if card_id == front_id:  # Skip self
                 continue
 
-            # ChromaDB returns cosine distance, convert to similarity
-            distance = results["distances"][0][i]
-            similarity = 1 - distance
-
+            similarity = cosine_similarity(query_embedding, card_data["embedding"])
             if similarity >= threshold:
-                return (doc, similarity)
+                matches.append((card_data["text"], similarity))
 
-        return None
+        # Sort by similarity descending, limit results
+        matches.sort(key=lambda x: x[1], reverse=True)
+        return matches[:limit]
 
     def find_similar_batch(
         self,
         fronts: List[str],
         threshold: float
-    ) -> List[Tuple[int, str, str, float]]:
+    ) -> List[Tuple[int, str, List[Tuple[str, float]]]]:
         """Check multiple fronts for similarity.
 
-        Args:
-            fronts: List of flashcard front texts to check
-            threshold: Minimum cosine similarity to flag
-
         Returns:
-            List of (index, front, similar_existing, similarity) for matches only
+            List of (index, front, [(similar_text, score), ...]) for cards with matches
         """
-        matches = []
+        results = []
         for i, front in enumerate(fronts):
-            similar = self.find_similar(front, threshold)
-            if similar:
-                existing, score = similar
-                matches.append((i, front, existing, score))
-        return matches
+            matches = self.find_similar(front, threshold)
+            if matches:
+                results.append((i, front, matches))
+        return results
 
     def count(self) -> int:
         """Number of indexed cards."""
-        return self.collection.count()
+        return len([k for k in self.data.keys() if not k.startswith("_")])
 
     def clear(self) -> None:
         """Clear all indexed cards."""
-        if self._client is not None:
-            self._client.delete_collection("flashcards")
-            self._collection = None
+        self._data = {"_dims": self._get_expected_dims()}
+        self._save()
 
     def _hash(self, text: str) -> str:
         """Generate stable ID for text."""
@@ -158,51 +170,70 @@ class BaseEmbedder:
         raise NotImplementedError
 
 
-class LocalEmbedder(BaseEmbedder):
-    """Local embeddings using sentence-transformers."""
+class GeminiEmbedder(BaseEmbedder):
+    """Embeddings via Gemini API (batched)."""
 
-    def __init__(self):
-        self._model = None
-        self._loaded = False
-
-    def _get_device(self) -> str:
-        """Detect best available device (cuda > mps > cpu)."""
-        try:
-            import torch
-            if torch.cuda.is_available():
-                return "cuda"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                return "mps"
-        except ImportError:
-            pass
-        return "cpu"
-
-    @property
-    def model(self):
-        if self._model is None:
-            try:
-                # Suppress noisy logging from transformers/torch
-                import logging
-                import warnings
-                logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
-                logging.getLogger("transformers").setLevel(logging.WARNING)
-                warnings.filterwarnings("ignore", message=".*position_ids.*")
-
-                from sentence_transformers import SentenceTransformer
-            except ImportError:
-                raise ImportError(
-                    "sentence-transformers is required for vector deduplication. "
-                    "Install with: pip install sentence-transformers"
-                )
-            device = self._get_device()
-            if not self._loaded:
-                console.print(f"[dim]Loading embedding model ({device})...[/dim]")
-            self._model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
-            self._loaded = True
-        return self._model
+    def __init__(self, dimensions: int = 768):
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY not found")
+        self.dimensions = dimensions
+        self.model = "models/gemini-embedding-001"
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        return self.model.encode(texts, show_progress_bar=False).tolist()
+        # Gemini batch limit is 100, chunk if needed
+        all_embeddings = []
+        for i in range(0, len(texts), 100):
+            batch = texts[i:i + 100]
+            embeddings = self._embed_batch(batch)
+            all_embeddings.extend(embeddings)
+        return all_embeddings
+
+    def _embed_batch(self, texts: List[str]) -> List[List[float]]:
+        url = f"{GEMINI_BATCH_EMBED_URL}?key={self.api_key}"
+        payload = {
+            "requests": [
+                {
+                    "model": self.model,
+                    "content": {"parts": [{"text": text}]},
+                    "outputDimensionality": self.dimensions
+                }
+                for text in texts
+            ]
+        }
+
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        return [item["values"] for item in data["embeddings"]]
+
+
+class OpenAIEmbedder(BaseEmbedder):
+    """Embeddings via OpenAI API."""
+
+    def __init__(self, model: str = "text-embedding-3-small"):
+        self.api_key = os.environ.get("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY not found")
+        self.model = model
+
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        url = OPENAI_EMBED_URL
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {"model": self.model, "input": texts}
+
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        sorted_data = sorted(data["data"], key=lambda x: x["index"])
+        return [item["embedding"] for item in sorted_data]
 
 
 # Global lazy instance
