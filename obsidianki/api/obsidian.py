@@ -232,12 +232,7 @@ class ObsidianAPI(BaseAPI):
             pattern_filter = {"glob": [glob_pattern, {"var": "path"}]}
         else:
             # Exact match or name contains
-            pattern_filter = {
-                "or": [
-                    {"===": [{"var": "path"}, pattern]},
-                    {"glob": [f"*{pattern}*", {"var": "basename"}]}
-                ]
-            }
+            pattern_filter = {"glob": [f"*{pattern}*", {"var": "path"}]}
 
         query = self._combine_filters(
             pattern_filter,
@@ -268,7 +263,7 @@ class ObsidianAPI(BaseAPI):
     def find_by_name(self, note_name: str, search_folders: List[str]) -> Note | None:
         """Find note by name with partial matching"""
         query = self._combine_filters(
-            {"glob": [f"*{note_name}*", {"var": "basename"}]},
+            {"glob": [f"*{note_name}*", {"var": "path"}]},
             self._build_folder_filter(search_folders),
             self._build_excluded_tags_filter()
         )
