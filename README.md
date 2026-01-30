@@ -142,6 +142,51 @@ oki template use programming # runs the above command as "oki --notes 'frontend/
 | `batch_card_limit` | `100` | Max cards per batch |
 | `density_bias_strength` | `0.5` | Bias strength against over-processed notes (0-1) |
 | `search_folders` | `[]` | Limit processing to specific folders (array) |
+| `vector_dedup` | `false` | Enable semantic deduplication via embeddings |
+| `vector_threshold` | `0.85` | Similarity threshold for duplicate detection (0-1) |
+
+## Vector Deduplication
+
+Avoid generating semantically similar flashcards using local embeddings.
+
+### Install
+
+```bash
+pip install obsidianki[vectors]
+# or
+uv tool install obsidianki --with chromadb --with sentence-transformers
+```
+
+### Enable
+
+```bash
+oki config set vector_dedup true
+```
+
+### Index existing cards
+
+```bash
+oki vector index                    # Index cards from default deck
+oki vector index --deck "My Deck"   # Index cards from specific deck
+```
+
+### Commands
+
+```bash
+oki vector status                   # Show index stats
+oki vector check "question text"    # Check if similar card exists
+oki vector clear                    # Clear the index
+```
+
+### How it works
+
+1. AI proposes flashcards via `create_flashcards` tool
+2. Each card is checked against the vector database for semantic similarity
+3. If similar cards exist, AI receives feedback: *"Card 2 is 91% similar to 'What is polymorphism?'"*
+4. AI can revise or confirm via `submit_flashcards` tool
+5. Accepted cards are indexed for future deduplication
+
+The vector database is stored in `~/.config/obsidianki/vectors/`.
 
 # MCP
 There is an [experimental MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. Useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.

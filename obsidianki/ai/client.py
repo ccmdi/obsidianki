@@ -212,6 +212,22 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
             return []
 
+    def _serialize_tool_calls(self, tool_calls) -> Optional[List[Dict]]:
+        """Serialize tool calls to JSON-compatible format."""
+        if not tool_calls:
+            return None
+        return [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments
+                }
+            }
+            for tc in tool_calls
+        ]
+
     def _generate_with_vector_feedback(
         self,
         system_prompt: str,
@@ -232,6 +248,13 @@ class FlashcardAI:
         threshold = CONFIG.vector_threshold or 0.85
         max_turns = CONFIG.vector_max_turns or 5
 
+        # Show vector index status
+        index_count = vectors.count()
+        if index_count == 0:
+            console.print("[dim]Vector index empty - no similarity checks will match[/dim]")
+        else:
+            console.print(f"[dim]Vector index: {index_count} cards indexed[/dim]")
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -251,11 +274,11 @@ class FlashcardAI:
 
                 message = response.choices[0].message
 
-                # Add assistant message to history
+                # Add assistant message to history (serialize tool_calls to dict)
                 messages.append({
                     "role": "assistant",
                     "content": message.content or "",
-                    "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None
+                    "tool_calls": self._serialize_tool_calls(message.tool_calls) if hasattr(message, 'tool_calls') else None
                 })
 
                 if not hasattr(message, 'tool_calls') or not message.tool_calls:

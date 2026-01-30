@@ -62,6 +62,7 @@ class VectorStore:
         if not fronts:
             return
 
+        console.print(f"[dim]Indexing {len(fronts)} card(s) in vector store...[/dim]")
         embeddings = self.model.embed(fronts)
         ids = [self._hash(f) for f in fronts]
 
@@ -71,6 +72,7 @@ class VectorStore:
             embeddings=embeddings,
             documents=fronts
         )
+        console.print(f"[dim]Vector index now has {self.count()} cards[/dim]")
 
     def find_similar(self, front: str, threshold: float) -> Optional[Tuple[str, float]]:
         """Find most similar existing card above threshold.
@@ -161,22 +163,46 @@ class LocalEmbedder(BaseEmbedder):
 
     def __init__(self):
         self._model = None
+        self._loaded = False
+
+    def _get_device(self) -> str:
+        """Detect best available device (cuda > mps > cpu)."""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                return "mps"
+        except ImportError:
+            pass
+        return "cpu"
 
     @property
     def model(self):
         if self._model is None:
             try:
+                # Suppress noisy logging from transformers/torch
+                import logging
+                import warnings
+                logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+                logging.getLogger("transformers").setLevel(logging.WARNING)
+                warnings.filterwarnings("ignore", message=".*position_ids.*")
+
                 from sentence_transformers import SentenceTransformer
             except ImportError:
                 raise ImportError(
                     "sentence-transformers is required for vector deduplication. "
                     "Install with: pip install sentence-transformers"
                 )
-            self._model = SentenceTransformer('all-MiniLM-L6-v2')
+            device = self._get_device()
+            if not self._loaded:
+                console.print(f"[dim]Loading embedding model ({device})...[/dim]")
+            self._model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
+            self._loaded = True
         return self._model
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        return self.model.encode(texts).tolist()
+        return self.model.encode(texts, show_progress_bar=False).tolist()
 
 
 # Global lazy instance
