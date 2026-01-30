@@ -48,8 +48,28 @@ class IndentedConsole:
         return self._console.input(self.prefix + prompt)
 
     def status(self, message: str, **kwargs):
-        """Status spinner with current indentation level."""
-        return self._console.status(self.prefix + message, **kwargs)
+        """Status spinner with current indentation level, colored by AI provider."""
+        from rich.live import Live
+        from rich.spinner import Spinner
+        from obsidianki.ai.models import MODEL_MAP, PROVIDER_COLORS
+
+        # Get provider color from configured model
+        color = "white"
+        try:
+            model_name = getattr(CONFIG, 'model', '')
+            provider = MODEL_MAP.get(model_name, {}).get("provider")
+            color = PROVIDER_COLORS.get(provider, "white")
+        except:
+            pass
+
+        # Include indent in spinner frames
+        base_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        indented_frames = [self.prefix + f for f in base_frames]
+
+        spinner = Spinner("dots", text=message, style=color)
+        spinner.frames = indented_frames
+
+        return Live(spinner, console=self._console, refresh_per_second=10, transient=True)
 
     def __getattr__(self, name):
         """Delegate other methods to underlying console."""

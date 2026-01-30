@@ -9,15 +9,15 @@ from obsidianki.cli.interactive.approval import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 from obsidianki.cli.utils import encode_path
+from obsidianki.cli.config import console
 
 #TODO
 # deck_examples -> List[Flashcard]
 # previous_fronts -> List[Flashcard]?
 def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
-    from obsidianki.cli.config import console
     note.ensure_content()
 
-    # Generate flashcards
+    # Generate flashcards (console is already imported at module level)
     if args.query and note.path == "query":
         # Standalone query mode - use direct query generation
         with console.status("Generating..."):
@@ -44,7 +44,7 @@ def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, 
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
     """Handle flashcard approval and Anki addition"""
-    from obsidianki.cli.config import console, CONFIG
+    from obsidianki.cli.config import CONFIG
 
     # Flashcard approval
     cards_to_add = flashcards
@@ -91,7 +91,7 @@ def preprocess(args: argparse.Namespace):
     """
     Entry point for flashcard generation.
     """
-    from obsidianki.cli.config import console, CONFIG
+    from obsidianki.cli.config import CONFIG
     from rich.panel import Panel
 
     if args.mcp:
