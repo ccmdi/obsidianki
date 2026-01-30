@@ -8,10 +8,55 @@ from pathlib import Path
 from typing import Dict, List, Union, Mapping, cast
 from dotenv import load_dotenv
 from rich.console import Console
+from contextlib import contextmanager
 
 
+class IndentedConsole:
+    """Console wrapper with scope-based indentation."""
 
-console = Console()
+    def __init__(self, base_console: Console, indent_str: str = "   "):
+        self._console = base_console
+        self._indent_str = indent_str
+        self._level = 0
+
+    @property
+    def prefix(self) -> str:
+        """Current indentation prefix string."""
+        return self._indent_str * self._level
+
+    @contextmanager
+    def indent(self, levels: int = 1):
+        """Context manager to increase indentation."""
+        self._level += levels
+        try:
+            yield
+        finally:
+            self._level -= levels
+
+    def print(self, *args, **kwargs):
+        """Print with current indentation level."""
+        if args:
+            first = args[0]
+            if isinstance(first, str):
+                args = (self.prefix + first,) + args[1:]
+            else:
+                self._console.print(self.prefix, end="")
+        self._console.print(*args, **kwargs)
+
+    def input(self, prompt: str = "") -> str:
+        """Input with current indentation level."""
+        return self._console.input(self.prefix + prompt)
+
+    def status(self, message: str, **kwargs):
+        """Status spinner with current indentation level."""
+        return self._console.status(self.prefix + message, **kwargs)
+
+    def __getattr__(self, name):
+        """Delegate other methods to underlying console."""
+        return getattr(self._console, name)
+
+
+console = IndentedConsole(Console())
 
 CONFIG_DIR = Path.home() / ".config" / "obsidianki"
 ENV_FILE = CONFIG_DIR / ".env"
