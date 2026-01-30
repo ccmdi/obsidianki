@@ -10,7 +10,7 @@ from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.ai.models import MODEL_MAP
 from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
-from obsidianki.ai.tools import FLASHCARD_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
+from obsidianki.ai.tools import FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
 
 AI_RESULT_SET_SIZE = 20
 
@@ -212,6 +212,156 @@ class FlashcardAI:
             console.print(f"[red]ERROR:[/red] Failed to parse flashcards: {e}")
             return []
 
+    def _generate_with_vector_feedback(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        note: Note,
+        default_tags: Optional[List[str]] = None
+    ) -> List[Flashcard]:
+        """Generate flashcards with vector similarity feedback loop.
+
+        Multi-turn conversation where:
+        1. LLM proposes cards via create_flashcards
+        2. System checks against vector DB, returns similarity feedback
+        3. LLM can revise or call submit_flashcards to confirm
+        """
+        from obsidianki.ai.vectors import get_vectors
+
+        vectors = get_vectors()
+        threshold = CONFIG.vector_threshold or 0.85
+        max_turns = CONFIG.vector_max_turns or 5
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        pending_cards: List[Dict] = []
+
+        for turn in range(max_turns):
+            try:
+                response = completion(
+                    model=self.model,
+                    messages=messages,
+                    tools=[FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL],
+                    tool_choice="required" if turn == 0 else "auto",
+                    max_tokens=8000
+                )
+
+                message = response.choices[0].message
+
+                # Add assistant message to history
+                messages.append({
+                    "role": "assistant",
+                    "content": message.content or "",
+                    "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None
+                })
+
+                if not hasattr(message, 'tool_calls') or not message.tool_calls:
+                    # No tool call - shouldn't happen but handle gracefully
+                    if pending_cards:
+                        return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                    break
+
+                tool_call = message.tool_calls[0]
+                tool_name = tool_call.function.name
+
+                if tool_name == "create_flashcards":
+                    args = json.loads(tool_call.function.arguments)
+                    pending_cards = args.get("flashcards", [])
+
+                    # Check each card against vector DB
+                    similar_matches = vectors.find_similar_batch(
+                        [card.get("front", "") for card in pending_cards],
+                        threshold
+                    )
+
+                    if similar_matches:
+                        # Build feedback message
+                        feedback_lines = []
+                        for idx, front, existing, score in similar_matches:
+                            feedback_lines.append(
+                                f"- Card {idx + 1}: \"{front[:50]}{'...' if len(front) > 50 else ''}\" "
+                                f"≈ \"{existing[:50]}{'...' if len(existing) > 50 else ''}\" ({score:.0%})"
+                            )
+
+                        feedback = (
+                            f"Similar existing cards found:\n"
+                            f"{chr(10).join(feedback_lines)}\n\n"
+                            f"You may:\n"
+                            f"1. Call create_flashcards again with revised cards that explore different angles\n"
+                            f"2. Call submit_flashcards if you believe these are sufficiently distinct"
+                        )
+                        console.print(f"[yellow]Vector feedback:[/yellow] {len(similar_matches)} similar card(s) found")
+                        for line in feedback_lines:
+                            console.print(f"[dim]{line}[/dim]")
+                    else:
+                        feedback = "No similar cards found in the database. Call submit_flashcards to confirm."
+                        console.print("[green]Vector check:[/green] No similar cards found")
+
+                    messages.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": feedback
+                    })
+
+                elif tool_name == "submit_flashcards":
+                    # Finalize submission
+                    messages.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": f"{len(pending_cards)} cards submitted."
+                    })
+                    console.print(f"[green]Submitted:[/green] {len(pending_cards)} cards")
+                    return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+
+            except Exception as e:
+                console.print(f"[red]ERROR:[/red] Vector feedback loop failed: {e}")
+                if pending_cards:
+                    return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+                return []
+
+        # Max turns reached - return whatever we have
+        if pending_cards:
+            console.print(f"[yellow]Max turns reached:[/yellow] Submitting {len(pending_cards)} pending cards")
+            return self._convert_pending_to_flashcards(pending_cards, note, default_tags)
+
+        return []
+
+    def _convert_pending_to_flashcards(
+        self,
+        pending_cards: List[Dict],
+        note: Note,
+        default_tags: Optional[List[str]] = None
+    ) -> List[Flashcard]:
+        """Convert pending card dicts to Flashcard objects with processing."""
+        flashcard_objects = []
+        for card in pending_cards:
+            front_original = card.get('front', '')
+            back_original = card.get('back', '')
+
+            # Process code blocks with syntax highlighting
+            front_processed = process_code_blocks(front_original, CONFIG.syntax_highlighting)
+            back_processed = process_code_blocks(back_original, CONFIG.syntax_highlighting)
+
+            # Determine tags priority: card's tags > default_tags > note's tags
+            tags = card.get('tags') or default_tags or note.tags.copy()
+
+            flashcard = Flashcard(
+                front=front_processed,
+                back=back_processed,
+                note=note,
+                tags=tags,
+                front_original=front_original,
+                back_original=back_original
+            )
+            flashcard_objects.append(flashcard)
+
+        return flashcard_objects
+
     def generate_flashcards(
         self,
         note: Note,
@@ -232,6 +382,15 @@ class FlashcardAI:
 
         Please analyze this note and {card_instruction} for the key information that would be valuable for spaced repetition learning."""
 
+        # Use vector feedback loop if enabled
+        if CONFIG.vector_dedup:
+            return self._generate_with_vector_feedback(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                note=note
+            )
+
+        # Original single-shot behavior
         response = self._call_llm(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
@@ -258,13 +417,6 @@ class FlashcardAI:
 
         Please {card_instruction} to help someone learn about this topic. Focus on the most important concepts, definitions, and practical information related to this query.{difficulty_context}{dedup_context}{schema_context}"""
 
-        response = self._call_llm(
-            system_prompt=QUERY_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            tools=[FLASHCARD_TOOL],
-            tool_choice=self._get_tool_choice("create_flashcards")
-        )
-
         # Create virtual Note object for query-based flashcards
         virtual_note = Note(
             path="query",
@@ -272,6 +424,23 @@ class FlashcardAI:
             content=query,
             tags=["query-generated"],
             size=0
+        )
+
+        # Use vector feedback loop if enabled
+        if CONFIG.vector_dedup:
+            return self._generate_with_vector_feedback(
+                system_prompt=QUERY_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                note=virtual_note,
+                default_tags=["query-generated"]
+            )
+
+        # Original single-shot behavior
+        response = self._call_llm(
+            system_prompt=QUERY_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            tools=[FLASHCARD_TOOL],
+            tool_choice=self._get_tool_choice("create_flashcards")
         )
 
         return self._extract_flashcards_from_response(response, virtual_note, default_tags=["query-generated"])
@@ -296,6 +465,15 @@ class FlashcardAI:
 
         Please analyze this note and extract information specifically related to the query "{query}". {card_instruction} only for information in the note that directly addresses or relates to this query."""
 
+        # Use vector feedback loop if enabled
+        if CONFIG.vector_dedup:
+            return self._generate_with_vector_feedback(
+                system_prompt=TARGETED_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                note=note
+            )
+
+        # Original single-shot behavior
         response = self._call_llm(
             system_prompt=TARGETED_SYSTEM_PROMPT,
             user_prompt=user_prompt,

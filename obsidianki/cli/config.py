@@ -38,7 +38,10 @@ DEFAULT_CONFIG = {
     "UPFRONT_BATCHING": False,  # Process all notes in parallel instead of one-by-one
     "BATCH_SIZE_LIMIT": 20,  # Maximum notes to process in batch mode
     "BATCH_CARD_LIMIT": 100,  # Maximum total cards in batch mode
-    "MODEL": "Claude Sonnet 4.5"  # AI model to use (Claude Sonnet 4, GPT-5, Gemini 3 Pro Preview, etc.)
+    "MODEL": "Claude Sonnet 4.5",  # AI model to use (Claude Sonnet 4, GPT-5, Gemini 3 Pro Preview, etc.)
+    "VECTOR_DEDUP": False,  # Enable vector-based semantic deduplication with feedback loop
+    "VECTOR_THRESHOLD": 0.85,  # Similarity threshold (0-1) to flag as potential duplicate
+    "VECTOR_MAX_TURNS": 5,  # Max revision attempts in vector feedback loop
 }
 
 class Config:

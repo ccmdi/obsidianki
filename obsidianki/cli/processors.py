@@ -74,6 +74,13 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
         if note.path != "query": #TODO
             flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
             CONFIG.record_flashcards_created(note, successful_cards, flashcard_fronts)
+
+        # Index new cards in vector store for semantic deduplication
+        if CONFIG.vector_dedup:
+            from obsidianki.ai.vectors import get_vectors
+            fronts_to_index = [fc.front_original for fc in cards_to_add[:successful_cards]]
+            get_vectors().add(fronts_to_index)
+
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
