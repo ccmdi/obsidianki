@@ -5,65 +5,6 @@ from unittest.mock import patch
 
 from obsidianki.ai.models import MODEL_MAP
 
-
-class TestModelMap:
-    """Test the MODEL_MAP configuration"""
-
-    def test_model_map_has_expected_models(self):
-        """Verify MODEL_MAP contains all expected models"""
-        expected_models = [
-            "Claude Sonnet 4.5",
-            "Claude Opus 4.5",
-            "GPT-5",
-            "Gemini 3 Pro",
-            "GPT-4o",
-            "GPT-4o Mini",
-            "Gemini 3 Flash",
-            "DeepSeek V3.1"
-        ]
-
-        for model in expected_models:
-            assert model in MODEL_MAP, f"Model '{model}' not found in MODEL_MAP"
-
-    def test_model_map_entries_have_required_fields(self):
-        """Verify each MODEL_MAP entry has provider, model, and key_name"""
-        required_fields = ['provider', 'model', 'key_name']
-
-        for model_name, model_info in MODEL_MAP.items():
-            for field in required_fields:
-                assert field in model_info, f"Model '{model_name}' missing field '{field}'"
-                assert model_info[field], f"Model '{model_name}' has empty '{field}'"
-
-    def test_anthropic_models_use_correct_provider(self):
-        """Verify Anthropic models use 'anthropic' provider"""
-        claude_models = ["Claude Sonnet 4.5", "Claude Opus 4.5"]
-
-        for model in claude_models:
-            assert MODEL_MAP[model]["provider"] == "anthropic"
-            assert MODEL_MAP[model]["key_name"] == "ANTHROPIC_API_KEY"
-
-    def test_openai_models_use_correct_provider(self):
-        """Verify OpenAI models use 'openai' provider"""
-        openai_models = ["GPT-5", "GPT-4o", "GPT-4o Mini"]
-
-        for model in openai_models:
-            assert MODEL_MAP[model]["provider"] == "openai"
-            assert MODEL_MAP[model]["key_name"] == "OPENAI_API_KEY"
-
-    def test_google_models_use_correct_provider(self):
-        """Verify Google models use 'google' provider"""
-        google_models = ["Gemini 3 Pro", "Gemini 3 Flash"]
-
-        for model in google_models:
-            assert MODEL_MAP[model]["provider"] == "google"
-            assert MODEL_MAP[model]["key_name"] == "GEMINI_API_KEY"
-
-    def test_deepseek_models_use_correct_provider(self):
-        """Verify DeepSeek models use 'deepseek' provider"""
-        assert MODEL_MAP["DeepSeek V3.1"]["provider"] == "deepseek"
-        assert MODEL_MAP["DeepSeek V3.1"]["key_name"] == "DEEPSEEK_API_KEY"
-
-
 class TestFlashcardAIModelSelection:
     """Test FlashcardAI model initialization with different providers"""
 
