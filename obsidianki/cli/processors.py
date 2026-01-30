@@ -63,7 +63,6 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
             raise
 
         if not approved_flashcards:
-            console.print(f"[yellow]WARNING:[/yellow] No flashcards approved for {note.filename}, skipping")
             return 0
 
         cards_to_add = approved_flashcards
