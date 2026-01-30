@@ -1,7 +1,7 @@
 import os
 import urllib3
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Dict, Any, Optional
 
 from obsidianki.cli.config import console, CONFIG
 from obsidianki.cli.models import Note
@@ -10,6 +10,7 @@ from obsidianki.api.base import BaseAPI
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 OBSIDIAN_TIMEOUT_LENGTH = 30
+
 
 class ObsidianAPI(BaseAPI):
     def __init__(self):
@@ -24,42 +25,28 @@ class ObsidianAPI(BaseAPI):
             "Content-Type": "application/json"
         }
 
-    def _build_filters(self, search_folders=None) -> str:
-        """Build combined DQL filter conditions"""
-        filters = []
+    def search(self, query: Dict[str, Any]) -> List[Note]:
+        """Search notes using JsonLogic query - returns Note objects"""
+        headers = {
+            **self.headers,
+            "Content-Type": "application/vnd.olrapi.jsonlogic+json"
+        }
 
-        # Folder filter
-        if search_folders:
-            folder_conditions = [f'startswith(file.path, "{folder}/")' for folder in search_folders]
-            filters.append(f"({' OR '.join(folder_conditions)})")
+        try:
+            url = f"{self.base_url}/search/"
+            response = super()._make_request("POST", url, headers=headers, json=query, verify=False)
+            results = self._parse_response(response)
 
-        # Excluded tags filter
-        if CONFIG and CONFIG.excluded_tags:
-            exclude_conditions = [f'!contains(file.tags, "{tag}")' for tag in CONFIG.excluded_tags]
-            filters.append(f"({' AND '.join(exclude_conditions)})")
-
-        return f"AND {' AND '.join(filters)}" if filters else ""
-
-    def _build_base_query(self, extra_conditions="", sort_field="file.mtime", sort_order="ASC") -> str:
-        """Build standard DQL query structure"""
-        return f"""TABLE
-            file.name AS "filename",
-            file.path AS "path",
-            file.mtime AS "mtime",
-            file.size AS "size",
-            file.tags AS "tags"
-            FROM ""
-            WHERE {extra_conditions}
-            SORT {sort_field} {sort_order}"""
-
-    def _make_obsidian_request(self, endpoint: str, method: str = "GET", data: dict = {}):
-        """Make a request to the Obsidian REST API, ignoring SSL verification"""
-        url = f"{self.base_url}{endpoint}"
-        response = super()._make_request(method, url, json=data, verify=False)
-        return self._parse_response(response)
+            return [Note.from_jsonlogic_result(r) for r in results]
+        except Exception as e:
+            raise
 
     def dql(self, query: str) -> List[Note]:
-        """Search notes using Dataview DQL query - returns Note objects"""
+        """Search notes using Dataview DQL query - returns Note objects.
+
+        Note: Requires the Dataview plugin to be installed in Obsidian.
+        Used primarily by agent mode (--agent) which generates DQL queries dynamically.
+        """
         headers = {
             **self.headers,
             "Content-Type": "application/vnd.olrapi.dataview.dql+txt"
@@ -70,40 +57,108 @@ class ObsidianAPI(BaseAPI):
             response = super()._make_request("POST", url, headers=headers, data=query, verify=False)
             dict_results = self._parse_response(response)
 
-            return [Note.from_obsidian_result(result) for result in dict_results]
+            return [Note.from_dql_result(result) for result in dict_results]
         except Exception as e:
             raise
+
+    def _build_folder_filter(self, search_folders: Optional[List[str]] = None) -> Optional[Dict]:
+        """Build JsonLogic filter for folder restrictions"""
+        folders = search_folders or []
+        if not folders:
+            return None
+
+        if len(folders) == 1:
+            return {"glob": [f"{folders[0]}/*", {"var": "path"}]}
+
+        return {
+            "or": [
+                {"glob": [f"{folder}/*", {"var": "path"}]}
+                for folder in folders
+            ]
+        }
+
+    def _build_excluded_tags_filter(self) -> Optional[Dict]:
+        """Build JsonLogic filter to exclude notes with certain tags"""
+        if not CONFIG or not CONFIG.excluded_tags:
+            return None
+
+        # None of the excluded tags should be present
+        return {
+            "and": [
+                {"!": {"in": [tag, {"var": "tags"}]}}
+                for tag in CONFIG.excluded_tags
+            ]
+        }
+
+    def _combine_filters(self, *filters) -> Dict:
+        """Combine multiple JsonLogic filters with AND, returning full note object on match"""
+        valid_filters = [f for f in filters if f is not None]
+
+        if not valid_filters:
+            # Match all - return full object
+            return {"var": ""}
+
+        if len(valid_filters) == 1:
+            condition = valid_filters[0]
+        else:
+            condition = {"and": valid_filters}
+
+        # Wrap in if to return full note object when condition matches
+        return {
+            "if": [
+                condition,
+                {"var": ""},  # Return full note object on match
+                None          # Return null (falsy) on no match
+            ]
+        }
+
+    def _make_obsidian_request(self, endpoint: str, method: str = "GET", data: dict = {}):
+        """Make a request to the Obsidian REST API, ignoring SSL verification"""
+        url = f"{self.base_url}{endpoint}"
+        response = super()._make_request(method, url, json=data, verify=False)
+        return self._parse_response(response)
 
     def get_old_notes(self, days: int, limit: int = 0) -> List[Note]:
         """Get notes older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
-        cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+        cutoff_ms = int(cutoff_date.timestamp() * 1000)
 
-        filters = self._build_filters(CONFIG.search_folders)
+        query = self._combine_filters(
+            {"<": [{"var": "stat.mtime"}, cutoff_ms]},
+            {">": [{"var": "stat.size"}, 100]},
+            self._build_folder_filter(CONFIG.search_folders),
+            self._build_excluded_tags_filter()
+        )
 
-        condition = f'file.mtime < date("{cutoff_str}") {filters}'
-        query = self._build_base_query(condition)
+        results = self.search(query)
 
-        if limit:
-            query += f"\nLIMIT {limit}"
+        if limit and len(results) > limit:
+            return results[:limit]
 
-        return self.dql(query)
+        return results
 
     def get_tagged_notes(self, tags: List[str], exclude_recent_days: int = 0) -> List[Note]:
         """Get notes with specific tags"""
-        tag_conditions = " OR ".join([f'contains(file.tags, "{tag}")' for tag in tags])
-        filters = self._build_filters(CONFIG.search_folders)
+        # At least one of the tags should be present
+        tag_filter = {
+            "or": [
+                {"in": [tag, {"var": "tags"}]}
+                for tag in tags
+            ]
+        }
 
-        condition = f'({tag_conditions})'
+        filters = [tag_filter]
 
         if exclude_recent_days > 0:
             cutoff_date = datetime.now() - timedelta(days=exclude_recent_days)
-            cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-            condition += f' AND file.mtime < date("{cutoff_str}")'
+            cutoff_ms = int(cutoff_date.timestamp() * 1000)
+            filters.append({"<": [{"var": "stat.mtime"}, cutoff_ms]})
 
-        condition += f' {filters}'
+        filters.append(self._build_folder_filter(CONFIG.search_folders))
+        filters.append(self._build_excluded_tags_filter())
 
-        return self.dql(self._build_base_query(condition))
+        query = self._combine_filters(*filters)
+        return self.search(query)
 
     def get_note_content(self, note_path: str) -> str:
         """Get the content of a specific note"""
@@ -115,11 +170,16 @@ class ObsidianAPI(BaseAPI):
     def sample_old_notes(self, days: int, limit: int = 0, bias_strength: float = 0.0, search_folders: List[str] = []) -> List[Note]:
         """Sample old notes with optional weighting"""
         cutoff_date = datetime.now() - timedelta(days=days)
-        cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-        filters = self._build_filters(search_folders)
+        cutoff_ms = int(cutoff_date.timestamp() * 1000)
 
-        condition = f'file.mtime < date("{cutoff_str}") AND file.size > 100 {filters}'
-        all_notes = self.dql(self._build_base_query(condition))
+        query = self._combine_filters(
+            {"<": [{"var": "stat.mtime"}, cutoff_ms]},
+            {">": [{"var": "stat.size"}, 100]},
+            self._build_folder_filter(search_folders),
+            self._build_excluded_tags_filter()
+        )
+
+        all_notes = self.search(query)
 
         if not all_notes:
             return []
@@ -132,7 +192,6 @@ class ObsidianAPI(BaseAPI):
         if not limit or len(all_notes) <= limit:
             return all_notes
 
-        # Use weighted sampling by default (since we have global config)
         return self._weighted_sample(all_notes, limit, bias_strength)
 
     def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = 0.0) -> List[Note]:
@@ -153,7 +212,7 @@ class ObsidianAPI(BaseAPI):
             chosen_idx = available_notes.index(chosen)
 
             sampled_notes.append(chosen)
-            
+
             available_notes.pop(chosen_idx)
             available_weights.pop(chosen_idx)
 
@@ -161,25 +220,33 @@ class ObsidianAPI(BaseAPI):
 
     def find_by_pattern(self, pattern: str, sample_size: int = 0, bias_strength: float = 0.0, search_folders: List[str] = []) -> List[Note]:
         """Find notes by pattern"""
-        filters = self._build_filters(search_folders)
-
-        # Build pattern condition
+        # Build pattern condition using glob
         if pattern.endswith('/*'):
+            # Directory pattern: frontend/*
             directory_path = pattern[:-2]
-            condition = f'startswith(file.path, "{directory_path}/")'
+            pattern_filter = {"glob": [f"{directory_path}/*", {"var": "path"}]}
         elif '*' in pattern:
-            if pattern.startswith('*'):
-                condition = f'endswith(file.path, "{pattern[1:]}")'
-            elif pattern.endswith('*'):
-                condition = f'startswith(file.path, "{pattern[:-1]}")'
-            else:
-                parts = [f'contains(file.path, "{part}")' for part in pattern.split('*') if part]
-                condition = ' AND '.join(parts) if parts else 'true'
+            # Glob pattern - convert to glob syntax
+            # Handle patterns like "react*", "*hooks", "react*hooks"
+            glob_pattern = pattern if pattern.endswith('*') or pattern.startswith('*') else f"*{pattern}*"
+            pattern_filter = {"glob": [glob_pattern, {"var": "path"}]}
         else:
-            condition = f'(file.path = "{pattern}" OR contains(file.name, "{pattern}"))'
+            # Exact match or name contains
+            pattern_filter = {
+                "or": [
+                    {"===": [{"var": "path"}, pattern]},
+                    {"glob": [f"*{pattern}*", {"var": "basename"}]}
+                ]
+            }
 
-        full_condition = f'{condition} AND file.size > 100 {filters}'
-        results = self.dql(self._build_base_query(full_condition))
+        query = self._combine_filters(
+            pattern_filter,
+            {">": [{"var": "stat.size"}, 100]},
+            self._build_folder_filter(search_folders),
+            self._build_excluded_tags_filter()
+        )
+
+        results = self.search(query)
 
         if not results:
             return []
@@ -200,10 +267,13 @@ class ObsidianAPI(BaseAPI):
 
     def find_by_name(self, note_name: str, search_folders: List[str]) -> Note | None:
         """Find note by name with partial matching"""
-        filters = self._build_filters(search_folders)
+        query = self._combine_filters(
+            {"glob": [f"*{note_name}*", {"var": "basename"}]},
+            self._build_folder_filter(search_folders),
+            self._build_excluded_tags_filter()
+        )
 
-        condition = f'contains(file.name, "{note_name}") {filters}'
-        results = self.dql(self._build_base_query(condition, sort_field="file.name"))
+        results = self.search(query)
 
         if not results:
             return None
@@ -225,4 +295,3 @@ class ObsidianAPI(BaseAPI):
             return True
         except Exception:
             return False
-
