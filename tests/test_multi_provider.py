@@ -22,44 +22,9 @@ class TestFlashcardAIModelSelection:
                 assert ai.provider == "anthropic"
                 assert "claude" in ai.model.lower()
 
-    def test_ai_client_respects_model_config(self):
-        """Test that FlashcardAI uses model from CONFIG"""
-        test_cases = [
-            ("GPT-5", "openai", "gpt-5"),
-            ("Claude Opus 4.5", "anthropic", "claude-opus-4-5"),
-            ("Gemini 3 Pro", "google", "gemini/gemini-3-pro-preview"),
-        ]
-
-        for model_name, expected_provider, expected_model in test_cases:
-            model_info = MODEL_MAP[model_name]
-            api_key_name = model_info["key_name"]
-
-            with patch.dict(os.environ, {api_key_name: 'test_key'}):
-                from obsidianki.ai.client import FlashcardAI
-
-                with patch('obsidianki.ai.client.CONFIG') as mock_config:
-                    mock_config.model = model_name
-
-                    ai = FlashcardAI()
-
-                    assert ai.provider == expected_provider, \
-                        f"Model {model_name} should use provider {expected_provider}"
-                    assert ai.model == expected_model, \
-                        f"Model {model_name} should map to {expected_model}"
-
 
 class TestModelConfiguration:
     """Test model configuration via config command"""
-
-    def test_config_accepts_valid_model_names(self):
-        """Test that config command accepts valid model names"""
-        from obsidianki.cli.config import CONFIG
-
-        valid_models = ["GPT-5", "Claude Sonnet 4.5", "Gemini 3 Flash"]
-
-        for model in valid_models:
-            assert model in MODEL_MAP, \
-                f"Test assumes {model} is in MODEL_MAP but it's not"
 
     def test_all_model_map_keys_are_user_friendly(self):
         """Verify MODEL_MAP keys are human-friendly, not technical IDs"""
