@@ -34,7 +34,7 @@ class TestNoteModelBasics:
         }
 
         # from_obsidian_result accepts optional content parameter
-        note = Note.from_obsidian_result(result, content="Content here")
+        note = Note.from_dql_result(result, content="Content here")
 
         assert note.filename == "My Note"
         assert note.path == "folder/my_note.md"
@@ -288,7 +288,7 @@ class TestModelEdgeCases:
         }
 
         # Should handle missing optional fields with defaults
-        note = Note.from_obsidian_result(result, content="test")
+        note = Note.from_dql_result(result, content="test")
         assert note.filename == "Minimal"
         assert note.path == "minimal.md"
         assert note.content == "test"

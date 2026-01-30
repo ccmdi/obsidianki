@@ -7,6 +7,7 @@ from obsidianki.cli.commands.deck_cmd import COMMAND as deck_command
 from obsidianki.cli.commands.template_cmd import COMMAND as template_command
 from obsidianki.cli.commands.hide_cmd import COMMAND as hide_command
 from obsidianki.cli.commands.edit_cmd import COMMAND as edit_command
+from obsidianki.cli.commands.vector_cmd import COMMAND as vector_command
 
 ALL_COMMANDS = [
     config_command,
@@ -16,4 +17,5 @@ ALL_COMMANDS = [
     template_command,
     hide_command,
     edit_command,
+    vector_command,
 ]

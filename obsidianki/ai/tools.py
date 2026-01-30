@@ -2,7 +2,7 @@ FLASHCARD_TOOL: dict = {
     "type": "function",
     "function": {
         "name": "create_flashcards",
-        "description": "Create flashcards from note content with front (question) and back (answer)",
+        "description": "Propose flashcards from note content. In vector mode, returns similarity feedback before final submission.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -26,6 +26,20 @@ FLASHCARD_TOOL: dict = {
                 }
             },
             "required": ["flashcards"]
+        }
+    }
+}
+
+# Submit tool for vector dedup mode - confirms flashcard submission after similarity review
+SUBMIT_FLASHCARDS_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "submit_flashcards",
+        "description": "Confirm and submit the last proposed flashcards. Call this after reviewing similarity feedback to finalize submission.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
         }
     }
 }

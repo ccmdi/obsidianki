@@ -9,41 +9,42 @@ from obsidianki.cli.interactive.approval import approve_note, approve_flashcard
 from obsidianki.cli.models import Note, Flashcard, NotePattern
 from obsidianki.cli.services import OBSIDIAN, AI, ANKI
 from obsidianki.cli.utils import encode_path
+from obsidianki.cli.config import console
 
 #TODO
 # deck_examples -> List[Flashcard]
 # previous_fronts -> List[Flashcard]?
 def process(note: Note, args: argparse.Namespace, deck_examples: List[Dict[str, str]], target_cards_per_note: int, previous_fronts: List[str]) -> List[Flashcard]:
-    from obsidianki.cli.config import console
     note.ensure_content()
 
-    console.print("   ", end="")
-
-    # Generate flashcards
+    # Generate flashcards (console is already imported at module level)
     if args.query and note.path == "query":
         # Standalone query mode - use direct query generation
-        flashcards = AI.generate_from_query(args.query,
-                                           target_cards=target_cards_per_note,
-                                           previous_fronts=previous_fronts,
-                                           deck_examples=deck_examples)
+        with console.status("Generating..."):
+            flashcards = AI.generate_from_query(args.query,
+                                               target_cards=target_cards_per_note,
+                                               previous_fronts=previous_fronts,
+                                               deck_examples=deck_examples)
     elif args.query:
-        console.print(f"  [cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
-        flashcards = AI.generate_from_note_query(note, args.query,
-                                                target_cards=target_cards_per_note,
-                                                previous_fronts=previous_fronts,
-                                                deck_examples=deck_examples)
+        console.print(f"[cyan]Extracting info for query:[/cyan] [bold]{args.query}[/bold]")
+        with console.status("Generating..."):
+            flashcards = AI.generate_from_note_query(note, args.query,
+                                                    target_cards=target_cards_per_note,
+                                                    previous_fronts=previous_fronts,
+                                                    deck_examples=deck_examples)
     else:
-        flashcards = AI.generate_flashcards(note,
-                                           target_cards=target_cards_per_note,
-                                           previous_fronts=previous_fronts,
-                                           deck_examples=deck_examples)
+        with console.status("Generating..."):
+            flashcards = AI.generate_flashcards(note,
+                                               target_cards=target_cards_per_note,
+                                               previous_fronts=previous_fronts,
+                                               deck_examples=deck_examples)
 
     return flashcards
 
 
 def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
     """Handle flashcard approval and Anki addition"""
-    from obsidianki.cli.config import console, CONFIG
+    from obsidianki.cli.config import CONFIG
 
     # Flashcard approval
     cards_to_add = flashcards
@@ -54,8 +55,8 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
                 if CONFIG.approve_cards and approve_flashcard(flashcard):
                     approved_flashcards.append(flashcard)
                 elif CONFIG.print_cards:
-                    console.print(f"   [cyan]Front:[/cyan] {flashcard.front}")
-                    console.print(f"   [cyan]Back:[/cyan] {flashcard.back}")
+                    console.print(f"[cyan]Front:[/cyan] {flashcard.front}")
+                    console.print(f"[cyan]Back:[/cyan] {flashcard.back}")
                     console.print()
                     approved_flashcards.append(flashcard)
         except KeyboardInterrupt:
@@ -74,6 +75,13 @@ def postprocess(note: Note, flashcards: List[Flashcard], deck_name: str):
         if note.path != "query": #TODO
             flashcard_fronts = [fc.front for fc in cards_to_add[:successful_cards]]
             CONFIG.record_flashcards_created(note, successful_cards, flashcard_fronts)
+
+        # Index new cards in vector store for semantic deduplication
+        if CONFIG.vector_dedup:
+            from obsidianki.ai.vectors import get_vectors
+            fronts_to_index = [fc.front_original for fc in cards_to_add[:successful_cards]]
+            get_vectors().add(fronts_to_index)
+
         return successful_cards
     else:
         console.print(f"[red]ERROR:[/red] Failed to add cards to Anki for {note.filename}")
@@ -83,7 +91,7 @@ def preprocess(args: argparse.Namespace):
     """
     Entry point for flashcard generation.
     """
-    from obsidianki.cli.config import console, CONFIG
+    from obsidianki.cli.config import CONFIG
     from rich.panel import Panel
 
     if args.mcp:
@@ -125,9 +133,6 @@ def preprocess(args: argparse.Namespace):
     if CONFIG.sampling_mode == "weighted":
         CONFIG.show_weights()
     console.print()
-
-    if args.query and not args.notes and CONFIG.deduplicate_via_deck:
-        console.print("[yellow]WARNING:[/yellow] DEDUPLICATE_VIA_DECK is experimental and may be expensive for large decks\n")
 
     # Test connections
     if not OBSIDIAN.test_connection():
@@ -247,13 +252,21 @@ def preprocess(args: argparse.Namespace):
             console.print(f"[dim]Using {len(deck_examples)} example cards for schema enforcement[/dim]")
 
     previous_fronts = []
-    if not args.query and args.notes and CONFIG.deduplicate_via_history:
+    if args.notes and CONFIG.deduplicate_via_history:
         previous_fronts = [note.get_previous_flashcard_fronts() for note in notes]
+        total_prev = sum(len(pf) for pf in previous_fronts)
+        if total_prev > 0:
+            console.print(f"[dim]{total_prev} previous card(s) loaded for this note[/dim]")
     elif args.query and not args.notes and CONFIG.deduplicate_via_deck:
         # For standalone query mode, use deck-based deduplication
         deck_fronts = ANKI.get_card_fronts(CONFIG.deck)
         if deck_fronts:
             console.print(f"[dim]Found {len(deck_fronts)} existing cards in deck '{CONFIG.deck}' for deduplication[/dim]")
+            if len(deck_fronts) > 10:
+                from rich.prompt import Confirm
+                if not Confirm.ask(f"Are you sure you want to proceed?", default=False):
+                    console.print("[red]ERROR:[/red] User cancelled")
+                    return 1
         previous_fronts = [deck_fronts] * len(notes)  # Same fronts for all notes (just the query note)
 
     total_cards = 0
@@ -314,28 +327,29 @@ def preprocess(args: argparse.Namespace):
 
             console.print(f"\n[blue]PROCESSING:[/blue] {note.filename}")
 
-            if CONFIG.approve_notes:
+            with console.indent():
+                if CONFIG.approve_notes:
+                    try:
+                        if not approve_note(note):
+                            continue
+                    except KeyboardInterrupt:
+                        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+                        return 0
+
                 try:
-                    if not approve_note(note):
+                    flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
+                    console.print()
+
+                    if not flashcards:
+                        console.print("[yellow]WARNING:[/yellow] No flashcards generated, skipping")
                         continue
+
+                    cards_added = postprocess(note, flashcards, CONFIG.deck)
+                    total_cards += cards_added
+
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Operation cancelled by user[/yellow]")
                     return 0
-
-            try:
-                flashcards = process(note, args, deck_examples, target_cards_per_note, previous_fronts[i-1] if previous_fronts else [])
-                console.print()  # Clear the indented cursor line
-
-                if not flashcards:
-                    console.print("  [yellow]WARNING:[/yellow] No flashcards generated, skipping")
-                    continue
-
-                cards_added = postprocess(note, flashcards, CONFIG.deck)
-                total_cards += cards_added
-
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Operation cancelled by user[/yellow]")
-                return 0
 
     console.print("")
     console.print(Panel(f"[bold green]COMPLETE![/bold green] Added {total_cards}/{CONFIG.max_cards} flashcards to deck '{CONFIG.deck}'", style="green"))

@@ -1,3 +1,10 @@
+PROVIDER_COLORS = {
+    "anthropic": "#D97757",  # Anthropic orange
+    "google": "#4285F4",     # Google blue
+    "openai": "#10A37F",     # OpenAI green
+    "deepseek": "#536DFE",   # DeepSeek purple-blue
+}
+
 MODEL_MAP = {
     "Claude Sonnet 4.5": {
         "provider": "anthropic",
@@ -5,9 +12,9 @@ MODEL_MAP = {
         "model": "claude-sonnet-4-5",
         "key_name": "ANTHROPIC_API_KEY"
     },
-    "Claude Opus 4": {
+    "Claude Opus 4.5": {
         "provider": "anthropic",
-        "model": "claude-opus-4-1",
+        "model": "claude-opus-4-5",
         "key_name": "ANTHROPIC_API_KEY",
         "url": "https://console.anthropic.com/"
     },
@@ -17,9 +24,9 @@ MODEL_MAP = {
         "key_name": "OPENAI_API_KEY",
         "url": "https://platform.openai.com/api-keys"
     },
-    "Gemini 3": {
+    "Gemini 3 Pro": {
         "provider": "google",
-        "model": "gemini/gemini-2.5-pro",
+        "model": "gemini/gemini-3-pro-preview",
         "key_name": "GEMINI_API_KEY",
         "url": "https://makersuite.google.com/app/apikey"
     },
@@ -35,9 +42,9 @@ MODEL_MAP = {
         "key_name": "OPENAI_API_KEY",
         "url": "https://platform.openai.com/api-keys"
     },
-    "Gemini 2.5 Flash": {
+    "Gemini 3 Flash": {
         "provider": "google",
-        "model": "gemini/gemini-2.5-flash",
+        "model": "gemini/gemini-3-flash-preview",
         "key_name": "GEMINI_API_KEY",
         "url": "https://makersuite.google.com/app/apikey"
     },

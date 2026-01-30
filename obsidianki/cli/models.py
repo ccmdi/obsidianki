@@ -68,15 +68,58 @@ class Note:
         return f"[link={self.to_obsidian_uri()}]{self.path}[/link]"
 
     @classmethod
-    def from_obsidian_result(cls, obsidian_result: Dict[str, Any], content: str = "") -> 'Note':
-        """Create Note from Obsidian API result format."""
-        result = obsidian_result.get('result', obsidian_result)
+    def from_dql_result(cls, dql_result: Dict[str, Any], content: str = "") -> 'Note':
+        """Create Note from Obsidian API result format (DQL)."""
+        result = dql_result.get('result', dql_result)
         return cls(
             path=result['path'],
             filename=result['filename'],
             content=content or "",
             tags=result.get('tags', []),
             size=result.get('size', 0)
+        )
+
+    @classmethod
+    def from_jsonlogic_result(cls, jsonlogic_result: Dict[str, Any], content: str = "") -> 'Note':
+        """Create Note from Obsidian API JsonLogic result format.
+
+        JsonLogic response format:
+        {
+            "filename": "path/to/note.md",
+            "result": { ... full note object ... }
+        }
+
+        The result contains the full note object with:
+        - path: full file path
+        - basename: filename without extension
+        - stat.mtime: modification time (ms)
+        - stat.size: file size (bytes)
+        - tags: array of tags
+        """
+        filename = jsonlogic_result.get('filename', '')
+        result = jsonlogic_result.get('result', {})
+
+        # Handle case where result is the full note object
+        if isinstance(result, dict):
+            path = result.get('path', filename)
+            # Get filename from path or basename
+            name = path.split('/')[-1] if path else filename.split('/')[-1]
+            stat = result.get('stat', {})
+            tags = result.get('tags', [])
+            size = stat.get('size', 0)
+        else:
+            # Fallback if result is just True or simple value
+            path = filename
+            name = filename.split('/')[-1] if filename else ''
+            tags = []
+            size = 0
+
+        return cls(
+            path=path,
+            filename=name,
+            content=content or "",
+            tags=tags if tags else [],
+            size=size
         )
 
 

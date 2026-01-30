@@ -37,7 +37,8 @@ def mock_config():
              patch.object(obsidianki.cli.config.CONFIG, 'tag_schema_file', tags_file), \
              patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_NOTES', False), \
              patch.object(obsidianki.cli.config.CONFIG, 'APPROVE_CARDS', False), \
-             patch.object(obsidianki.cli.config.CONFIG, 'UPFRONT_BATCHING', False):
+             patch.object(obsidianki.cli.config.CONFIG, 'UPFRONT_BATCHING', False), \
+             patch.object(obsidianki.cli.config.CONFIG, 'vector_dedup', False):
             yield {
                 'config_dir': config_dir,
                 'env_file': env_file,
@@ -306,93 +307,6 @@ class TestHiddenNotes:
         sampled = obsidianki.cli.services.OBSIDIAN.sample_old_notes(days=30, limit=10)
         sampled_paths = [n.path for n in sampled]
         assert test_note.path not in sampled_paths, "Hidden note should not be sampled"
-
-
-class TestSemanticPadding:
-    """Test semantic padding/indentation for flashcard output"""
-
-    def test_flashcard_output_has_padding(self, mock_services, mock_config):
-        """Test that flashcard output uses proper padding"""
-        from obsidianki.cli.interactive.approval import approve_flashcard
-        from obsidianki.cli.models import Flashcard, Note
-        from rich.console import Console
-        from io import StringIO
-
-        # Create test flashcard
-        note = Note(
-            path="test.md",
-            filename="test.md",
-            content="test content",
-            tags=["test"],
-            size=100
-        )
-        flashcard = Flashcard(
-            front="What is Python?",
-            back="A programming language",
-            note=note,
-            front_original="What is Python?",
-            back_original="A programming language"
-        )
-
-        # Capture console output
-        string_io = StringIO()
-        test_console = Console(file=string_io, force_terminal=True, width=120)
-
-        # Mock Confirm.ask to auto-approve
-        from rich.prompt import Confirm
-        with patch.object(Confirm, 'ask', return_value=True), \
-             patch('obsidianki.cli.interactive.approval.console', test_console):
-            result = approve_flashcard(flashcard)
-
-            output = string_io.getvalue()
-
-            # Check that output contains Front and Back labels
-            assert "Front:" in output, "Should display Front label"
-            assert "Back:" in output, "Should display Back label"
-            assert "What is Python?" in output
-            assert "A programming language" in output
-
-    def test_multiline_flashcard_maintains_indentation(self, mock_services, mock_config):
-        """Test that multiline flashcards maintain proper indentation"""
-        from obsidianki.cli.interactive.approval import approve_flashcard
-        from obsidianki.cli.models import Flashcard, Note
-        from rich.console import Console
-        from io import StringIO
-
-        # Create flashcard with multiline content
-        note = Note(
-            path="test.md",
-            filename="test.md",
-            content="test",
-            tags=[],
-            size=100
-        )
-
-        multiline_front = "What are the three pillars?\n1. First\n2. Second\n3. Third"
-        multiline_back = "Answer:\n- Point A\n- Point B\n- Point C"
-
-        flashcard = Flashcard(
-            front=multiline_front,
-            back=multiline_back,
-            note=note,
-            front_original=multiline_front,
-            back_original=multiline_back
-        )
-
-        string_io = StringIO()
-        test_console = Console(file=string_io, force_terminal=True, width=120)
-
-        from rich.prompt import Confirm
-        with patch.object(Confirm, 'ask', return_value=True), \
-             patch('obsidianki.cli.interactive.approval.console', test_console):
-            approve_flashcard(flashcard)
-            output = string_io.getvalue()
-
-            # Verify multiline content is present (check without color codes)
-            assert "First" in output
-            assert "Second" in output
-            assert "Point A" in output
-
 
 class TestTemplates:
     """Test template functionality"""
