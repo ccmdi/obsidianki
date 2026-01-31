@@ -47,76 +47,17 @@ The interactive setup will guide you through model selection and configuration.
 ## Usage
 
 ```bash
-obsidianki                   # Generate flashcards
-oki                          # Alias
+oki                                # Generate from random old notes
+oki --notes "React"                # Generate from specific note
+oki --notes "frontend/*:3"         # Sample 3 notes from folder
+oki -q "What is X?"                # Standalone query (no source note)
+oki --notes "React" -q "hooks"     # Targeted extraction from note
 ```
 
-### Configuration
-```bash
-oki config                         # Show config
-oki config get max_cards           # Get specific setting
-oki config set max_cards 15        # Update setting
-oki config set model "GPT-5"       # Switch AI model
-```
+See the [reference](docs/usage.md) for all commands and options.
 
-### Tags
-```bash
-oki tag                      # Show tags
-oki tag add python 2.0       # Add/update tag weight
-oki tag remove python        # Remove tag weight
-oki tag exclude boring       # Exclude notes with 'boring' tag
-oki tag include boring       # Remove 'boring' from exclusion list
-```
-
-### Notes
-```bash
-# Process specific number of notes
-oki --notes 5                         # Sample 5 random notes
-oki --notes 10 --cards 20             # Sample 10 notes, max 20 cards total
-
-# Process specific notes by name
-oki --notes "React" "JavaScript"       # Process specific notes
-oki --notes "React" --cards 6          # Process React note, max 6 cards
-
-# Directory patterns with sampling
-oki --notes "frontend/*"               # Process all notes in frontend/
-oki --notes "frontend/*:5"             # Sample 5 notes from frontend/
-oki --notes "docs/*.md:3"              # Sample 3 markdown files from docs/
-oki --notes "react*:2" "vue*:1"        # Sample 2 React + 1 Vue note
-
-# Mixed usage
-oki --notes "React Hooks" "components/*:3"  # Specific note + 3 from pattern
-```
-
-### Query mode
-```bash
-# Make flashcard without source note
-oki -q "how to center a div"
-oki -q "CSS flexbox" --cards 8
-
-# Targeted extraction from source note(s)
-oki --notes "React" -q "error handling"
-oki --notes "JavaScript" "TypeScript" -q "async patterns" --cards 6
-```
-
-### Advanced
-```bash
-# Deck management
-oki --deck "Programming"             # Add cards to specific deck
-oki deck                             # List all Anki decks
-oki deck rename "Old" "New"          # Rename a deck
-
-# History
-oki history stats                    # View generation statistics
-oki history clear                    # Clear processing history
-oki history clear --notes "React*"   # Clear history for specific notes
-
-# Templating
-oki template add "programming" "--notes 'frontend/*' --cards 3' -b 1"
-oki template use programming # runs the above command as "oki --notes 'frontend/*' --cards 3' -b 1"
-```
-
-# Index
+## Index
+* [Reference](docs/usage.md) - all commands and options
 * [How it works](docs/how-it-works.md)
 * [Vector deduplication](docs/vectors.md) - best deduplication method
 * [MCP server](docs/mcp.md) - for conversational use
