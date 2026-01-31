@@ -57,10 +57,11 @@ oki --notes "React" -q "hooks"     # Targeted extraction from note
 See the [reference](docs/usage.md) for all commands and options.
 
 ## Index
-* [Reference](docs/usage.md) - all commands and options
 * [How it works](docs/how-it-works.md)
 * [Vector deduplication](docs/vectors.md) - best deduplication method
 * [MCP server](docs/mcp.md) - for conversational use
+
+* [Reference](docs/usage.md) - cli usage
 
 ## Configuration options
 
