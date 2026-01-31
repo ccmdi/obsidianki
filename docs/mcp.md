@@ -1,0 +1,2 @@
+# MCP
+There is an [MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. It's useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.

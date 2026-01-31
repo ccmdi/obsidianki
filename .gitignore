@@ -27,6 +27,6 @@ __pycache__/
 *.swo
 
 *.egg-info/
-*.md
+docs/internal
 deprecated/
 *.mp4

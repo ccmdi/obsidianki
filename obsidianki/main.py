@@ -54,6 +54,7 @@ def show_main_help():
     console.print("  [cyan]template[/cyan]              Manage command templates")
     console.print("  [cyan]hide[/cyan]                  Manage hidden notes")
     console.print("  [cyan]edit \\[<deck>][/cyan]         Edit existing cards")
+    console.print("  [cyan]vector[/cyan]                Manage vector embeddings")
     console.print()
 
 

@@ -18,6 +18,13 @@ pip install obsidianki
 pip install https://github.com/ccmdi/obsidianki.git
 ```
 
+## Why?
+Obsidian is a knowledge store. You write notes without the explicit intention of reviewing them later. The knowledge in Obsidian is **unstructured** (natural language), and forcing flashcard review into Obsidian via manual question/answer pairs is making it something it fundamentally isn't.
+
+Anki, on the other hand, is an application exactly for purposeful review. Anki is inherently **structured** via "question/answer" flashcard format. 
+
+To get the best of both worlds, knowledge management in Obsidian and review scheduling in Anki, we need to translate the unstructured notes to structured flashcards. **Bridging this gap is the main goal of ObsidianKi**.
+
 ## Setup
 
 Run:
@@ -109,17 +116,10 @@ oki template add "programming" "--notes 'frontend/*' --cards 3' -b 1"
 oki template use programming # runs the above command as "oki --notes 'frontend/*' --cards 3' -b 1"
 ```
 
-## How it works
-
-### Standard mode
-1. Finds old notes in your vault (configurable age threshold)
-2. Weights notes by tags and processing history (avoids over-processed notes)
-3. Generates flashcards using Claude 4 Sonnet
-4. Creates cards in Anki **"Obsidian"** deck (or `DECK` set in config)
-
-### Query mode
-- **Standalone**: Generates flashcards from AI knowledge alone based on your query
-- **Targeted**: Extracts specific information from selected notes based on your query
+# Index
+* [How it works](docs/how-it-works.md)
+* [Vector deduplication](docs/vectors.md) - best deduplication method
+* [MCP server](docs/mcp.md) - for conversational use
 
 ## Configuration options
 
@@ -144,41 +144,3 @@ oki template use programming # runs the above command as "oki --notes 'frontend/
 | `search_folders` | `[]` | Limit processing to specific folders (array) |
 | `vector_dedup` | `false` | Enable semantic deduplication via embeddings |
 | `vector_threshold` | `0.7` | Similarity threshold for duplicate detection (0-1) |
-
-## Vector Deduplication
-
-Avoid generating semantically similar flashcards using API embeddings (Gemini or OpenAI).
-
-### Enable
-
-```bash
-oki config set vector_dedup true
-```
-
-### Index existing cards
-
-```bash
-oki vector index                    # Index cards from default deck
-oki vector index --deck "My Deck"   # Index cards from specific deck
-```
-
-### Commands
-
-```bash
-oki vector status                   # Show index stats
-oki vector check "question text"    # Check if similar card exists
-oki vector clear                    # Clear the index
-```
-
-### How it works
-
-1. AI proposes flashcards via `create_flashcards` tool
-2. Each card is checked for semantic similarity against existing cards
-3. If similar cards exist, AI receives feedback: *"Card 2 is 87% similar to 'What is polymorphism?'"*
-4. AI can revise or confirm via `submit_flashcards` tool
-5. Accepted cards are indexed for future deduplication
-
-Embeddings use Gemini (`GEMINI_API_KEY`) or OpenAI (`OPENAI_API_KEY`). The index is stored in `~/.config/obsidianki/vectors.json`.
-
-# MCP
-There is an [experimental MCP server](https://github.com/ccmdi/obsidianki-mcp) that runs Obsidianki as a subprocess. Useful if you want to generate flashcards from daily use with an LLM, such as if you ask questions back and forth and want to generate flashcards from that material.
