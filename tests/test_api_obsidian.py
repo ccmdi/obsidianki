@@ -28,7 +28,7 @@ class TestObsidianAPIInit:
 class TestObsidianAPIJsonLogicFilters:
     """Test JsonLogic filter building"""
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_build_folder_filter_none(self):
         """Test building folder filter with no folders"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -36,7 +36,7 @@ class TestObsidianAPIJsonLogicFilters:
             result = api._build_folder_filter(None)
             assert result is None
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_build_folder_filter_empty(self):
         """Test building folder filter with empty list"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -44,7 +44,7 @@ class TestObsidianAPIJsonLogicFilters:
             result = api._build_folder_filter([])
             assert result is None
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_build_folder_filter_single(self):
         """Test building folder filter with single folder"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -52,7 +52,7 @@ class TestObsidianAPIJsonLogicFilters:
             result = api._build_folder_filter(['folder1'])
             assert result == {"glob": ["folder1/*", {"var": "path"}]}
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_build_folder_filter_multiple(self):
         """Test building folder filter with multiple folders"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -61,7 +61,7 @@ class TestObsidianAPIJsonLogicFilters:
             assert "or" in result
             assert len(result["or"]) == 2
 
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_build_excluded_tags_filter(self, mock_config):
         """Test building excluded tags filter"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -71,7 +71,7 @@ class TestObsidianAPIJsonLogicFilters:
             assert "and" in result
             assert len(result["and"]) == 2
 
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_build_excluded_tags_filter_empty(self, mock_config):
         """Test building excluded tags filter with no excluded tags"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -80,7 +80,7 @@ class TestObsidianAPIJsonLogicFilters:
             result = api._build_excluded_tags_filter()
             assert result is None
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_combine_filters_empty(self):
         """Test combining filters with no conditions"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -89,7 +89,7 @@ class TestObsidianAPIJsonLogicFilters:
             # Should return query that matches all (returns full object)
             assert result == {"var": ""}
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_combine_filters_single(self):
         """Test combining single filter"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -100,7 +100,7 @@ class TestObsidianAPIJsonLogicFilters:
             assert "if" in result
             assert result["if"][0] == condition
 
-    @patch('obsidianki.api.obsidian.CONFIG', None)
+    @patch('obsidianki.cli.config.CONFIG', None)
     def test_combine_filters_multiple(self):
         """Test combining multiple filters"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -111,46 +111,6 @@ class TestObsidianAPIJsonLogicFilters:
             # Should wrap in if with and
             assert "if" in result
             assert "and" in result["if"][0]
-
-
-class TestObsidianAPIDQL:
-    """Test DQL query execution (for agent mode)"""
-
-    @patch('obsidianki.api.obsidian.BaseAPI._make_request')
-    def test_dql_success(self, mock_request):
-        """Test successful DQL query"""
-        with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
-            mock_response = Mock()
-            mock_request.return_value = mock_response
-
-            api = ObsidianAPI()
-
-            with patch.object(api, '_parse_response') as mock_parse:
-                mock_parse.return_value = [
-                    {
-                        "result": {
-                            "filename": "Note 1",
-                            "path": "path/note1.md",
-                            "mtime": "2024-01-01",
-                            "size": 100,
-                            "tags": ["tag1"]
-                        }
-                    }
-                ]
-
-                results = api.dql("LIST FROM #test")
-                assert len(results) == 1
-                assert isinstance(results[0], Note)
-
-    @patch('obsidianki.api.obsidian.BaseAPI._make_request')
-    def test_dql_failure(self, mock_request):
-        """Test DQL query failure"""
-        with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
-            mock_request.side_effect = Exception("Connection failed")
-
-            api = ObsidianAPI()
-            with pytest.raises(Exception):
-                api.dql("INVALID QUERY")
 
 
 class TestObsidianAPISearch:
@@ -187,7 +147,7 @@ class TestObsidianAPIGetOldNotes:
     """Test getting old notes"""
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_old_notes_basic(self, mock_config, mock_search):
         """Test getting old notes with basic parameters"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -204,7 +164,7 @@ class TestObsidianAPIGetOldNotes:
             mock_search.assert_called_once()
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_old_notes_with_limit(self, mock_config, mock_search):
         """Test getting old notes respects limit"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -225,7 +185,7 @@ class TestObsidianAPIGetTaggedNotes:
     """Test getting tagged notes"""
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_tagged_notes_single_tag(self, mock_config, mock_search):
         """Test getting notes with single tag"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -243,7 +203,7 @@ class TestObsidianAPIGetTaggedNotes:
             mock_search.assert_called_once()
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_tagged_notes_multiple_tags(self, mock_config, mock_search):
         """Test getting notes with multiple tags"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -264,7 +224,7 @@ class TestObsidianAPIEdgeCases:
     """Test edge cases"""
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_old_notes_empty_result(self, mock_config, mock_search):
         """Test getting old notes with empty result"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):
@@ -279,7 +239,7 @@ class TestObsidianAPIEdgeCases:
             assert len(notes) == 0
 
     @patch.object(ObsidianAPI, 'search')
-    @patch('obsidianki.api.obsidian.CONFIG')
+    @patch('obsidianki.cli.config.CONFIG')
     def test_get_tagged_notes_empty_tags(self, mock_config, mock_search):
         """Test getting notes with empty tags list"""
         with patch.dict(os.environ, {'OBSIDIAN_API_KEY': 'test'}):

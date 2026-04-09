@@ -25,7 +25,7 @@ class TestAnkiAPIBasics:
 class TestAnkiAPIRequest:
     """Test _request method and error handling"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_request_success(self, mock_post):
         """Test successful request"""
         mock_response = Mock()
@@ -39,7 +39,7 @@ class TestAnkiAPIRequest:
         assert result == ["Deck1", "Deck2"]
         mock_post.assert_called_once()
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_request_http_error(self, mock_post):
         """Test request with HTTP error"""
         mock_post.side_effect = requests.exceptions.HTTPError("Connection failed")
@@ -48,7 +48,7 @@ class TestAnkiAPIRequest:
         with pytest.raises(requests.exceptions.HTTPError):
             anki._request("deckNames")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_request_anki_error(self, mock_post):
         """Test request with AnkiConnect error"""
         mock_response = Mock()
@@ -63,7 +63,7 @@ class TestAnkiAPIRequest:
         with pytest.raises(Exception, match="AnkiConnect error"):
             anki._request("modelNames")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_request_duplicate_note_warning(self, mock_post, capsys):
         """Test that duplicate note errors are handled gracefully"""
         mock_response = Mock()
@@ -84,7 +84,7 @@ class TestAnkiAPIRequest:
 class TestAnkiAPIDeckOperations:
     """Test deck-related operations"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_ensure_deck_exists_already_exists(self, mock_post):
         """Test ensure_deck_exists when deck already exists"""
         mock_response = Mock()
@@ -101,7 +101,7 @@ class TestAnkiAPIDeckOperations:
         # Should only call deckNames
         assert mock_post.call_count == 1
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_ensure_deck_exists_creates_new(self, mock_post):
         """Test ensure_deck_exists creates new deck"""
         responses = [
@@ -132,7 +132,7 @@ class TestAnkiAPIDeckOperations:
 class TestAnkiAPICardOperations:
     """Test card-related operations"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_add_flashcard(self, mock_post):
         """Test adding a single flashcard"""
         mock_response = Mock()
@@ -152,7 +152,7 @@ class TestAnkiAPICardOperations:
 
         assert note_id == 12345
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_find_cards(self, mock_post):
         """Test finding cards by query"""
         mock_response = Mock()
@@ -169,7 +169,7 @@ class TestAnkiAPICardOperations:
         assert card_ids == [123, 456, 789]
         assert len(card_ids) == 3
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_get_cards_info(self, mock_post):
         """Test getting card information"""
         mock_response = Mock()
@@ -193,7 +193,7 @@ class TestAnkiAPICardOperations:
 class TestAnkiAPIModelOperations:
     """Test model-related operations"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_get_model_names(self, mock_post):
         """Test getting model names"""
         mock_response = Mock()
@@ -210,7 +210,7 @@ class TestAnkiAPIModelOperations:
         assert "Basic" in models
         assert ANKI_CUSTOM_MODEL_NAME in models
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_create_model(self, mock_post):
         """Test creating a new model"""
         mock_response = Mock()
@@ -234,7 +234,7 @@ class TestAnkiAPIModelOperations:
 class TestAnkiAPIConnectionTest:
     """Test connection testing"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_connection_success(self, mock_post):
         """Test successful connection"""
         mock_response = Mock()
@@ -247,7 +247,7 @@ class TestAnkiAPIConnectionTest:
         version = anki._request("version")
         assert version >= 6
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_connection_failure(self, mock_post):
         """Test connection failure"""
         mock_post.side_effect = requests.exceptions.ConnectionError()
@@ -260,7 +260,7 @@ class TestAnkiAPIConnectionTest:
 class TestAnkiAPIEdgeCases:
     """Test edge cases and error conditions"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_empty_deck_list(self, mock_post):
         """Test handling empty deck list"""
         mock_response = Mock()
@@ -272,7 +272,7 @@ class TestAnkiAPIEdgeCases:
         decks = anki._request("deckNames")
         assert decks == []
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_null_result(self, mock_post):
         """Test handling null result"""
         mock_response = Mock()
@@ -284,7 +284,7 @@ class TestAnkiAPIEdgeCases:
         result = anki._request("someAction")
         assert result is None
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_request_with_complex_params(self, mock_post):
         """Test request with complex nested parameters"""
         mock_response = Mock()

@@ -84,12 +84,6 @@ class DummyObsidianAPI:
             return matching[:sample_size]
         return matching
 
-    def dql(self, query: str) -> List[Note]:
-        """Execute DQL query - return all notes"""
-        from obsidianki.cli.config import CONFIG
-        # Filter out hidden notes
-        return [n for n in self.notes if not CONFIG.is_note_hidden(n.path)]
-
     def _weighted_sample(self, notes: List[Note], limit: int, bias_strength: float = None) -> List[Note]:
         """Simple sampling"""
         return notes[:limit]

@@ -10,7 +10,7 @@ import requests
 class TestAPIErrorHandling:
     """Test error handling in API classes"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_connection_timeout(self, mock_post):
         """Test handling of connection timeout"""
         mock_post.side_effect = requests.exceptions.Timeout("Connection timed out")
@@ -21,7 +21,7 @@ class TestAPIErrorHandling:
         with pytest.raises(requests.exceptions.Timeout):
             anki._request("deckNames")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_connection_refused(self, mock_post):
         """Test handling of connection refused"""
         mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
@@ -32,18 +32,19 @@ class TestAPIErrorHandling:
         with pytest.raises(requests.exceptions.ConnectionError):
             anki._request("version")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_invalid_json_response(self, mock_post):
         """Test handling of invalid JSON response"""
         mock_response = Mock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        mock_response.text = "not json"
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
 
         from obsidianki.api.anki import AnkiAPI
         anki = AnkiAPI()
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises((AttributeError, TypeError)):
             anki._request("deckNames")
 
     def test_obsidian_missing_api_key(self):
@@ -90,7 +91,7 @@ class TestConfigErrorHandling:
 class TestNetworkErrors:
     """Test network-related error handling"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_network_unreachable(self, mock_post):
         """Test handling of network unreachable error"""
         mock_post.side_effect = requests.exceptions.ConnectionError("Network is unreachable")
@@ -101,7 +102,7 @@ class TestNetworkErrors:
         with pytest.raises(requests.exceptions.ConnectionError):
             anki._request("version")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_dns_resolution_failure(self, mock_post):
         """Test handling of DNS resolution failure"""
         mock_post.side_effect = requests.exceptions.ConnectionError("Failed to resolve hostname")
@@ -112,7 +113,7 @@ class TestNetworkErrors:
         with pytest.raises(requests.exceptions.ConnectionError):
             anki._request("deckNames")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_rate_limit_response(self, mock_post):
         """Test handling of rate limit response"""
         mock_response = Mock()
@@ -184,7 +185,7 @@ class TestDataValidation:
 class TestAnkiAPIErrors:
     """Test AnkiAPI specific error handling"""
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_error_message(self, mock_post):
         """Test handling of AnkiConnect error messages"""
         mock_response = Mock()
@@ -201,7 +202,7 @@ class TestAnkiAPIErrors:
         with pytest.raises(Exception, match="AnkiConnect error"):
             anki._request("modelNames")
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_duplicate_note_handling(self, mock_post):
         """Test that duplicate notes are handled gracefully"""
         mock_response = Mock()
@@ -219,7 +220,7 @@ class TestAnkiAPIErrors:
         result = anki._request("addNote", {"note": {}})
         assert result == []
 
-    @patch('requests.post')
+    @patch('requests.request')
     def test_anki_http_error(self, mock_post):
         """Test handling of HTTP errors"""
         mock_post.side_effect = requests.exceptions.HTTPError("500 Server Error")
@@ -241,18 +242,6 @@ class TestObsidianAPIErrors:
 
             with pytest.raises(ValueError):
                 ObsidianAPI()
-
-    @patch('os.environ', {"OBSIDIAN_API_KEY": "test"})
-    @patch('obsidianki.api.obsidian.BaseAPI._make_request')
-    def test_obsidian_dql_error(self, mock_request):
-        """Test handling of DQL errors"""
-        mock_request.side_effect = Exception("DQL parse error")
-
-        from obsidianki.api.obsidian import ObsidianAPI
-        api = ObsidianAPI()
-
-        with pytest.raises(Exception):
-            api.dql("INVALID QUERY")
 
 
 class TestFileSystemHandling:

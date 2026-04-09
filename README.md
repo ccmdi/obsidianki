@@ -34,9 +34,9 @@ obsidianki
 
 This will start the interactive setup. Here's what you'll need:
 
-1. **Obsidian Local REST API plugin setup:**
-   - Install [plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) in Obsidian
-   - Copy the API key from plugin settings
+1. **Obsidian access (pick one in setup):**
+   - **Obsidian CLI** (Obsidian 1.12+): enable Command line interface in Settings → General and register the CLI.
+   - **Local REST API**: install the [plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) and copy the API key from its settings.
 
 2. **AnkiConnect setup:**
    - Add-on code: `2055492159`
@@ -60,6 +60,7 @@ See the [reference](docs/usage.md) for all commands and options.
 * [How it works](docs/how-it-works.md)
 * [Vector deduplication](docs/vectors.md) - best deduplication method
 * [MCP server](docs/mcp.md) - for conversational use
+* [Environment variables](docs/environment.md) - optional `.env` settings for Obsidian
 
 * [Reference](docs/usage.md) - cli usage
 

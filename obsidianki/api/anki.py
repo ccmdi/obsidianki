@@ -1,4 +1,3 @@
-import requests
 from typing import List, Dict, Any, overload, Literal
 import urllib.parse
 from rich.console import Console
@@ -58,9 +57,8 @@ class AnkiAPI(BaseAPI):
             "params": params or {}
         }
 
-        response = requests.post(self.url, json=payload)
-        response.raise_for_status()
-        result = response.json()
+        response = self._make_request("POST", self.url, json=payload)
+        result = self._parse_response(response)
 
         if result.get("error"):
             error_msg = result['error']

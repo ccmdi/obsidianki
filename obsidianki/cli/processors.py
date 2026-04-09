@@ -131,11 +131,15 @@ def preprocess(args: argparse.Namespace):
 
     if CONFIG.sampling_mode == "weighted":
         CONFIG.show_weights()
-    console.print()
+        console.print()
 
     # Test connections
     if not OBSIDIAN.test_connection():
-        console.print("[red]ERROR:[/red] Cannot connect to Obsidian REST API")
+        console.print(
+            "[red]ERROR:[/red] Cannot connect to Obsidian. "
+            "Use the Local REST API plugin (API key) or Obsidian 1.12+ CLI "
+            "(Settings → General → Command line interface; `obsidian` on PATH)."
+        )
         return 1
 
     if not ANKI.test_connection():
@@ -145,7 +149,7 @@ def preprocess(args: argparse.Namespace):
     # === GET NOTES TO PROCESS ===
     notes = None
 
-    if args.query and not args.agent and not args.notes:
+    if args.query and not args.notes:
         # STANDALONE QUERY MODE
         console.print(f"[cyan]QUERY MODE:[/cyan] [bold]{args.query}[/bold]")
         query_note = Note(path="query", filename=f"Query: {args.query}", content=args.query, tags=[], size=0)
@@ -153,16 +157,6 @@ def preprocess(args: argparse.Namespace):
 
         CONFIG.max_cards = args.cards or CONFIG.max_cards
         CONFIG.approve_notes = False # no need to approve what a user wrote
-    elif args.agent:
-        console.print(f"[yellow]WARNING:[/yellow] Agent mode is EXPERIMENTAL and may produce unexpected results")
-        console.print(f"[cyan]AGENT MODE:[/cyan] [bold]{args.agent}[/bold]")
-        notes = AI.find_with_agent(args.agent, sample_size=CONFIG.notes_to_sample, bias_strength=CONFIG.density_bias_strength)
-        if not notes:
-            console.print("[red]ERROR:[/red] Agent found no matching notes")
-            return 1
-
-        CONFIG.max_cards = args.cards or len(notes) * 2
-
     elif args.notes:
         if len(args.notes) == 1 and args.notes[0].isdigit():
             # User specified a count: --notes 5

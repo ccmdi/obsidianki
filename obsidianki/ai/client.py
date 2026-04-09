@@ -5,16 +5,15 @@ from obsidianki.ai.call import ModelResponse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Union, cast
+from typing import List, Dict, Optional, Union
 
 from obsidianki.cli.config import console, CONFIG, CONFIG_DIR
 from obsidianki.cli.utils import process_code_blocks, strip_html
 from obsidianki.cli.models import Note, Flashcard
 from obsidianki.ai.models import MODEL_MAP
-from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT, MULTI_TURN_DQL_AGENT_PROMPT
-from obsidianki.ai.tools import FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL, DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL
+from obsidianki.ai.prompts import SYSTEM_PROMPT, QUERY_SYSTEM_PROMPT, TARGETED_SYSTEM_PROMPT
+from obsidianki.ai.tools import FLASHCARD_TOOL, SUBMIT_FLASHCARDS_TOOL
 
-AI_RESULT_SET_SIZE = 20
 LOGS_DIR = CONFIG_DIR / "logs"
 
 class FlashcardAI:
@@ -605,196 +604,6 @@ class FlashcardAI:
             })
         self._log_conversation(messages, note, flashcards, mode="note_query")
         return flashcards
-
-    def find_with_agent(self, natural_request: str, sample_size: int | None = None, bias_strength: float | None = None) -> List[Note]:
-        """Use multi-turn agent with tool calling to find notes via iterative DQL refinement"""
-        from datetime import datetime
-        today = datetime.now()
-        date_context = f"\n\nToday's date is {today.strftime('%Y-%m-%d')}."
-
-        # Add folder context
-        folder_context = ""
-        if CONFIG.search_folders:
-            folder_context = f"\n\nIMPORTANT: Only search in these folders: {CONFIG.search_folders}. Add appropriate folder filtering to your WHERE clause using startswith(file.path, \"folder/\")."
-
-        user_prompt = f"""Natural language request: {natural_request}{date_context}{folder_context}
-
-        Find the most relevant notes for this request using DQL queries. Start with an initial query, analyze the results, and refine as needed."""
-
-        # Multi-turn conversation with tool calling
-        messages: List[Dict[str, object]] = [
-            {"role": "system", "content": MULTI_TURN_DQL_AGENT_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ]
-        max_turns = 8
-        selected_notes = []
-        last_results = []
-        all_results = {}
-        has_dql_results = False
-
-        for turn in range(max_turns):
-            try:
-                # Determine available tools
-                if not has_dql_results:
-                    available_tools = [DQL_EXECUTION_TOOL]
-                    tool_choice = self._get_tool_choice("execute_dql_query")
-                else:
-                    available_tools = [DQL_EXECUTION_TOOL, FINALIZE_SELECTION_TOOL]
-                    tool_choice = "auto"
-
-                response = cast(ModelResponse, completion(
-                    model=self.model,
-                    messages=messages,
-                    provider=self.provider,
-                    tools=available_tools,
-                    tool_choice=tool_choice,
-                    max_tokens=3000
-                ))
-
-                message = response.choices[0].message
-                messages.append({"role": "assistant", "content": message.content or "", "tool_calls": message.tool_calls if hasattr(message, 'tool_calls') else None})
-
-                tool_results = []
-                final_selection = None
-
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    for tool_call in message.tool_calls:
-                        tool_name = tool_call.function.name
-                        tool_input = json.loads(tool_call.function.arguments)
-
-                        if tool_name == "execute_dql_query":
-                            dql_query = tool_input["query"]
-                            reasoning = tool_input.get("reasoning", "")
-
-                            console.print(f"[cyan]Agent:[/cyan] {reasoning}")
-                            console.print(f"[dim]Query:[/dim] {dql_query}")
-
-                            try:
-                                from obsidianki.cli.services import OBSIDIAN
-                                results = OBSIDIAN.dql(dql_query)
-
-                                if results is None:
-                                    results = []
-
-                                # Apply filtering
-                                filtered_results = []
-                                for result in results:
-                                    note_path = result.path
-                                    note_tags = result.tags or []
-
-                                    if CONFIG.search_folders:
-                                        path_matches = any(note_path.startswith(f"{folder}/") for folder in CONFIG.search_folders)
-                                        if not path_matches:
-                                            continue
-
-                                    excluded_tags = CONFIG.get_excluded_tags()
-                                    if excluded_tags and any(tag in note_tags for tag in excluded_tags):
-                                        continue
-
-                                    filtered_results.append(result)
-
-                                results = filtered_results
-
-                                console.print(f"[cyan]Agent:[/cyan] Found {len(results)} notes")
-                                last_results = results
-                                has_dql_results = True
-
-                                for result in results:
-                                    path = result.path if hasattr(result, 'path') else result.get('result', {}).get('path')
-                                    if path:
-                                        all_results[path] = result
-
-                                # Prepare result summary
-                                if len(results) == 0:
-                                    result_summary = "No notes found matching this query."
-                                elif len(results) <= AI_RESULT_SET_SIZE:
-                                    result_list = []
-                                    for i, result in enumerate(results[:AI_RESULT_SET_SIZE]):
-                                        path = result.path if hasattr(result, 'path') else result.get('result', {}).get('path', 'Unknown')
-                                        name = result.filename if hasattr(result, 'filename') else result.get('result', {}).get('name', 'Unknown')
-                                        tags = result.tags if hasattr(result, 'tags') else result.get('result', {}).get('tags', [])
-                                        size = result.size if hasattr(result, 'size') else result.get('result', {}).get('size', 0)
-                                        result_list.append(f"{i+1}. {name} ({path}) - {size} chars, tags: {tags}")
-                                    result_summary = f"Found {len(results)} notes:\n" + "\n".join(result_list)
-                                else:
-                                    result_summary = f"Found {len(results)} notes - this may be too many. Consider refining your query to be more specific."
-
-                                tool_results.append({
-                                    "tool_call_id": tool_call.id,
-                                    "role": "tool",
-                                    "name": tool_name,
-                                    "content": result_summary
-                                })
-
-                            except Exception as e:
-                                error_msg = f"DQL Error: {str(e)}"
-                                console.print(f"[yellow]{error_msg}[/yellow]")
-                                tool_results.append({
-                                    "tool_call_id": tool_call.id,
-                                    "role": "tool",
-                                    "name": tool_name,
-                                    "content": error_msg
-                                })
-
-                        elif tool_name == "finalize_note_selection":
-                            selected_paths = tool_input["selected_paths"]
-                            reasoning = tool_input.get("reasoning", "")
-
-                            console.print(f"[cyan]Agent:[/cyan] {reasoning}")
-                            console.print(f"[cyan]Agent:[/cyan] Selected {len(selected_paths)} notes for processing")
-
-                            final_selection = []
-                            missing_paths = []
-                            for path in selected_paths:
-                                if path in all_results:
-                                    final_selection.append(all_results[path])
-                                else:
-                                    missing_paths.append(path)
-
-                            if missing_paths:
-                                console.print(f"[yellow]Warning:[/yellow] Agent selected {len(missing_paths)} paths not found in query results: {missing_paths}")
-                                console.print(f"[cyan]Agent:[/cyan] Proceeding with {len(final_selection)} valid selections")
-
-                            tool_results.append({
-                                "tool_call_id": tool_call.id,
-                                "role": "tool",
-                                "name": tool_name,
-                                "content": f"Selection finalized: {len(final_selection)} notes will be processed."
-                            })
-
-                # Add tool results to conversation
-                if tool_results:
-                    messages.extend(tool_results)
-
-                # If agent finalized selection, we're done
-                if final_selection is not None:
-                    selected_notes = final_selection
-                    break
-
-            except Exception as e:
-                console.print(f"[red]ERROR:[/red] Agent conversation failed: {e}")
-                return []
-
-        # Force finalization if needed
-        if not selected_notes and last_results:
-            console.print(f"[cyan]Agent:[/cyan] Forcing finalization of {len(last_results)} available notes")
-            selected_notes = last_results
-
-        if not selected_notes:
-            console.print("[yellow]Agent could not finalize a selection[/yellow]")
-            return []
-
-        # Apply sampling if needed
-        target_count = sample_size if sample_size else len(selected_notes)
-        if target_count < len(selected_notes):
-            from obsidianki.cli.services import OBSIDIAN
-            bias = bias_strength if bias_strength is not None else 1.0
-            sampled_notes = OBSIDIAN._weighted_sample(selected_notes, target_count, bias)
-        else:
-            sampled_notes = selected_notes
-
-        console.print()
-        return sampled_notes
 
     def edit_cards(self, cards: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
         """Edit existing cards based on a query"""

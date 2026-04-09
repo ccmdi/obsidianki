@@ -17,13 +17,50 @@ def setup(force_full_setup=False):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     if not ENV_FILE.exists() or force_full_setup:
-        console.print(f"[cyan]Step {step_num}: API Keys[/cyan]")
-        console.print("   Get Obsidian API key from: [blue]Obsidian Settings > Community Plugins > REST API > API Key[/blue]")
+        console.print(f"[cyan]Step {step_num}: Obsidian connection[/cyan]")
 
-        obsidian_key = Prompt.ask("   Enter your Obsidian API key", password=True).strip()
-        if not obsidian_key:
-            console.print("[red]ERROR:[/red] Obsidian API key is required. Setup aborted.")
+        obsidian_mode = questionary.select(
+            "   How should ObsidianKi read your vault?",
+            choices=[
+                "Obsidian CLI (recommended for Obsidian 1.12+ — no REST plugin)",
+                "Local REST API plugin (Community plugin + API key)",
+            ],
+            default="Obsidian CLI (recommended for Obsidian 1.12+ — no REST plugin)",
+            instruction="",
+        ).ask()
+
+        if not obsidian_mode:
+            console.print("[yellow]Setup cancelled.[/yellow]")
             return
+
+        use_cli = obsidian_mode.startswith("Obsidian CLI")
+        obsidian_env_lines: list[str] = []
+
+        if use_cli:
+            console.print(
+                "   Enable CLI in Obsidian: [blue]Settings → General → Command line interface[/blue], "
+                "then ensure [cyan]obsidian[/cyan] works in a new terminal."
+            )
+            vault_hint = Prompt.ask(
+                "   Optional vault name or id to target (leave empty for active / cwd vault)",
+                default="",
+            ).strip()
+            obsidian_env_lines.append("OBSIDIAN_CLIENT=cli")
+            if vault_hint:
+                obsidian_env_lines.append(f'OBSIDIAN_VAULT={vault_hint}')
+        else:
+            console.print(
+                "   Get API key from: [blue]Obsidian Settings → Community Plugins → Local REST API → API Key[/blue]"
+            )
+            obsidian_key = Prompt.ask("   Enter your Obsidian API key", password=True).strip()
+            if not obsidian_key:
+                console.print("[red]ERROR:[/red] Obsidian API key is required for REST mode. Setup aborted.")
+                return
+            obsidian_env_lines.append("OBSIDIAN_CLIENT=rest")
+            obsidian_env_lines.append(f"OBSIDIAN_API_KEY={obsidian_key}")
+
+        step_num += 1
+        console.print(f"\n[cyan]Step {step_num}: AI provider[/cyan]")
 
         console.print("\n   [cyan]AI Model Selection[/cyan]")
 
@@ -44,9 +81,7 @@ def setup(force_full_setup=False):
             console.print(f"[red]ERROR:[/red] API key is required. Setup aborted.")
             return
 
-        env_content = f"""OBSIDIAN_API_KEY={obsidian_key}
-{model_info['key_name']}={ai_key}
-        """
+        env_content = "\n".join(obsidian_env_lines + [f"{model_info['key_name']}={ai_key}", ""]) + "\n"
 
         try:
             with open(ENV_FILE, "w") as f:

@@ -266,25 +266,6 @@ class TestHiddenNotes:
         sampled_paths = [note.path for note in sampled]
         assert test_note.path not in sampled_paths, "Hidden note should not appear in sample"
 
-    def test_hidden_notes_excluded_from_dql(self, mock_services, mock_config):
-        """Test that hidden notes are filtered from DQL results"""
-        import obsidianki.cli.services
-        import obsidianki.cli.config
-
-        obsidian = obsidianki.cli.services.OBSIDIAN
-
-        # Hide a note
-        test_note = obsidian.notes[0]
-        obsidianki.cli.config.CONFIG.hide_note(test_note.path)
-
-        # Query notes (DQL simulation)
-        results = obsidian.dql('LIST WHERE file.name = "Test Note 1"')
-
-        # Verify hidden note filtered out
-        if results:
-            result_paths = [note.path for note in results]
-            assert test_note.path not in result_paths, "Hidden note should be filtered from DQL"
-
     def test_hide_note_during_approval(self, mock_services, mock_config):
         """Test that notes can be hidden during approval process"""
         import obsidianki.cli.config

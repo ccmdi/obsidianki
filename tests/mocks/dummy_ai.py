@@ -66,29 +66,6 @@ class DummyFlashcardAI:
             flashcards.append(flashcard)
         return flashcards
 
-    def find_with_agent(
-        self, natural_request: str, sample_size: int = None, bias_strength: float = None
-    ) -> List[Note]:
-        """Return dummy notes for agent mode"""
-        # Return 2 dummy notes
-        notes = [
-            Note(
-                path="test/note1.md",
-                filename="Test Note 1",
-                content="This is test content for note 1",
-                tags=["test"],
-                size=100
-            ),
-            Note(
-                path="test/note2.md",
-                filename="Test Note 2",
-                content="This is test content for note 2",
-                tags=["test"],
-                size=150
-            )
-        ]
-        return notes[:sample_size] if sample_size else notes
-
     def edit_cards(self, cards: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
         """Return cards with minimal edits"""
         edited = []

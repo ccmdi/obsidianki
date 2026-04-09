@@ -85,6 +85,8 @@ def mock_prompts():
 
         message_lower = message.lower()
 
+        if 'read your vault' in message_lower or 'how should obsidianki' in message_lower:
+            return MockResponse("Local REST API plugin (Community plugin + API key)")
         if 'model' in message_lower:
             return MockResponse("Claude Sonnet 4.5")
         elif 'sampling' in message_lower:
@@ -190,6 +192,8 @@ class TestSetupFlow:
                     return self.value
 
             message_lower = message.lower()
+            if 'read your vault' in message_lower or 'how should obsidianki' in message_lower:
+                return MockResponse("Local REST API plugin (Community plugin + API key)")
             if 'model' in message_lower:
                 return MockResponse("Claude Sonnet 4.5")
             elif 'sampling' in message_lower:
@@ -242,8 +246,11 @@ class TestSetupValidation:
                 def ask(self):
                     return self.value
 
+            ml = message.lower()
+            if 'read your vault' in ml or 'how should obsidianki' in ml:
+                return MockResponse("Local REST API plugin (Community plugin + API key)")
             # Return valid values for model selection so test gets to API key prompt
-            if 'model' in message.lower():
+            if 'model' in ml:
                 return MockResponse("Claude Sonnet 4.5")
             return MockResponse(default if default else (choices[0] if choices else ""))
 

@@ -1,9 +1,36 @@
 """Base API class with common functionality"""
 
 import requests
+import requests.adapters
+import threading
 from abc import ABC, abstractmethod
 from typing import Any
 from obsidianki.cli.config import console
+
+_original_send = requests.adapters.HTTPAdapter.send
+
+
+def _interruptible_send(self, request, **kwargs):
+    """Wrap HTTPAdapter.send in a daemon thread so Ctrl+C works during blocking I/O."""
+    result = [None]
+    exc = [None]
+
+    def _do():
+        try:
+            result[0] = _original_send(self, request, **kwargs)
+        except BaseException as e:
+            exc[0] = e
+
+    t = threading.Thread(target=_do, daemon=True)
+    t.start()
+    while t.is_alive():
+        t.join(0.1)
+    if exc[0] is not None:
+        raise exc[0]
+    return result[0]
+
+
+requests.adapters.HTTPAdapter.send = _interruptible_send  # type: ignore[assignment]
 
 
 class BaseAPI(ABC):
